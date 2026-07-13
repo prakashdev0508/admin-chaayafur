@@ -8,8 +8,8 @@ export type Payment = {
   amount: string;
   status: PaymentStatus;
   paymentMethod: string;
-  paymentLinkUrl: string;
-  razorpayPaymentLinkId: string;
+  paymentLinkUrl?: string;
+  razorpayPaymentLinkId?: string;
   razorpayPaymentId: string | null;
   keyId?: string;
   razorpayOrderId?: string;

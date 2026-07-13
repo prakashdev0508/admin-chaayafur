@@ -75,6 +75,7 @@ The endpoint verifies `X-Razorpay-Signature` using `RAZORPAY_WEBHOOK_SECRET` and
 |--------|----------|------|--------|
 | `GET` | `/api/v1/payments` | Customer or staff | `200` |
 | `GET` | `/api/v1/payments/:id` | Customer or staff | `200` |
+| `POST` | `/api/v1/payments/verify` | Customer JWT | `200` |
 | `POST` | `/api/v1/payments/webhooks/razorpay` | Public (signed) | `200` |
 
 ---
@@ -251,54 +252,113 @@ If Razorpay link creation fails during checkout, the order is cancelled and stoc
 
 ---
 
-## Storefront integration (React / Next.js)
+## Razorpay Standard Checkout (embedded modal)
 
-This API uses **Razorpay Payment Links** — a hosted Razorpay page, not an embeddable checkout widget.
+The storefront at `/shop/*` uses **embedded Razorpay Checkout** so customers pay on-site in a modal overlay. This requires backend support beyond Payment Links.
 
-### Do not use an iframe
+### Backend changes required
 
-`paymentLinkUrl` (`https://rzp.io/...`) **cannot** be loaded in an `<iframe>`. Razorpay blocks embedding with `X-Frame-Options` / CSP for security. You will get a blank frame or browser error.
+#### 1. Update `POST /orders` checkout
 
-Use one of these instead:
+When creating an order, call Razorpay **Orders API** (`orders.create`) instead of (or in addition to) Payment Links. Return these fields on `payment`:
 
-| Approach | How |
-|----------|-----|
-| **Same-tab redirect** (recommended) | `window.location.href = order.payment.paymentLinkUrl` |
-| **New tab** | `window.open(order.payment.paymentLinkUrl, '_blank')` |
+| Field | Type | Purpose |
+|-------|------|---------|
+| `keyId` | string | Razorpay publishable key (`RAZORPAY_KEY_ID`) for frontend |
+| `razorpayOrderId` | string | Razorpay order ID passed to checkout modal |
+| `amountPaise` | integer | Order total in paise |
+| `currency` | string | `INR` |
 
-### Typical checkout flow
+Keep `paymentLinkUrl` as an optional fallback for legacy clients.
+
+#### 2. New endpoint: `POST /api/v1/payments/verify`
+
+| | |
+|---|---|
+| **Auth** | Bearer (customer JWT — must own the order) |
+| **Status** | `200` |
+
+**Request body:**
+
+```json
+{
+  "orderId": 1,
+  "razorpayPaymentId": "pay_xxxxxxxx",
+  "razorpayOrderId": "order_xxxxxxxx",
+  "razorpaySignature": "signature_hex"
+}
+```
+
+**Server action:**
+
+1. Verify HMAC: `hmac_sha256(razorpayOrderId + "|" + razorpayPaymentId, RAZORPAY_KEY_SECRET)`
+2. If valid → payment `COMPLETED`, order `CONFIRMED`, generate invoice
+3. If invalid → `400 Invalid payment signature`
+
+**Success response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "payment": { "id": 1, "status": "COMPLETED", "..." : "..." },
+    "order": { "id": 1, "status": "CONFIRMED", "..." : "..." }
+  }
+}
+```
+
+This gives immediate UI feedback without waiting for the webhook.
+
+#### 3. Webhook updates
+
+Keep existing `payment_link.*` handlers. Also subscribe to:
+
+| Event | Action |
+|-------|--------|
+| `payment.captured` | Confirm order (idempotent) |
+| `payment.failed` | Cancel order, restore stock |
+
+### Frontend integration (implemented)
 
 ```ts
 // 1. Place order
-const res = await fetch('/api/v1/orders', {
-  method: 'POST',
-  headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-  body: JSON.stringify({ items, shippingAddressId, billingAddressId }),
+const order = await POST /orders;
+
+// 2. Open Razorpay modal
+const rzp = new Razorpay({
+  key: order.payment.keyId,
+  amount: order.payment.amountPaise,
+  currency: order.payment.currency,
+  order_id: order.payment.razorpayOrderId,
+  handler: async (response) => {
+    await POST /payments/verify {
+      orderId: order.id,
+      razorpayPaymentId: response.razorpay_payment_id,
+      razorpayOrderId: response.razorpay_order_id,
+      razorpaySignature: response.razorpay_signature,
+    };
+  },
 });
-const { data: order } = await res.json();
+rzp.open();
 
-// 2. Redirect to Razorpay (not iframe)
-window.location.href = order.payment.paymentLinkUrl;
-
-// 3. After customer pays, Razorpay calls your backend webhook (server-to-server).
-//    Your app should NOT call POST /payments/webhooks/razorpay.
-
-// 4. On a "payment pending" or return page, poll until confirmed:
-const poll = setInterval(async () => {
-  const tracking = await fetch(`/api/v1/orders/${order.id}/tracking`, {
-    headers: { Authorization: `Bearer ${token}` },
-  }).then((r) => r.json());
-
-  if (tracking.data.currentStatus !== 'PENDING') {
-    clearInterval(poll);
-    // navigate to success or failure page
-  }
-}, 3000);
+// 3. Fallback: if only paymentLinkUrl is returned, redirect instead
+if (!order.payment.razorpayOrderId && order.payment.paymentLinkUrl) {
+  window.location.href = order.payment.paymentLinkUrl;
+}
 ```
 
-### Embedded modal checkout (not implemented)
+Load the script from `https://checkout.razorpay.com/v1/checkout.js`. Never expose `RAZORPAY_KEY_SECRET` on the frontend.
 
-If you need payment to stay on your page (modal overlay), you need **Razorpay Standard Checkout** (Orders API + frontend `razorpay` script), not Payment Links. That requires backend changes (`orders.create` on Razorpay, new webhook events like `payment.captured`). The current API only returns `paymentLinkUrl`.
+### Payment Links (legacy / fallback)
+
+Payment Links remain supported for backward compatibility:
+
+| Approach | How |
+|----------|-----|
+| **Same-tab redirect** | `window.location.href = order.payment.paymentLinkUrl` |
+| **New tab** | `window.open(order.payment.paymentLinkUrl, '_blank')` |
+
+`paymentLinkUrl` cannot be loaded in an `<iframe>`.
 
 ---
 

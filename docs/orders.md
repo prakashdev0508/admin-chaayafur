@@ -41,7 +41,7 @@ Status events are recorded automatically when:
 ```
 Frontend localStorage cart
         ↓
-POST /orders (items, shippingAddressId, billingAddressId?)
+POST /orders (items, shippingAddressId, billingAddressId?, couponCode?)
         ↓
 Order (PENDING) + Payment (PENDING) + stock decremented + Razorpay link
         ↓
@@ -110,7 +110,8 @@ Create an order from frontend cart items. Creates a Razorpay Payment Link for th
     { "productId": 3, "quantity": 1 }
   ],
   "shippingAddressId": 1,
-  "billingAddressId": 2
+  "billingAddressId": 2,
+  "couponCode": "SAVE500"
 }
 ```
 
@@ -121,16 +122,20 @@ Create an order from frontend cart items. Creates a Razorpay Payment Link for th
 | `items[].quantity` | integer | Yes | Min 1, max 9999 |
 | `shippingAddressId` | integer | Yes | Customer's own address |
 | `billingAddressId` | integer | No | Defaults to `shippingAddressId` |
+| `couponCode` | string | No | Max 32 chars; validated server-side |
 
 ### Validation rules
 
 1. All addresses must belong to the authenticated customer
 2. All products must exist and be `isActive: true`
 3. Sufficient stock for each line item
-4. `totalAmount` computed server-side from product prices
-5. Razorpay Payment Link created using shipping address phone/name for customer prefill
+4. `subtotalAmount` computed server-side from product prices
+5. Optional coupon validated and discount applied; `totalAmount = subtotal - discount`
+6. Razorpay Payment Link created for discounted `totalAmount`
 
-### Success response
+### Success response `201`
+
+Same shape as `GET /orders/:id` (see [Order detail response](#order-detail-response)). Example immediately after checkout:
 
 ```json
 {
@@ -142,7 +147,14 @@ Create an order from frontend cart items. Creates a Razorpay Payment Link for th
     "addressId": 1,
     "billingAddressId": 2,
     "status": "PENDING",
-    "totalAmount": "49999.98",
+    "subtotalAmount": "5000.00",
+    "discountAmount": "500.00",
+    "totalAmount": "4500.00",
+    "coupon": {
+      "id": 1,
+      "code": "SAVE500",
+      "type": "FLAT_CART"
+    },
     "paymentMethod": "RAZORPAY",
     "shippingAddress": "123 Main Street, Apt 4B, Mumbai, Maharashtra, 400001, IN",
     "billingAddress": "456 Business Park, Mumbai, Maharashtra, 400002, IN",
@@ -150,15 +162,44 @@ Create an order from frontend cart items. Creates a Razorpay Payment Link for th
     "updatedAt": "2026-07-10T12:00:00.000Z",
     "customer": {
       "id": 1,
-      "phone": "+919876543210",
+      "phone": "9876543210",
+      "isActive": true,
       "lastLogin": "2026-07-10T11:00:00.000Z"
+    },
+    "shippingAddressRef": {
+      "id": 1,
+      "type": "SHIPPING",
+      "name": "John Doe",
+      "email": "john@example.com",
+      "phone": "9876543210",
+      "line1": "123 Main Street",
+      "line2": "Apt 4B",
+      "city": "Mumbai",
+      "state": "Maharashtra",
+      "zipCode": "400001",
+      "country": "IN",
+      "isDefault": true
+    },
+    "billingAddressRef": {
+      "id": 2,
+      "type": "BILLING",
+      "name": "John Doe",
+      "email": "john@example.com",
+      "phone": "9876543210",
+      "line1": "456 Business Park",
+      "line2": null,
+      "city": "Mumbai",
+      "state": "Maharashtra",
+      "zipCode": "400002",
+      "country": "IN",
+      "isDefault": false
     },
     "items": [
       {
         "id": 1,
         "productId": 1,
         "quantity": 2,
-        "price": "24999.99",
+        "price": "2500.00",
         "product": {
           "id": 1,
           "name": "Oak Dining Table",
@@ -168,20 +209,48 @@ Create an order from frontend cart items. Creates a Razorpay Payment Link for th
     ],
     "payment": {
       "id": 1,
-      "amount": "49999.98",
+      "amount": "4500.00",
       "status": "PENDING",
       "paymentMethod": "RAZORPAY",
+      "transactionId": null,
+      "notes": null,
       "paymentLinkUrl": "https://rzp.io/i/xxxx",
       "razorpayPaymentLinkId": "plink_xxxxxxxx",
       "razorpayPaymentId": null,
-      "transactionId": null,
-      "notes": null,
+      "keyId": "rzp_test_xxxxxxxx",
+      "razorpayOrderId": "order_xxxxxxxx",
+      "amountPaise": 450000,
+      "currency": "INR",
       "createdAt": "2026-07-10T12:00:00.000Z",
       "updatedAt": "2026-07-10T12:00:00.000Z"
-    }
+    },
+    "invoice": null
   }
 }
 ```
+
+> **Payment integration:** redirect the customer to `payment.paymentLinkUrl`. Poll `GET /orders/:id/tracking` or `GET /orders/:id` until `status` is no longer `PENDING`. See [payments.md](./payments.md) for webhooks and storefront notes.
+
+### Payment object fields (on every order detail)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | integer | Internal payment ID |
+| `amount` | string | Payable amount (matches order `totalAmount`) |
+| `status` | string | `PENDING` \| `COMPLETED` \| `FAILED` \| `REFUNDED` |
+| `paymentMethod` | string | Always `RAZORPAY` |
+| `transactionId` | string \| null | Razorpay payment ID after success |
+| `notes` | string \| null | Staff notes (set via `PATCH /orders/:id`) |
+| `paymentLinkUrl` | string \| null | Razorpay hosted payment page — **use for redirect** |
+| `razorpayPaymentLinkId` | string \| null | Razorpay payment link ID |
+| `razorpayPaymentId` | string \| null | Set after successful payment |
+| `keyId` | string | Razorpay public key (`RAZORPAY_KEY_ID`) |
+| `razorpayOrderId` | string \| null | Razorpay order ID created at checkout |
+| `amountPaise` | integer | Amount in paise (`amount × 100`, rounded) |
+| `currency` | string | Always `INR` |
+| `gatewayPayload` | object | **Staff only** — raw Razorpay webhook/link payload |
+| `createdAt` | string | ISO timestamp |
+| `updatedAt` | string | ISO timestamp |
 
 ### Errors
 
@@ -227,13 +296,73 @@ List orders with pagination.
 
 > Customers always see only their own orders. `customerId` is ignored for customer tokens.
 
-### Success response
+### Success response `200`
+
+Each item in `items` uses the same shape as [Order detail response](#order-detail-response).
 
 ```json
 {
   "success": true,
   "data": {
-    "items": [ ],
+    "items": [
+      {
+        "id": 1,
+        "orderNumber": "ORD-20260710-0001",
+        "customerId": 1,
+        "addressId": 1,
+        "billingAddressId": 1,
+        "status": "CONFIRMED",
+        "subtotalAmount": "5000.00",
+        "discountAmount": "0.00",
+        "totalAmount": "5000.00",
+        "coupon": null,
+        "paymentMethod": "RAZORPAY",
+        "shippingAddress": "123 Main Street, Mumbai, Maharashtra, 400001, IN",
+        "billingAddress": "123 Main Street, Mumbai, Maharashtra, 400001, IN",
+        "createdAt": "2026-07-10T12:00:00.000Z",
+        "updatedAt": "2026-07-10T12:08:00.000Z",
+        "customer": {
+          "id": 1,
+          "phone": "9876543210",
+          "isActive": true,
+          "lastLogin": "2026-07-10T11:00:00.000Z"
+        },
+        "shippingAddressRef": { "id": 1, "type": "SHIPPING", "name": "John Doe", "line1": "123 Main Street", "city": "Mumbai", "state": "Maharashtra", "zipCode": "400001", "country": "IN", "isDefault": true },
+        "billingAddressRef": { "id": 1, "type": "SHIPPING", "name": "John Doe", "line1": "123 Main Street", "city": "Mumbai", "state": "Maharashtra", "zipCode": "400001", "country": "IN", "isDefault": true },
+        "items": [
+          {
+            "id": 1,
+            "productId": 1,
+            "quantity": 2,
+            "price": "2500.00",
+            "product": { "id": 1, "name": "Oak Dining Table", "slug": "oak-dining-table" }
+          }
+        ],
+        "payment": {
+          "id": 1,
+          "amount": "5000.00",
+          "status": "COMPLETED",
+          "paymentMethod": "RAZORPAY",
+          "transactionId": "pay_xxxxxxxx",
+          "notes": null,
+          "paymentLinkUrl": "https://rzp.io/i/xxxx",
+          "razorpayPaymentLinkId": "plink_xxxxxxxx",
+          "razorpayPaymentId": "pay_xxxxxxxx",
+          "keyId": "rzp_test_xxxxxxxx",
+          "razorpayOrderId": "order_xxxxxxxx",
+          "amountPaise": 500000,
+          "currency": "INR",
+          "createdAt": "2026-07-10T12:00:00.000Z",
+          "updatedAt": "2026-07-10T12:08:00.000Z"
+        },
+        "invoice": {
+          "id": 1,
+          "invoiceNumber": "INV-20260710-0001",
+          "issuedAt": "2026-07-10T12:08:00.000Z",
+          "totalAmount": "5000.00"
+        }
+      }
+    ],
     "meta": {
       "page": 1,
       "limit": 10,
@@ -260,7 +389,7 @@ curl "http://localhost:5000/api/v1/orders?customerId=1" \
 
 ## GET /api/v1/orders/:id
 
-Get a single order with items, payment, and customer details.
+Get a single order with items, payment, address refs, and invoice summary.
 
 | | |
 |---|---|
@@ -268,6 +397,49 @@ Get a single order with items, payment, and customer details.
 | **Status** | `200` |
 
 Customers can only access their own orders.
+
+### Success response `200`
+
+Same structure as [POST /orders](#post-apiv1orders) success response. After payment, `status` is `CONFIRMED`, `payment.status` is `COMPLETED`, and `invoice` is populated:
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "orderNumber": "ORD-20260710-0001",
+    "status": "CONFIRMED",
+    "subtotalAmount": "5000.00",
+    "discountAmount": "500.00",
+    "totalAmount": "4500.00",
+    "payment": {
+      "id": 1,
+      "amount": "4500.00",
+      "status": "COMPLETED",
+      "paymentMethod": "RAZORPAY",
+      "transactionId": "pay_xxxxxxxx",
+      "notes": null,
+      "paymentLinkUrl": "https://rzp.io/i/xxxx",
+      "razorpayPaymentLinkId": "plink_xxxxxxxx",
+      "razorpayPaymentId": "pay_xxxxxxxx",
+      "keyId": "rzp_test_xxxxxxxx",
+      "razorpayOrderId": "order_xxxxxxxx",
+      "amountPaise": 450000,
+      "currency": "INR",
+      "createdAt": "2026-07-10T12:00:00.000Z",
+      "updatedAt": "2026-07-10T12:08:00.000Z"
+    },
+    "invoice": {
+      "id": 1,
+      "invoiceNumber": "INV-20260710-0001",
+      "issuedAt": "2026-07-10T12:08:00.000Z",
+      "totalAmount": "4500.00"
+    }
+  }
+}
+```
+
+> Full field list: [Order detail response](#order-detail-response). Staff responses additionally include `payment.gatewayPayload`.
 
 ### Errors
 
@@ -433,10 +605,6 @@ All fields optional; at least one required.
 
 All field changes are written to the audit log. See [admin-audit-logs.md](./admin-audit-logs.md) and `GET /orders/:id/audit-logs`.
 
-### Staff detail fields
-
-Staff `GET /orders/:id` includes `shippingAddressRef`, `billingAddressRef`, `invoice` summary, `customer.isActive`, and `payment.gatewayPayload`.
-
 ### cURL
 
 ```bash
@@ -450,7 +618,179 @@ curl -X PATCH http://localhost:5000/api/v1/orders/1 \
 
 ## GET /api/v1/orders/:id/audit-logs
 
-Paginated audit history for the order, line items, and payment notes. Requires `view-orders`.
+Paginated audit history for the order, line items, and payment notes.
+
+| | |
+|---|---|
+| **Auth** | Bearer (staff JWT) |
+| **Permission** | `view-orders` |
+| **Status** | `200` |
+
+### Query parameters
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `page` | integer | `1` | Page number |
+| `limit` | integer | `20` | Items per page (max 100) |
+
+### Success response `200`
+
+```json
+{
+  "success": true,
+  "data": {
+    "items": [
+      {
+        "id": 1,
+        "entityType": "ORDER",
+        "entityId": 1,
+        "parentEntityId": null,
+        "fieldName": "status",
+        "oldValue": "PENDING",
+        "newValue": "CONFIRMED",
+        "changedBy": { "id": 1, "email": "admin@chaaya.com", "firstName": "Super", "lastName": "Admin" },
+        "createdAt": "2026-07-10T12:08:00.000Z"
+      }
+    ],
+    "meta": {
+      "page": 1,
+      "limit": 20,
+      "total": 1,
+      "totalPages": 1
+    }
+  }
+}
+```
+
+See [admin-audit-logs.md](./admin-audit-logs.md) for full audit log documentation.
+
+---
+
+## GET /api/v1/orders/:id/invoice
+
+JSON invoice snapshot for a confirmed order. Returns `404` if no invoice exists yet (order still `PENDING`).
+
+| | |
+|---|---|
+| **Auth** | Bearer (customer or staff JWT) |
+| **Permission** | Staff: `view-orders`; customer: own order only |
+| **Status** | `200` |
+
+### Success response `200`
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "orderId": 1,
+    "invoiceNumber": "INV-20260710-0001",
+    "issuedAt": "2026-07-10T12:08:00.000Z",
+    "billingName": "John Doe",
+    "billingAddress": "456 Business Park, Mumbai, Maharashtra, 400002, IN",
+    "subtotal": "5000.00",
+    "discountAmount": "500.00",
+    "taxAmount": "0.00",
+    "totalAmount": "4500.00",
+    "lineItems": [
+      {
+        "productId": 1,
+        "name": "Oak Dining Table",
+        "slug": "oak-dining-table",
+        "quantity": 2,
+        "unitPrice": "2500.00",
+        "lineTotal": "5000.00"
+      }
+    ],
+    "createdAt": "2026-07-10T12:08:00.000Z",
+    "updatedAt": "2026-07-10T12:08:00.000Z",
+    "order": {
+      "orderNumber": "ORD-20260710-0001",
+      "customer": { "id": 1, "phone": "9876543210" }
+    }
+  }
+}
+```
+
+See [invoices.md](./invoices.md) for full invoice documentation.
+
+---
+
+## Order detail response
+
+All of `POST /orders`, `GET /orders/:id`, and each item in `GET /orders` return this shape (wrapped in `{ success, data }`).
+
+### Top-level fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | integer | Order ID |
+| `orderNumber` | string | Human-readable ID, e.g. `ORD-20260710-0001` |
+| `customerId` | integer | Customer who placed the order |
+| `addressId` | integer | Shipping address ID |
+| `billingAddressId` | integer \| null | Billing address ID (`null` if same as shipping) |
+| `status` | string | `PENDING` \| `CONFIRMED` \| `SHIPPED` \| `DELIVERED` \| `CANCELLED` |
+| `subtotalAmount` | string | Sum of line items before discount |
+| `discountAmount` | string | Coupon discount ( `0.00` if none) |
+| `totalAmount` | string | `subtotalAmount - discountAmount` |
+| `coupon` | object \| null | `{ id, code, type }` or `{ code }` only, or `null` |
+| `paymentMethod` | string | Always `RAZORPAY` |
+| `shippingAddress` | string | Formatted address snapshot at checkout |
+| `billingAddress` | string | Formatted billing snapshot |
+| `createdAt` | string | ISO timestamp |
+| `updatedAt` | string | ISO timestamp |
+| `customer` | object | `{ id, phone, isActive, lastLogin }` |
+| `shippingAddressRef` | object | Full address record (see below) |
+| `billingAddressRef` | object | Full billing address record |
+| `items` | array | Line items (see below) |
+| `payment` | object \| null | Payment + Razorpay checkout fields (see [Payment object](#payment-object-fields-on-every-order-detail)) |
+| `invoice` | object \| null | Summary after confirmation; `null` while `PENDING` |
+
+### `items[]` fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | integer | Order line item ID |
+| `productId` | integer | Product ID |
+| `quantity` | integer | Quantity ordered |
+| `price` | string | Unit price at checkout (server-side) |
+| `product` | object | `{ id, name, slug }` |
+
+### Address ref fields (`shippingAddressRef` / `billingAddressRef`)
+
+| Field | Type |
+|-------|------|
+| `id` | integer |
+| `type` | `SHIPPING` \| `BILLING` |
+| `name` | string |
+| `email` | string \| null |
+| `phone` | string |
+| `line1` | string |
+| `line2` | string \| null |
+| `city` | string |
+| `state` | string |
+| `zipCode` | string |
+| `country` | string |
+| `isDefault` | boolean |
+
+### `invoice` summary (embedded on order detail)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | integer | Invoice ID |
+| `invoiceNumber` | string | e.g. `INV-20260710-0001` |
+| `issuedAt` | string | ISO timestamp |
+| `totalAmount` | string | Invoice total |
+
+For the full invoice JSON (line items, tax, billing name), use `GET /orders/:id/invoice`.
+
+### Staff-only fields
+
+Staff `GET /orders/:id` and `GET /orders` include everything above plus:
+
+| Field | Description |
+|-------|-------------|
+| `payment.gatewayPayload` | Raw Razorpay link/webhook payload (JSON) |
 
 ---
 
@@ -494,8 +834,20 @@ const { data: order } = await response.json();
 // 4. Redirect customer to Razorpay payment link
 window.location.href = order.payment.paymentLinkUrl;
 
-// 5. Clear cart after successful checkout response (before redirect)
+// 5. Poll until payment completes (optional return page)
+const poll = setInterval(async () => {
+  const res = await fetch(`/api/v1/orders/${order.id}/tracking`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  const { data } = await res.json();
+  if (data.currentStatus !== 'PENDING') {
+    clearInterval(poll);
+    // CONFIRMED → success page; CANCELLED → failure page
+  }
+}, 3000);
+
+// 6. Clear cart after successful checkout response (before redirect)
 localStorage.removeItem('cart');
 ```
 
-See [payments.md](./payments.md) for webhook behaviour and polling payment status.
+See [payments.md](./payments.md) for webhook behaviour, `amountPaise` / `keyId` fields, and iframe limitations.

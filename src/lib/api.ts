@@ -1,5 +1,20 @@
 import { getAccessToken } from "@/lib/auth-storage";
+import { getCustomerAccessToken } from "@/lib/customer-auth-storage";
 import type { ApiErrorResponse, ApiSuccessResponse } from "@/types/auth";
+
+export type AuthMode = "staff" | "customer" | false;
+
+function resolveAuthMode(auth: AuthMode | boolean): AuthMode {
+  if (auth === true) return "staff";
+  if (auth === false) return false;
+  return auth;
+}
+
+function getTokenForAuthMode(authMode: AuthMode) {
+  if (authMode === "staff") return getAccessToken();
+  if (authMode === "customer") return getCustomerAccessToken();
+  return null;
+}
 
 export class ApiError extends Error {
   statusCode: number;
@@ -22,9 +37,11 @@ function getBaseUrl() {
 export async function apiFormRequest<T>(
   path: string,
   formData: FormData,
+  auth: AuthMode | boolean = "staff",
 ): Promise<T> {
   const headers = new Headers();
-  const token = getAccessToken();
+  const authMode = resolveAuthMode(auth);
+  const token = getTokenForAuthMode(authMode);
   if (token) {
     headers.set("Authorization", `Bearer ${token}`);
   }
@@ -53,7 +70,7 @@ export async function apiFormRequest<T>(
 export async function apiRequest<T>(
   path: string,
   options: RequestInit = {},
-  auth = true,
+  auth: AuthMode | boolean = "staff",
 ): Promise<T> {
   const headers = new Headers(options.headers);
 
@@ -61,8 +78,9 @@ export async function apiRequest<T>(
     headers.set("Content-Type", "application/json");
   }
 
-  if (auth) {
-    const token = getAccessToken();
+  const authMode = resolveAuthMode(auth);
+  if (authMode) {
+    const token = getTokenForAuthMode(authMode);
     if (token) {
       headers.set("Authorization", `Bearer ${token}`);
     }
