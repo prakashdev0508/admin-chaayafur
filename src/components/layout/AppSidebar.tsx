@@ -2,6 +2,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
   Package,
+  FolderTree,
   ShoppingCart,
   CreditCard,
   Ticket,
@@ -63,6 +64,7 @@ type NavItem = {
 const navMain: NavItem[] = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Products", url: "/products", icon: Package },
+  { title: "Categories", url: "/categories", icon: FolderTree, permission: "view-categories" },
   { title: "Orders", url: "/orders", icon: ShoppingCart, permission: "view-orders" },
   { title: "Payments", url: "/payments", icon: CreditCard, permission: "view-payments" },
 ];

@@ -10,6 +10,16 @@ export type {
 
 export type { SubCategory, CategoryTreeItem } from "@/types/category";
 
+export type {
+  Category,
+  SubCategoryTreeItem,
+  CreateCategoryPayload,
+  UpdateCategoryPayload,
+  CreateSubCategoryPayload,
+  UpdateSubCategoryPayload,
+  ListSubCategoriesParams,
+} from "@/types/category";
+
 export type { PaginatedResponse, PaginationMeta } from "@/types/api";
 
 export type {

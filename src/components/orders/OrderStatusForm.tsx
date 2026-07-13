@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -23,6 +23,7 @@ import {
   isOrderEditable,
   orderStatusLabels,
 } from "@/lib/order-status";
+import { toOrderStatusSelectItems } from "@/lib/select-items";
 import type { Order, OrderStatus, UpdateOrderPayload } from "@/types/order";
 
 type OrderStatusFormProps = {
@@ -40,6 +41,10 @@ export function OrderStatusForm({
   const canUpdate = hasPermission("update-orders");
   const editable = isOrderEditable(order.status);
   const transitions = getAllowedStatusTransitions(order.status);
+  const statusItems = useMemo(
+    () => toOrderStatusSelectItems(order.status, transitions),
+    [order.status, transitions],
+  );
 
   const [status, setStatus] = useState<OrderStatus>(order.status);
   const [notes, setNotes] = useState(order.payment.notes ?? "");
@@ -106,6 +111,7 @@ export function OrderStatusForm({
           <Select
             value={status}
             onValueChange={(v) => v && setStatus(v as OrderStatus)}
+            items={statusItems}
           >
             <SelectTrigger className="w-full">
               <SelectValue />

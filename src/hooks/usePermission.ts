@@ -4,6 +4,7 @@ const routePermissions: Record<string, string | string[]> = {
   "/": [],
   "/products": [],
   "/products/new": "create-products",
+  "/categories": "view-categories",
   "/orders": "view-orders",
   "/payments": "view-payments",
   "/coupons": "view-coupons",

@@ -17,6 +17,7 @@ import {
 import { createStaff } from "@/services/auth.service";
 import { queryKeys } from "@/lib/query-keys";
 import type { AssignableStaffRole } from "@/types/auth";
+import { STAFF_ROLE_ITEMS } from "@/lib/select-items";
 
 export function StaffCreatePage() {
   const navigate = useNavigate();
@@ -98,6 +99,7 @@ export function StaffCreatePage() {
           <Select
             value={role}
             onValueChange={(v) => v && setRole(v as AssignableStaffRole)}
+            items={STAFF_ROLE_ITEMS}
           >
             <SelectTrigger className="w-full">
               <SelectValue />

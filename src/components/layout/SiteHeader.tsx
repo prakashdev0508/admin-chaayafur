@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 const routeLabels: Record<string, string> = {
   "": "Dashboard",
   products: "Products",
+  categories: "Categories",
   orders: "Orders",
   payments: "Payments",
   coupons: "Coupons",

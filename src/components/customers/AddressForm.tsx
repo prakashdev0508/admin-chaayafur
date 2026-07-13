@@ -16,6 +16,7 @@ import type {
   CustomerAddress,
   UpdateAddressPayload,
 } from "@/types/address";
+import { ADDRESS_TYPE_ITEMS } from "@/lib/select-items";
 
 type AddressFormProps = {
   initial?: CustomerAddress;
@@ -67,6 +68,7 @@ export function AddressForm({
           <Select
             value={type}
             onValueChange={(v) => v && setType(v as AddressType)}
+            items={ADDRESS_TYPE_ITEMS}
           >
             <SelectTrigger className="w-full">
               <SelectValue />
