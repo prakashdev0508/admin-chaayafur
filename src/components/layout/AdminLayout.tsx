@@ -1,4 +1,5 @@
 import { Outlet } from "react-router-dom";
+import { Toaster } from "sonner";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppSidebar } from "@/components/layout/AppSidebar";
@@ -16,6 +17,7 @@ export function AdminLayout() {
           </div>
         </SidebarInset>
       </SidebarProvider>
+      <Toaster position="top-right" richColors closeButton />
     </TooltipProvider>
   );
 }

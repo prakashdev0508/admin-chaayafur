@@ -9,12 +9,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { formatCurrency } from "@/lib/format";
 import {
-  formatCurrency,
   paymentStatusLabels,
   paymentStatusVariants,
-} from "@/data/mockPayments";
-import type { Payment } from "@/types";
+} from "@/lib/payment-status";
+import type { Payment } from "@/types/payment";
 
 export const paymentColumns: ColumnDef<Payment>[] = [
   {
@@ -50,7 +50,7 @@ export const paymentColumns: ColumnDef<Payment>[] = [
     accessorKey: "status",
     header: "Status",
     cell: ({ row }) => {
-      const status = row.getValue("status") as string;
+      const status = row.getValue("status") as import("@/types/payment").PaymentStatus;
       return (
         <StatusBadge variant={paymentStatusVariants[status]}>
           {paymentStatusLabels[status]}

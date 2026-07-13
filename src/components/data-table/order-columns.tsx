@@ -9,14 +9,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { formatCurrency } from "@/lib/format";
 import {
-  formatCurrency,
   orderStatusLabels,
   orderStatusVariants,
-} from "@/data/mockOrders";
-import type { Order } from "@/types";
+} from "@/lib/order-status";
+import type { OrderListItem } from "@/types/order";
 
-export const orderColumns: ColumnDef<Order>[] = [
+export const orderColumns: ColumnDef<OrderListItem>[] = [
   {
     accessorKey: "orderNumber",
     header: "Order",
@@ -32,13 +32,13 @@ export const orderColumns: ColumnDef<Order>[] = [
   {
     id: "customer",
     header: "Customer",
-    cell: ({ row }) => row.original.customer.phone,
+    cell: ({ row }) => row.original.customer?.phone ?? `Customer #${row.original.customerId}`,
   },
   {
     accessorKey: "status",
     header: "Status",
     cell: ({ row }) => {
-      const status = row.getValue("status") as string;
+      const status = row.getValue("status") as import("@/types/order").OrderStatus;
       return (
         <StatusBadge variant={orderStatusVariants[status]}>
           {orderStatusLabels[status]}

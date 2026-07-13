@@ -1,73 +1,119 @@
 import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Loader2, RefreshCw } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/data-table/data-table";
 import { orderColumns } from "@/components/data-table/order-columns";
-import { mockOrders } from "@/data/mockOrders";
+import {
+  OrderFilterSheet,
+} from "@/components/orders/OrderFilterSheet";
+import {
+  countActiveOrderFilters,
+  defaultOrderFilters,
+  type OrderFilters,
+} from "@/lib/order-filters";
+import { queryKeys } from "@/lib/query-keys";
+import { listOrders } from "@/services/orders.service";
+import { usePermission } from "@/hooks/usePermission";
+import type { OrderStatus } from "@/types/order";
+import { EmptyState } from "@/components/shared/EmptyState";
+import { ShoppingCart } from "lucide-react";
 
 export function OrderListPage() {
-  const [search, setSearch] = useState("");
-  const [status, setStatus] = useState("all");
+  const { hasPermission } = usePermission();
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(10);
+  const [filters, setFilters] = useState<OrderFilters>(defaultOrderFilters);
 
-  const filteredOrders = useMemo(() => {
-    return mockOrders.filter((order) => {
-      const matchesSearch =
-        search === "" ||
-        order.orderNumber.toLowerCase().includes(search.toLowerCase());
-      const matchesStatus = status === "all" || order.status === status;
-      return matchesSearch && matchesStatus;
-    });
-  }, [search, status]);
+  const params = useMemo(
+    () => ({
+      page: page + 1,
+      limit: pageSize,
+      ...(filters.status !== "all"
+        ? { status: filters.status as OrderStatus }
+        : {}),
+      ...(filters.customerId.trim()
+        ? { customerId: Number(filters.customerId) }
+        : {}),
+    }),
+    [page, pageSize, filters],
+  );
+
+  const { data, isLoading, isFetching, refetch, error } = useQuery({
+    queryKey: queryKeys.orders.list(params),
+    queryFn: () => listOrders(params),
+    enabled: hasPermission("view-orders"),
+  });
+
+  const activeFilterCount = countActiveOrderFilters(filters);
+
+  if (!hasPermission("view-orders")) {
+    return (
+      <div className="flex flex-col gap-4">
+        <PageHeader title="Orders" description="Track and fulfill customer orders." />
+        <EmptyState
+          icon={ShoppingCart}
+          title="Access restricted"
+          description="You do not have permission to view orders."
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
         title="Orders"
         description="Track and fulfill customer orders from your store."
+        action={
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => refetch()}
+              disabled={isFetching}
+            >
+              <RefreshCw className={`size-4 ${isFetching ? "animate-spin" : ""}`} />
+            </Button>
+            <OrderFilterSheet
+              filters={filters}
+              activeCount={activeFilterCount}
+              onApply={(next) => {
+                setFilters(next);
+                setPage(0);
+              }}
+            />
+          </div>
+        }
       />
 
-      <Card>
-        <CardContent className="pt-6">
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="md:col-span-2 space-y-2">
-              <Label htmlFor="order-search">Search</Label>
-              <Input
-                id="order-search"
-                placeholder="Search by order number..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Status</Label>
-              <Select value={status} onValueChange={(v) => v && setStatus(v)}>
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All statuses</SelectItem>
-                  <SelectItem value="PENDING">Pending</SelectItem>
-                  <SelectItem value="CONFIRMED">Confirmed</SelectItem>
-                  <SelectItem value="SHIPPED">Shipped</SelectItem>
-                  <SelectItem value="DELIVERED">Delivered</SelectItem>
-                  <SelectItem value="CANCELLED">Cancelled</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {error && (
+        <p className="text-sm text-destructive">
+          {error instanceof Error ? error.message : "Failed to load orders"}
+        </p>
+      )}
 
-      <DataTable columns={orderColumns} data={filteredOrders} />
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="size-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : (
+        <DataTable
+          columns={orderColumns}
+          data={data?.items ?? []}
+          manualPagination
+          pageIndex={page}
+          pageSize={pageSize}
+          pageCount={data?.meta.totalPages ?? 1}
+          totalRows={data?.meta.total}
+          onPageChange={setPage}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setPage(0);
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -1,13 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-
-type StatusVariant =
-  | "default"
-  | "success"
-  | "warning"
-  | "danger"
-  | "neutral"
-  | "brand";
+import type { StatusVariant } from "@/lib/status-variants";
 
 const variantStyles: Record<StatusVariant, string> = {
   default: "",

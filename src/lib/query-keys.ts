@@ -1,0 +1,46 @@
+export const queryKeys = {
+  orders: {
+    all: ["orders"] as const,
+    list: (params: Record<string, unknown>) => ["orders", "list", params] as const,
+    detail: (id: number) => ["orders", "detail", id] as const,
+    tracking: (id: number) => ["orders", "tracking", id] as const,
+    auditLogs: (id: number, params?: Record<string, unknown>) =>
+      ["orders", "audit-logs", id, params] as const,
+    invoice: (id: number) => ["orders", "invoice", id] as const,
+  },
+  payments: {
+    all: ["payments"] as const,
+    list: (params: Record<string, unknown>) =>
+      ["payments", "list", params] as const,
+    detail: (id: number) => ["payments", "detail", id] as const,
+  },
+  coupons: {
+    all: ["coupons"] as const,
+    list: (params: Record<string, unknown>) =>
+      ["coupons", "list", params] as const,
+    detail: (id: number) => ["coupons", "detail", id] as const,
+  },
+  customers: {
+    all: ["customers"] as const,
+    list: (params: Record<string, unknown>) =>
+      ["customers", "list", params] as const,
+    detail: (id: number) => ["customers", "detail", id] as const,
+    orders: (id: number, params?: Record<string, unknown>) =>
+      ["customers", "orders", id, params] as const,
+    auditLogs: (id: number, params?: Record<string, unknown>) =>
+      ["customers", "audit-logs", id, params] as const,
+  },
+  auditLogs: {
+    list: (params: Record<string, unknown>) =>
+      ["audit-logs", "list", params] as const,
+  },
+  products: {
+    list: (params: Record<string, unknown>) =>
+      ["products", "list", params] as const,
+  },
+  dashboard: ["dashboard"] as const,
+  staff: {
+    all: ["staff"] as const,
+    list: (params: Record<string, unknown>) => ["staff", "list", params] as const,
+  },
+};

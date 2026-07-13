@@ -1,11 +1,41 @@
 export type StaffRole = "SUPER_ADMIN" | "ADMIN" | "ORDER_MANAGER";
 
+export type AssignableStaffRole = Exclude<StaffRole, "SUPER_ADMIN">;
+
 export type StaffUser = {
   id: number;
   email: string;
   role: StaffRole;
   firstName: string | null;
   lastName: string | null;
+};
+
+export type StaffCreator = {
+  id: number;
+  email: string;
+  firstName: string | null;
+  lastName: string | null;
+};
+
+export type StaffListItem = {
+  id: number;
+  email: string;
+  firstName: string | null;
+  lastName: string | null;
+  role: StaffRole;
+  isActive: boolean;
+  createdBy: number | null;
+  creator: StaffCreator | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ListStaffParams = {
+  page?: number;
+  limit?: number;
+  role?: StaffRole;
+  isActive?: boolean;
+  email?: string;
 };
 
 export type LoginPayload = {

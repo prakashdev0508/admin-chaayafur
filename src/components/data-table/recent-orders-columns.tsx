@@ -9,12 +9,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { formatCurrency } from "@/data/mockDashboard";
+import { formatCurrency } from "@/lib/format";
 import type { RecentOrderRow } from "@/types";
 import {
   orderStatusLabels,
   orderStatusVariants,
-} from "@/data/mockOrders";
+} from "@/lib/order-status";
 
 export const recentOrdersColumns: ColumnDef<RecentOrderRow>[] = [
   {
@@ -44,7 +44,7 @@ export const recentOrdersColumns: ColumnDef<RecentOrderRow>[] = [
     accessorKey: "status",
     header: "Status",
     cell: ({ row }) => {
-      const status = row.getValue("status") as string;
+      const status = row.getValue("status") as import("@/types/order").OrderStatus;
       return (
         <StatusBadge variant={orderStatusVariants[status]}>
           {orderStatusLabels[status]}

@@ -1,0 +1,53 @@
+import { Navigate, Outlet } from "react-router-dom";
+import { usePermission } from "@/hooks/usePermission";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
+
+type PermissionRouteProps = {
+  permission?: string;
+  permissions?: string[];
+  requireAll?: boolean;
+};
+
+export function PermissionRoute({
+  permission,
+  permissions = [],
+  requireAll = false,
+}: PermissionRouteProps) {
+  const { hasPermission, hasAnyPermission } = usePermission();
+
+  const required = permission ? [permission, ...permissions] : permissions;
+
+  const allowed = requireAll
+    ? required.every((p) => hasPermission(p))
+    : required.length === 0 || hasAnyPermission(required);
+
+  if (!allowed) {
+    return (
+      <div className="flex flex-col gap-4">
+        <PageHeader
+          title="Access denied"
+          description="You do not have permission to view this page."
+        />
+        <Button variant="outline" render={<Link to="/">Back to dashboard</Link>} />
+      </div>
+    );
+  }
+
+  return <Outlet />;
+}
+
+export function PermissionRedirect({
+  permission,
+  to = "/",
+}: {
+  permission: string;
+  to?: string;
+}) {
+  const { hasPermission } = usePermission();
+  if (!hasPermission(permission)) {
+    return <Navigate to={to} replace />;
+  }
+  return <Outlet />;
+}
