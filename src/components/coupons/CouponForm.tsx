@@ -17,6 +17,10 @@ import type {
   CreateCouponPayload,
   UpdateCouponPayload,
 } from "@/types/coupon";
+import {
+  COUPON_TYPE_ITEMS,
+  COUPON_VISIBILITY_ITEMS,
+} from "@/lib/select-items";
 
 type CouponFormProps = {
   initial?: Coupon;
@@ -135,6 +139,7 @@ export function CouponForm({ initial, onSubmit, loading, mode }: CouponFormProps
           <Select
             value={values.type}
             onValueChange={(v) => v && set("type", v as CouponFormValues["type"])}
+            items={COUPON_TYPE_ITEMS}
           >
             <SelectTrigger className="w-full">
               <SelectValue />
@@ -152,6 +157,7 @@ export function CouponForm({ initial, onSubmit, loading, mode }: CouponFormProps
             onValueChange={(v) =>
               v && set("visibility", v as CouponFormValues["visibility"])
             }
+            items={COUPON_VISIBILITY_ITEMS}
           >
             <SelectTrigger className="w-full">
               <SelectValue />

@@ -5,6 +5,7 @@ import { PermissionRoute } from "@/components/auth/PermissionRoute";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { LoginPage } from "@/pages/auth/LoginPage";
 import { DashboardPage } from "@/pages/dashboard/DashboardPage";
+import { CategoryMasterPage } from "@/pages/categories/CategoryMasterPage";
 import { ProductListPage } from "@/pages/products/ProductListPage";
 import { AddProductPage } from "@/pages/products/AddProductPage";
 import { EditProductPage } from "@/pages/products/EditProductPage";
@@ -37,6 +38,7 @@ const App = () => {
       <Route element={<ProtectedRoute />}>
         <Route element={<AdminLayout />}>
           <Route index element={<DashboardPage />} />
+          <Route path="categories" element={<CategoryMasterPage />} />
           <Route path="products" element={<ProductListPage />} />
           <Route path="products/new" element={<AddProductPage />} />
           <Route path="products/:id" element={<ProductDetailPage />} />

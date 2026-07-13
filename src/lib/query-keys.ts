@@ -38,6 +38,16 @@ export const queryKeys = {
     list: (params: Record<string, unknown>) =>
       ["products", "list", params] as const,
   },
+  categories: {
+    all: ["categories"] as const,
+    tree: ["categories", "tree"] as const,
+    adminTree: ["categories", "admin-tree"] as const,
+    list: ["categories", "list"] as const,
+    detail: (id: number) => ["categories", "detail", id] as const,
+    subCategories: (params: Record<string, unknown>) =>
+      ["sub-categories", "list", params] as const,
+    subCategoryDetail: (id: number) => ["sub-categories", "detail", id] as const,
+  },
   dashboard: ["dashboard"] as const,
   staff: {
     all: ["staff"] as const,

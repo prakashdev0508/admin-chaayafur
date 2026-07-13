@@ -19,6 +19,10 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import type { StaffFilters } from "@/lib/staff-filters";
+import {
+  ACTIVE_FILTER_ITEMS,
+  STAFF_ROLE_FILTER_ITEMS,
+} from "@/lib/select-items";
 
 type StaffFilterSheetProps = {
   filters: StaffFilters;
@@ -67,7 +71,7 @@ export function StaffFilterSheet({
         >
           <div className="space-y-2">
             <Label>Role</Label>
-            <Select name="role" defaultValue={filters.role}>
+            <Select name="role" defaultValue={filters.role} items={STAFF_ROLE_FILTER_ITEMS}>
               <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>
@@ -81,7 +85,7 @@ export function StaffFilterSheet({
           </div>
           <div className="space-y-2">
             <Label>Status</Label>
-            <Select name="isActive" defaultValue={filters.isActive}>
+            <Select name="isActive" defaultValue={filters.isActive} items={ACTIVE_FILTER_ITEMS}>
               <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>

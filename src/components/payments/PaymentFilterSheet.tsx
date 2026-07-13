@@ -19,6 +19,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import type { PaymentFilters } from "@/lib/payment-filters";
+import { PAYMENT_STATUS_FILTER_ITEMS } from "@/lib/select-items";
 
 type PaymentFilterSheetProps = {
   filters: PaymentFilters;
@@ -68,7 +69,7 @@ export function PaymentFilterSheet({
         >
           <div className="space-y-2">
             <Label>Status</Label>
-            <Select name="status" defaultValue={filters.status}>
+            <Select name="status" defaultValue={filters.status} items={PAYMENT_STATUS_FILTER_ITEMS}>
               <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>

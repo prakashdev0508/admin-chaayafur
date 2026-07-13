@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import {
@@ -20,6 +20,12 @@ import {
 import { fetchCategoriesTree } from "@/services/categories.service";
 import type { CategoryTreeItem } from "@/types/category";
 import type { ProductSortBy, SortOrder } from "@/types/product";
+import {
+  PRODUCT_SORT_BY_ITEMS,
+  PRODUCT_STOCK_FILTER_ITEMS,
+  PRODUCT_VISIBILITY_FILTER_ITEMS,
+  SORT_ORDER_ITEMS,
+} from "@/lib/select-items";
 
 export type ProductFilters = {
   name: string;
@@ -92,6 +98,19 @@ export function ProductFilterSheet({
       ? allSubCategories
       : allSubCategories.filter((s) => s.categorySlug === draft.category);
 
+  const categoryItems = useMemo(() => categories, [categories]);
+
+  const subCategoryItems = useMemo(
+    () => [
+      { value: "all", label: "All sub-categories" },
+      ...subCategories.map((sub) => ({
+        value: String(sub.id),
+        label: sub.name,
+      })),
+    ],
+    [subCategories],
+  );
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-sm">
@@ -154,6 +173,7 @@ export function ProductFilterSheet({
                   subCategoryId: "all",
                 });
               }}
+              items={categoryItems}
             >
               <SelectTrigger className="w-full">
                 <SelectValue />
@@ -176,6 +196,7 @@ export function ProductFilterSheet({
                 if (!value) return;
                 onDraftChange({ ...draft, subCategoryId: value });
               }}
+              items={subCategoryItems}
             >
               <SelectTrigger className="w-full">
                 <SelectValue />
@@ -199,6 +220,7 @@ export function ProductFilterSheet({
                 if (!value) return;
                 onDraftChange({ ...draft, active: value });
               }}
+              items={PRODUCT_VISIBILITY_FILTER_ITEMS}
             >
               <SelectTrigger className="w-full">
                 <SelectValue />
@@ -219,6 +241,7 @@ export function ProductFilterSheet({
                 if (!value) return;
                 onDraftChange({ ...draft, stock: value });
               }}
+              items={PRODUCT_STOCK_FILTER_ITEMS}
             >
               <SelectTrigger className="w-full">
                 <SelectValue />
@@ -244,6 +267,7 @@ export function ProductFilterSheet({
                     sortBy: value as ProductSortBy,
                   });
                 }}
+                items={PRODUCT_SORT_BY_ITEMS}
               >
                 <SelectTrigger className="w-full">
                   <SelectValue />
@@ -266,6 +290,7 @@ export function ProductFilterSheet({
                     sortOrder: value as SortOrder,
                   });
                 }}
+                items={SORT_ORDER_ITEMS}
               >
                 <SelectTrigger className="w-full">
                   <SelectValue />

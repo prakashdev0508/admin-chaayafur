@@ -27,6 +27,7 @@ import { queryKeys } from "@/lib/query-keys";
 import { listAuditLogs } from "@/services/audit-logs.service";
 import { usePermission } from "@/hooks/usePermission";
 import type { AuditEntityType } from "@/types/audit-log";
+import { AUDIT_ENTITY_TYPE_ITEMS } from "@/lib/select-items";
 
 type AuditFilters = {
   entityType: string;
@@ -146,7 +147,7 @@ export function AuditLogsPage() {
                 >
                   <div className="space-y-2">
                     <Label>Entity type</Label>
-                    <Select name="entityType" defaultValue={filters.entityType}>
+                    <Select name="entityType" defaultValue={filters.entityType} items={AUDIT_ENTITY_TYPE_ITEMS}>
                       <SelectTrigger className="w-full">
                         <SelectValue />
                       </SelectTrigger>

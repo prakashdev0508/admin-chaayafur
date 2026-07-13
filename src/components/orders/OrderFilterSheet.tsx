@@ -19,6 +19,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import type { OrderFilters } from "@/lib/order-filters";
+import { ORDER_STATUS_FILTER_ITEMS } from "@/lib/select-items";
 
 type OrderFilterSheetProps = {
   filters: OrderFilters;
@@ -67,7 +68,7 @@ export function OrderFilterSheet({
         >
           <div className="space-y-2">
             <Label htmlFor="order-status">Status</Label>
-            <Select name="status" defaultValue={filters.status}>
+            <Select name="status" defaultValue={filters.status} items={ORDER_STATUS_FILTER_ITEMS}>
               <SelectTrigger id="order-status" className="w-full">
                 <SelectValue />
               </SelectTrigger>
