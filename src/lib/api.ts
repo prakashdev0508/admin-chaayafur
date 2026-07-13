@@ -19,6 +19,37 @@ function getBaseUrl() {
   return baseUrl.replace(/\/$/, "");
 }
 
+export async function apiFormRequest<T>(
+  path: string,
+  formData: FormData,
+): Promise<T> {
+  const headers = new Headers();
+  const token = getAccessToken();
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+
+  const response = await fetch(`${getBaseUrl()}${path}`, {
+    method: "POST",
+    headers,
+    body: formData,
+  });
+
+  const payload = (await response.json()) as
+    | ApiSuccessResponse<T>
+    | ApiErrorResponse;
+
+  if (!response.ok || !payload.success) {
+    const message =
+      "message" in payload ? payload.message : "Something went wrong";
+    const statusCode =
+      "statusCode" in payload ? payload.statusCode : response.status;
+    throw new ApiError(message, statusCode);
+  }
+
+  return payload.data;
+}
+
 export async function apiRequest<T>(
   path: string,
   options: RequestInit = {},

@@ -9,7 +9,7 @@ Create, update, and list furniture products.
 ## Overview
 
 - **No delete endpoint** — use `isActive: false` to soft-hide products
-- **Images are URL-based** — upload to CDN first, pass URLs in payload (max 10 per product)
+- **Product images** — upload via [uploads.md](./uploads.md) (Cloudflare R2), then attach URLs in product create/update (max 10 per product)
 - **`productFeatures`** — optional array of feature strings (e.g. `"Solid oak wood"`, `"1-year warranty"`) for product detail bullets; max 50 items, 200 chars each
 - Default list shows only **active** products (`isActive=true`)
 - Products link to **`subCategoryId`** (not top-level `categoryId`)
@@ -33,7 +33,9 @@ Use a sub-category ID from [categories.md](./categories.md). Example after seed:
 |----------|------------|:-----------:|:-----:|:-------------:|
 | `POST /products` | `create-products` | Yes | Yes | No |
 | `PATCH /products/:id` | `update-products` | Yes | Yes | No |
+| `POST /uploads/product-images` | `create-products` or `update-products` | Yes | Yes | No |
 | `GET /products` | **Public** | — | — | — |
+| `GET /products/:id` | **Public** | — | — | — |
 
 ---
 
@@ -44,6 +46,7 @@ Use a sub-category ID from [categories.md](./categories.md). Example after seed:
 | `POST` | `/api/v1/products` | `create-products` | `201` |
 | `PATCH` | `/api/v1/products/:id` | `update-products` | `200` |
 | `GET` | `/api/v1/products` | **Public** | `200` |
+| `GET` | `/api/v1/products/:id` | **Public** | `200` |
 
 `GET /products` is a public, cacheable endpoint. Responses include:
 
@@ -79,7 +82,8 @@ Authorization: Bearer <accessToken>
   ],
   "images": [
     {
-      "url": "https://cdn.example.com/products/oak-table.jpg",
+      "url": "https://cdn.example.com/products/oak-table.webp",
+      "storageKey": "products/2026/07/8f3c2a1b.webp",
       "altText": "Oak dining table front view",
       "sortOrder": 0
     }
@@ -99,7 +103,7 @@ Authorization: Bearer <accessToken>
 | `subCategoryId` | integer | Yes | Must exist in `SubCategory` table |
 | `isActive` | boolean | No | Default `true` |
 | `productFeatures` | string[] | No | Max 50 items; each string max 200 chars. Default `[]` |
-| `images` | array | No | Max 10 items |
+| `images` | array | No | Max 10 items. Upload files first via [uploads.md](./uploads.md); include `storageKey` from upload response |
 
 ### Success response `201`
 
@@ -214,6 +218,83 @@ curl -X PATCH http://localhost:5000/api/v1/products/1 \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"isActive": false}'
+```
+
+---
+
+## GET /api/v1/products/:id
+
+| | |
+|---|---|
+| **Auth** | Public — no Bearer token required |
+| **Status** | `200` |
+
+Returns full product details for the storefront product page. Only **active** products (`isActive=true`) are returned; hidden products respond with `404`.
+
+### Example
+
+```http
+GET /api/v1/products/7
+```
+
+### Success response `200`
+
+Same shape as the create/update response: `description`, full `images` array, `productFeatures`, `subCategory`, etc.
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": 7,
+    "name": "Oak Dining Table",
+    "slug": "oak-dining-table",
+    "description": "Solid oak dining table for 6 people",
+    "price": "24999.99",
+    "stock": 10,
+    "isActive": true,
+    "productFeatures": [
+      "Solid oak wood",
+      "Seats 6 people",
+      "1-year warranty"
+    ],
+    "subCategoryId": 1,
+    "subCategory": {
+      "id": 1,
+      "name": "Beds",
+      "slug": "beds",
+      "heading": "Beds",
+      "categoryId": 1,
+      "category": {
+        "id": 1,
+        "name": "Bedroom",
+        "slug": "bedroom"
+      }
+    },
+    "images": [
+      {
+        "id": 10,
+        "url": "https://cdn.example.com/products/oak-table.jpg",
+        "altText": "Oak dining table front view",
+        "sortOrder": 0
+      }
+    ],
+    "createdAt": "2026-07-09T18:02:58.000Z",
+    "updatedAt": "2026-07-09T18:02:58.000Z"
+  }
+}
+```
+
+### Errors
+
+| Status | When |
+|--------|------|
+| `400` | Invalid product ID |
+| `404` | Product not found or inactive |
+
+### cURL
+
+```bash
+curl "http://localhost:5000/api/v1/products/7"
 ```
 
 ---

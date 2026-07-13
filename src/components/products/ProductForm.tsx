@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Plus, X } from "lucide-react";
+import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,6 +20,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { fetchCategoriesTree } from "@/services/categories.service";
+import { ProductImageUploader } from "@/components/products/ProductImageUploader";
 import { slugify } from "@/lib/product-utils";
 import type { CategoryTreeItem } from "@/types/category";
 import type { ProductFormValues } from "@/types/product";
@@ -33,7 +34,7 @@ export const emptyProductFormValues: ProductFormValues = {
   subCategoryId: "",
   isActive: true,
   productFeatures: [],
-  images: [{ url: "", altText: "", sortOrder: 0 }],
+  images: [],
 };
 
 type ProductFormProps = {
@@ -59,6 +60,7 @@ export function ProductForm({
   const [categoriesTree, setCategoriesTree] = useState<CategoryTreeItem[]>([]);
   const [slugTouched, setSlugTouched] = useState(mode === "edit");
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [isImageUploading, setIsImageUploading] = useState(false);
 
   useEffect(() => {
     setValues(defaultValues);
@@ -136,25 +138,6 @@ export function ProductForm({
     );
   };
 
-  const addImage = () => {
-    if (values.images.length < 10) {
-      updateField("images", [
-        ...values.images,
-        { url: "", altText: "", sortOrder: values.images.length },
-      ]);
-    }
-  };
-
-  const updateImage = (
-    index: number,
-    field: "url" | "altText" | "sortOrder",
-    value: string | number,
-  ) => {
-    const next = [...values.images];
-    next[index] = { ...next[index], [field]: value };
-    updateField("images", next);
-  };
-
   const validate = () => {
     if (!values.name.trim()) return "Product name is required";
     if (!values.slug.trim()) return "Slug is required";
@@ -162,7 +145,8 @@ export function ProductForm({
     if (!values.subCategoryId) return "Sub-category is required";
     if (!values.price || parseFloat(values.price) < 0) return "Valid price is required";
     if (!values.stock || parseInt(values.stock, 10) < 0) return "Valid stock is required";
-    if (values.images.filter((img) => img.url.trim()).length > 10) {
+    if (isImageUploading) return "Wait for image uploads to finish";
+    if (values.images.length > 10) {
       return "Maximum 10 images allowed";
     }
     return null;
@@ -311,55 +295,14 @@ export function ProductForm({
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Images</CardTitle>
-            <CardDescription>CDN image URLs (max 10)</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {values.images.map((image, index) => (
-              <div
-                key={index}
-                className="grid gap-3 rounded-lg border p-4 sm:grid-cols-3"
-              >
-                <div className="space-y-2 sm:col-span-2">
-                  <Label>Image URL</Label>
-                  <Input
-                    value={image.url}
-                    onChange={(e) => updateImage(index, "url", e.target.value)}
-                    placeholder="https://cdn.example.com/products/image.jpg"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Sort order</Label>
-                  <Input
-                    type="number"
-                    value={image.sortOrder}
-                    onChange={(e) =>
-                      updateImage(index, "sortOrder", Number(e.target.value))
-                    }
-                  />
-                </div>
-                <div className="space-y-2 sm:col-span-3">
-                  <Label>Alt text</Label>
-                  <Input
-                    value={image.altText}
-                    onChange={(e) =>
-                      updateImage(index, "altText", e.target.value)
-                    }
-                    placeholder="Product front view"
-                  />
-                </div>
-              </div>
-            ))}
-            {values.images.length < 10 && (
-              <Button type="button" variant="outline" onClick={addImage}>
-                <Plus className="size-4" />
-                Add image
-              </Button>
-            )}
-          </CardContent>
-        </Card>
+        <ProductImageUploader
+          key={`${mode}-${defaultValues.slug}-${defaultValues.images.map((img) => img.url).join(",")}`}
+          images={values.images}
+          onChange={(images) => updateField("images", images)}
+          productName={values.name}
+          disabled={isSubmitting}
+          onUploadingChange={setIsImageUploading}
+        />
       </div>
 
       <div className="space-y-4">
@@ -425,7 +368,7 @@ export function ProductForm({
           <p className="text-sm text-destructive">{displayError}</p>
         )}
 
-        <Button type="submit" disabled={isSubmitting} className="w-full">
+        <Button type="submit" disabled={isSubmitting || isImageUploading} className="w-full">
           {isSubmitting
             ? "Saving..."
             : submitLabel ?? (mode === "create" ? "Save product" : "Update product")}
