@@ -1,8 +1,10 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { GuestRoute } from "@/components/auth/GuestRoute";
+import { CustomerProtectedRoute } from "@/components/auth/CustomerProtectedRoute";
 import { PermissionRoute } from "@/components/auth/PermissionRoute";
 import { AdminLayout } from "@/components/layout/AdminLayout";
+import { ShopLayout } from "@/components/layout/ShopLayout";
 import { LoginPage } from "@/pages/auth/LoginPage";
 import { DashboardPage } from "@/pages/dashboard/DashboardPage";
 import { CategoryMasterPage } from "@/pages/categories/CategoryMasterPage";
@@ -27,10 +29,29 @@ import { AuditLogsPage } from "@/pages/audit-logs/AuditLogsPage";
 import { StaffListPage } from "@/pages/staff/StaffListPage";
 import { StaffCreatePage } from "@/pages/staff/StaffCreatePage";
 import { SuperAdminRoute } from "@/components/auth/SuperAdminRoute";
+import { ShopHomePage } from "@/pages/shop/ShopHomePage";
+import { ShopCatalogPage } from "@/pages/shop/ShopCatalogPage";
+import { ShopProductPage } from "@/pages/shop/ShopProductPage";
+import { CartPage } from "@/pages/shop/CartPage";
+import { CheckoutPage } from "@/pages/shop/CheckoutPage";
+import { ShopOrderPage } from "@/pages/shop/ShopOrderPage";
+import { AccountPage } from "@/pages/shop/AccountPage";
 
 const App = () => {
   return (
     <Routes>
+      <Route element={<ShopLayout />}>
+        <Route path="/shop" element={<ShopHomePage />} />
+        <Route path="/shop/products" element={<ShopCatalogPage />} />
+        <Route path="/shop/products/:id" element={<ShopProductPage />} />
+        <Route path="/shop/cart" element={<CartPage />} />
+        <Route element={<CustomerProtectedRoute />}>
+          <Route path="/shop/checkout" element={<CheckoutPage />} />
+          <Route path="/shop/orders/:id" element={<ShopOrderPage />} />
+          <Route path="/shop/account" element={<AccountPage />} />
+        </Route>
+      </Route>
+
       <Route element={<GuestRoute />}>
         <Route path="/login" element={<LoginPage />} />
       </Route>

@@ -1,4 +1,5 @@
 import type { PaymentStatus } from "@/types/payment";
+import type { OrderAddressRef } from "@/lib/order-utils";
 
 export type OrderStatus =
   | "PENDING"
@@ -24,9 +25,13 @@ export type OrderPayment = {
   amount: string;
   status: PaymentStatus;
   paymentMethod: string;
-  paymentLinkUrl: string;
-  razorpayPaymentLinkId: string;
+  paymentLinkUrl?: string | null;
+  razorpayPaymentLinkId?: string | null;
   razorpayPaymentId: string | null;
+  keyId?: string;
+  razorpayOrderId?: string | null;
+  amountPaise?: number;
+  currency?: string;
   transactionId: string | null;
   notes: string | null;
   createdAt: string;
@@ -35,9 +40,16 @@ export type OrderPayment = {
 };
 
 export type OrderCoupon = {
-  id: number;
+  id?: number;
   code: string;
-  type: string;
+  type?: string;
+};
+
+export type OrderInvoiceSummary = {
+  id: number;
+  invoiceNumber: string;
+  issuedAt: string;
+  totalAmount: string;
 };
 
 export type OrderListItem = {
@@ -60,11 +72,11 @@ export type Order = {
   orderNumber: string;
   customerId: number;
   addressId: number;
-  billingAddressId: number;
+  billingAddressId: number | null;
   status: OrderStatus;
+  subtotalAmount: string;
+  discountAmount: string;
   totalAmount: string;
-  subtotalAmount?: string;
-  discountAmount?: string;
   paymentMethod: string;
   shippingAddress: string;
   billingAddress: string;
@@ -73,19 +85,15 @@ export type Order = {
   customer: {
     id: number;
     phone: string;
-    lastLogin: string;
+    lastLogin: string | null;
     isActive?: boolean;
   };
   items: OrderItem[];
   payment: OrderPayment;
-  coupon?: OrderCoupon;
-  shippingAddressRef?: unknown;
-  billingAddressRef?: unknown;
-  invoice?: {
-    id: number;
-    invoiceNumber: string;
-    issuedAt: string;
-  };
+  coupon: OrderCoupon | null;
+  shippingAddressRef?: OrderAddressRef;
+  billingAddressRef?: OrderAddressRef;
+  invoice: OrderInvoiceSummary | null;
 };
 
 export type TrackingStep = {
@@ -118,4 +126,11 @@ export type UpdateOrderPayload = {
   billingAddressId?: number;
   items?: { productId: number; quantity: number }[];
   payment?: { notes: string };
+};
+
+export type CreateOrderPayload = {
+  items: { productId: number; quantity: number }[];
+  shippingAddressId: number;
+  billingAddressId?: number;
+  couponCode?: string;
 };

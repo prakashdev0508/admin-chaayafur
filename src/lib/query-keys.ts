@@ -53,4 +53,26 @@ export const queryKeys = {
     all: ["staff"] as const,
     list: (params: Record<string, unknown>) => ["staff", "list", params] as const,
   },
+  shop: {
+    products: {
+      list: (params: Record<string, unknown>) =>
+        ["shop", "products", "list", params] as const,
+      detail: (id: number) => ["shop", "products", "detail", id] as const,
+    },
+    categories: {
+      tree: ["shop", "categories", "tree"] as const,
+    },
+    orders: {
+      list: (params: Record<string, unknown>) =>
+        ["shop", "orders", "list", params] as const,
+      detail: (id: number) => ["shop", "orders", "detail", id] as const,
+      tracking: (id: number) => ["shop", "orders", "tracking", id] as const,
+    },
+    addresses: {
+      all: ["shop", "addresses"] as const,
+    },
+    coupons: {
+      public: ["shop", "coupons", "public"] as const,
+    },
+  },
 };
