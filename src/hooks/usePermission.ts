@@ -1,5 +1,20 @@
 import { useAuth } from "@/contexts/AuthContext";
 
+const routePermissions: Record<string, string | string[]> = {
+  "/": [],
+  "/products": [],
+  "/products/new": "create-products",
+  "/orders": "view-orders",
+  "/payments": "view-payments",
+  "/coupons": "view-coupons",
+  "/coupons/new": "create-coupons",
+  "/customers": "view-customers",
+  "/customers/new": "update-customers",
+  "/audit-logs": "view-orders",
+  "/staff": [],
+  "/staff/new": "create-staff",
+};
+
 export function usePermission() {
   const { user, rolesPermissions } = useAuth();
 
@@ -11,5 +26,21 @@ export function usePermission() {
     return roleEntry.permissions.includes(permission);
   };
 
-  return { hasPermission };
+  const hasAnyPermission = (permissions: string[]) =>
+    permissions.some((p) => hasPermission(p));
+
+  const canAccessRoute = (path: string) => {
+    const basePath = path.split("/").slice(0, 2).join("/") || "/";
+    const exact = routePermissions[path];
+    const base = routePermissions[basePath];
+
+    const required = exact ?? base;
+    if (!required || (Array.isArray(required) && required.length === 0)) {
+      return true;
+    }
+    if (typeof required === "string") return hasPermission(required);
+    return hasAnyPermission(required);
+  };
+
+  return { hasPermission, hasAnyPermission, canAccessRoute };
 }

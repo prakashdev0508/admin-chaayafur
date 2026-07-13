@@ -1,5 +1,6 @@
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, ExternalLink } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { ArrowLeft, ExternalLink, Loader2 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,16 +12,34 @@ import {
 } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Separator } from "@/components/ui/separator";
+import { formatCurrency, formatDate } from "@/lib/format";
 import {
-  formatCurrency,
-  getPaymentById,
   paymentStatusLabels,
   paymentStatusVariants,
-} from "@/data/mockPayments";
+} from "@/lib/payment-status";
+import { orderStatusLabels } from "@/lib/order-status";
+import { queryKeys } from "@/lib/query-keys";
+import { getPayment } from "@/services/payments.service";
 
 export function PaymentDetailPage() {
   const { id } = useParams();
-  const payment = getPaymentById(Number(id));
+  const paymentId = Number(id);
+
+  const { data: payment, isLoading } = useQuery({
+    queryKey: queryKeys.payments.detail(paymentId),
+    queryFn: () => getPayment(paymentId),
+    enabled: Number.isFinite(paymentId),
+    refetchInterval: (query) =>
+      query.state.data?.status === "PENDING" ? 4000 : false,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <Loader2 className="size-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   if (!payment) {
     return (
@@ -35,7 +54,7 @@ export function PaymentDetailPage() {
     <div className="flex flex-col gap-4">
       <PageHeader
         title={`Payment #${payment.id}`}
-        description={`Created on ${new Date(payment.createdAt).toLocaleString("en-IN")}`}
+        description={`Created on ${formatDate(payment.createdAt)}`}
         action={
           <Button
             variant="outline"
@@ -87,7 +106,7 @@ export function PaymentDetailPage() {
 
             <div className="space-y-2">
               <p className="text-sm font-medium">Razorpay details</p>
-              <div className="rounded-lg bg-muted p-3 font-mono text-xs space-y-1">
+              <div className="space-y-1 rounded-lg bg-muted p-3 font-mono text-xs">
                 <p>Link ID: {payment.razorpayPaymentLinkId}</p>
                 <p>Payment ID: {payment.razorpayPaymentId ?? "—"}</p>
                 {payment.keyId && <p>Key ID: {payment.keyId}</p>}
@@ -101,19 +120,21 @@ export function PaymentDetailPage() {
               </div>
             )}
 
-            <Button
-              className="w-full"
-              render={
-                <a
-                  href={payment.paymentLinkUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  <ExternalLink className="size-4" />
-                  Open payment link
-                </a>
-              }
-            />
+            {payment.paymentLinkUrl && (
+              <Button
+                className="w-full"
+                render={
+                  <a
+                    href={payment.paymentLinkUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <ExternalLink className="size-4" />
+                    Open payment link
+                  </a>
+                }
+              />
+            )}
           </CardContent>
         </Card>
 
@@ -134,11 +155,18 @@ export function PaymentDetailPage() {
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Order status</p>
-              <p className="font-medium">{payment.order.status}</p>
+              <p className="font-medium">
+                {orderStatusLabels[payment.order.status]}
+              </p>
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Customer ID</p>
-              <p className="font-medium">{payment.order.customerId}</p>
+              <Link
+                to={`/customers/${payment.order.customerId}`}
+                className="font-medium hover:underline"
+              >
+                #{payment.order.customerId}
+              </Link>
             </div>
             <Button
               variant="outline"

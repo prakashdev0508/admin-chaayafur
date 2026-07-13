@@ -10,7 +10,9 @@ import {
   Settings,
   HelpCircle,
   ChevronsUpDown,
+  UserPlus,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -32,6 +34,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePermission } from "@/hooks/usePermission";
 
 function getInitials(firstName: string | null, lastName: string | null, email: string) {
   const first = firstName?.[0] ?? "";
@@ -49,26 +52,45 @@ function getDisplayName(
   return fullName || email;
 }
 
-const navMain = [
+type NavItem = {
+  title: string;
+  url: string;
+  icon: LucideIcon;
+  permission?: string | null;
+  superAdminOnly?: boolean;
+};
+
+const navMain: NavItem[] = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Products", url: "/products", icon: Package },
-  { title: "Orders", url: "/orders", icon: ShoppingCart },
-  { title: "Payments", url: "/payments", icon: CreditCard },
+  { title: "Orders", url: "/orders", icon: ShoppingCart, permission: "view-orders" },
+  { title: "Payments", url: "/payments", icon: CreditCard, permission: "view-payments" },
 ];
 
-const navMore = [
-  { title: "Coupons", url: "/coupons", icon: Ticket },
-  { title: "Customers", url: "/customers", icon: Users },
-  { title: "Audit Logs", url: "/audit-logs", icon: ScrollText },
+const navMore: NavItem[] = [
+  { title: "Coupons", url: "/coupons", icon: Ticket, permission: "view-coupons" },
+  { title: "Customers", url: "/customers", icon: Users, permission: "view-customers" },
+  { title: "Audit Logs", url: "/audit-logs", icon: ScrollText, permission: "view-orders" },
+  { title: "Staff", url: "/staff", icon: UserPlus, superAdminOnly: true },
 ];
 
 export function AppSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const { hasPermission } = usePermission();
+  const isSuperAdmin = user?.role === "SUPER_ADMIN";
 
   const isActive = (url: string) =>
     url === "/" ? location.pathname === "/" : location.pathname.startsWith(url);
+
+  const filterNav = (items: NavItem[]) =>
+    items.filter((item) => {
+      if (item.superAdminOnly) {
+        return isSuperAdmin;
+      }
+      return !item.permission || hasPermission(item.permission);
+    });
 
   return (
     <Sidebar collapsible="icon">
@@ -100,7 +122,7 @@ export function AppSidebar() {
           <SidebarGroupLabel>Main</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {navMain.map((item) => (
+              {filterNav(navMain).map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     isActive={isActive(item.url)}
@@ -118,27 +140,29 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <SidebarGroup>
-          <SidebarGroupLabel>More</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {navMore.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    isActive={isActive(item.url)}
-                    tooltip={item.title}
-                    render={
-                      <Link to={item.url}>
-                        <item.icon />
-                        <span>{item.title}</span>
-                      </Link>
-                    }
-                  />
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {filterNav(navMore).length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel>More</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {filterNav(navMore).map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      isActive={isActive(item.url)}
+                      tooltip={item.title}
+                      render={
+                        <Link to={item.url}>
+                          <item.icon />
+                          <span>{item.title}</span>
+                        </Link>
+                      }
+                    />
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
 
       <SidebarFooter>

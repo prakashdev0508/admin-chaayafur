@@ -1,20 +1,11 @@
-import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, Check } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft, Loader2 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -28,21 +19,81 @@ import {
 } from "@/components/ui/table";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { OrderStatusForm } from "@/components/orders/OrderStatusForm";
+import { TrackingTimeline } from "@/components/shared/TrackingTimeline";
+import { InvoicePanel } from "@/components/shared/InvoicePanel";
+import { AuditLogTable } from "@/components/shared/AuditLogTable";
+import { formatCurrency, formatDate } from "@/lib/format";
 import {
-  formatCurrency,
-  getOrderById,
-  getOrderTracking,
   orderStatusLabels,
   orderStatusVariants,
-} from "@/data/mockOrders";
-import { cn } from "@/lib/utils";
+} from "@/lib/order-status";
+import { paymentStatusVariants } from "@/lib/payment-status";
+import { queryKeys } from "@/lib/query-keys";
+import { ApiError } from "@/lib/api";
+import {
+  getOrder,
+  getOrderAuditLogs,
+  getOrderInvoice,
+  getOrderTracking,
+  updateOrder,
+} from "@/services/orders.service";
+import type { UpdateOrderPayload } from "@/types/order";
 
 export function OrderDetailPage() {
   const { id } = useParams();
   const orderId = Number(id);
-  const order = getOrderById(orderId);
-  const tracking = getOrderTracking(orderId);
-  const [status, setStatus] = useState(order?.status ?? "PENDING");
+  const queryClient = useQueryClient();
+
+  const orderQuery = useQuery({
+    queryKey: queryKeys.orders.detail(orderId),
+    queryFn: () => getOrder(orderId),
+    enabled: Number.isFinite(orderId),
+  });
+
+  const trackingQuery = useQuery({
+    queryKey: queryKeys.orders.tracking(orderId),
+    queryFn: () => getOrderTracking(orderId),
+    enabled: Number.isFinite(orderId),
+    refetchInterval: (query) =>
+      query.state.data?.currentStatus === "PENDING" ? 4000 : false,
+  });
+
+  const invoiceQuery = useQuery({
+    queryKey: queryKeys.orders.invoice(orderId),
+    queryFn: () => getOrderInvoice(orderId),
+    enabled: Number.isFinite(orderId),
+    retry: (count, error) =>
+      !(error instanceof ApiError && error.statusCode === 404) && count < 1,
+  });
+
+  const auditQuery = useQuery({
+    queryKey: queryKeys.orders.auditLogs(orderId),
+    queryFn: () => getOrderAuditLogs(orderId, { limit: 50 }),
+    enabled: Number.isFinite(orderId),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: (payload: UpdateOrderPayload) => updateOrder(orderId, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.orders.detail(orderId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.orders.tracking(orderId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.orders.auditLogs(orderId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.orders.invoice(orderId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.orders.all });
+    },
+  });
+
+  const order = orderQuery.data;
+
+  if (orderQuery.isLoading) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <Loader2 className="size-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   if (!order) {
     return (
@@ -53,11 +104,14 @@ export function OrderDetailPage() {
     );
   }
 
+  const invoiceNotFound =
+    invoiceQuery.error instanceof ApiError && invoiceQuery.error.statusCode === 404;
+
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
         title={order.orderNumber}
-        description={`Placed on ${new Date(order.createdAt).toLocaleString("en-IN")}`}
+        description={`Placed on ${formatDate(order.createdAt)}`}
         action={
           <Button
             variant="outline"
@@ -86,7 +140,12 @@ export function OrderDetailPage() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <p className="text-sm text-muted-foreground">Customer</p>
-                  <p className="font-medium">{order.customer.phone}</p>
+                  <Link
+                    to={`/customers/${order.customerId}`}
+                    className="font-medium hover:underline"
+                  >
+                    {order.customer.phone}
+                  </Link>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Payment method</p>
@@ -101,6 +160,12 @@ export function OrderDetailPage() {
                   <p className="text-sm">{order.billingAddress}</p>
                 </div>
               </div>
+              {order.coupon && (
+                <div className="rounded-lg border bg-muted/30 p-3 text-sm">
+                  Coupon applied: <strong>{order.coupon.code}</strong> (
+                  {order.coupon.type})
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -136,68 +201,63 @@ export function OrderDetailPage() {
                 </TableBody>
               </Table>
               <Separator className="my-4" />
-              <div className="flex justify-end">
-                <div className="text-right">
-                  <p className="text-sm text-muted-foreground">Total</p>
-                  <p className="text-lg font-semibold">
-                    {formatCurrency(order.totalAmount)}
-                  </p>
+              <div className="ml-auto max-w-xs space-y-1 text-sm">
+                {order.subtotalAmount && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Subtotal</span>
+                    <span>{formatCurrency(order.subtotalAmount)}</span>
+                  </div>
+                )}
+                {order.discountAmount &&
+                  parseFloat(order.discountAmount) > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Discount</span>
+                      <span className="text-[#346538]">
+                        -{formatCurrency(order.discountAmount)}
+                      </span>
+                    </div>
+                  )}
+                <div className="flex justify-between font-semibold">
+                  <span>Total</span>
+                  <span>{formatCurrency(order.totalAmount)}</span>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {tracking && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Tracking timeline</CardTitle>
-                <CardDescription>
-                  Order progress from placement to delivery
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-0">
-                  {tracking.timeline.map((step, index) => (
-                    <div key={step.status} className="flex gap-4">
-                      <div className="flex flex-col items-center">
-                        <div
-                          className={cn(
-                            "flex size-8 items-center justify-center rounded-full border-2",
-                            step.isCompleted
-                              ? "border-primary bg-primary text-primary-foreground"
-                              : step.isCurrent
-                                ? "border-primary bg-background text-primary"
-                                : "border-muted bg-muted text-muted-foreground",
-                          )}
-                        >
-                          {step.isCompleted && <Check className="size-4" />}
-                        </div>
-                        {index < tracking.timeline.length - 1 && (
-                          <div
-                            className={cn(
-                              "w-px flex-1 min-h-8",
-                              step.isCompleted ? "bg-primary" : "bg-border",
-                            )}
-                          />
-                        )}
-                      </div>
-                      <div className="pb-8">
-                        <p className="font-medium">{step.label}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {step.description}
-                        </p>
-                        {step.occurredAt && (
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            {new Date(step.occurredAt).toLocaleString("en-IN")}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
+          <Card>
+            <CardHeader>
+              <CardTitle>Details</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Tabs defaultValue="tracking">
+                <TabsList>
+                  <TabsTrigger value="tracking">Tracking</TabsTrigger>
+                  <TabsTrigger value="invoice">Invoice</TabsTrigger>
+                  <TabsTrigger value="audit">Audit log</TabsTrigger>
+                </TabsList>
+                <TabsContent value="tracking" className="mt-4">
+                  <TrackingTimeline
+                    tracking={trackingQuery.data}
+                    loading={trackingQuery.isLoading}
+                  />
+                </TabsContent>
+                <TabsContent value="invoice" className="mt-4">
+                  <InvoicePanel
+                    invoice={invoiceQuery.data}
+                    loading={invoiceQuery.isLoading}
+                    notFound={invoiceNotFound}
+                  />
+                </TabsContent>
+                <TabsContent value="audit" className="mt-4">
+                  <AuditLogTable
+                    logs={auditQuery.data?.items ?? []}
+                    loading={auditQuery.isLoading}
+                  />
+                </TabsContent>
+              </Tabs>
+            </CardContent>
+          </Card>
         </div>
 
         <div className="space-y-4">
@@ -215,57 +275,45 @@ export function OrderDetailPage() {
               <div className="flex justify-between">
                 <span className="text-sm text-muted-foreground">Status</span>
                 <StatusBadge
-                  variant={
-                    order.payment.status === "COMPLETED"
-                      ? "success"
-                      : order.payment.status === "PENDING"
-                        ? "warning"
-                        : "danger"
-                  }
+                  variant={paymentStatusVariants[order.payment.status]}
                 >
                   {order.payment.status}
                 </StatusBadge>
               </div>
-              <Button
-                variant="outline"
-                className="w-full"
-                render={
-                  <a
-                    href={order.payment.paymentLinkUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    View payment link
-                  </a>
-                }
-              />
+              {order.payment.paymentLinkUrl && (
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  render={
+                    <a
+                      href={order.payment.paymentLinkUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      View payment link
+                    </a>
+                  }
+                />
+              )}
+              {order.payment.id && (
+                <Button
+                  variant="ghost"
+                  className="w-full"
+                  render={
+                    <Link to={`/payments/${order.payment.id}`}>
+                      View payment details
+                    </Link>
+                  }
+                />
+              )}
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Update status</CardTitle>
-              <CardDescription>Staff action (UI only)</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>Status</Label>
-                <Select value={status} onValueChange={(v) => v && setStatus(v)}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="PENDING">Pending</SelectItem>
-                    <SelectItem value="CONFIRMED">Confirmed</SelectItem>
-                    <SelectItem value="SHIPPED">Shipped</SelectItem>
-                    <SelectItem value="DELIVERED">Delivered</SelectItem>
-                    <SelectItem value="CANCELLED">Cancelled</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button className="w-full">Update status</Button>
-            </CardContent>
-          </Card>
+          <OrderStatusForm
+            order={order}
+            loading={updateMutation.isPending}
+            onUpdate={(payload) => updateMutation.mutateAsync(payload)}
+          />
         </div>
       </div>
     </div>

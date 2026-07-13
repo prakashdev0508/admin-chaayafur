@@ -1,72 +1,117 @@
 import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { CreditCard, Loader2, RefreshCw } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/data-table/data-table";
 import { paymentColumns } from "@/components/data-table/payment-columns";
-import { mockPayments } from "@/data/mockPayments";
+import {
+  PaymentFilterSheet,
+} from "@/components/payments/PaymentFilterSheet";
+import {
+  countActivePaymentFilters,
+  defaultPaymentFilters,
+  type PaymentFilters,
+} from "@/lib/payment-filters";
+import { EmptyState } from "@/components/shared/EmptyState";
+import { queryKeys } from "@/lib/query-keys";
+import { listPayments } from "@/services/payments.service";
+import { usePermission } from "@/hooks/usePermission";
+import type { PaymentStatus } from "@/types/payment";
 
 export function PaymentListPage() {
-  const [status, setStatus] = useState("all");
-  const [orderId, setOrderId] = useState("");
+  const { hasPermission } = usePermission();
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(10);
+  const [filters, setFilters] = useState<PaymentFilters>(defaultPaymentFilters);
 
-  const filteredPayments = useMemo(() => {
-    return mockPayments.filter((payment) => {
-      const matchesStatus = status === "all" || payment.status === status;
-      const matchesOrder =
-        orderId === "" || payment.orderId === Number(orderId);
-      return matchesStatus && matchesOrder;
-    });
-  }, [status, orderId]);
+  const params = useMemo(
+    () => ({
+      page: page + 1,
+      limit: pageSize,
+      ...(filters.status !== "all"
+        ? { status: filters.status as PaymentStatus }
+        : {}),
+      ...(filters.orderId.trim() ? { orderId: Number(filters.orderId) } : {}),
+      ...(filters.customerId.trim()
+        ? { customerId: Number(filters.customerId) }
+        : {}),
+    }),
+    [page, pageSize, filters],
+  );
+
+  const { data, isLoading, isFetching, refetch, error } = useQuery({
+    queryKey: queryKeys.payments.list(params),
+    queryFn: () => listPayments(params),
+    enabled: hasPermission("view-payments"),
+  });
+
+  if (!hasPermission("view-payments")) {
+    return (
+      <div className="flex flex-col gap-4">
+        <PageHeader title="Payments" description="View payment transactions." />
+        <EmptyState
+          icon={CreditCard}
+          title="Access restricted"
+          description="You do not have permission to view payments."
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
         title="Payments"
-        description="View payment transactions and Razorpay payment links."
+        description="Monitor Razorpay payment status across all orders."
+        action={
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => refetch()}
+              disabled={isFetching}
+            >
+              <RefreshCw className={`size-4 ${isFetching ? "animate-spin" : ""}`} />
+            </Button>
+            <PaymentFilterSheet
+              filters={filters}
+              activeCount={countActivePaymentFilters(filters)}
+              onApply={(next) => {
+                setFilters(next);
+                setPage(0);
+              }}
+            />
+          </div>
+        }
       />
 
-      <Card>
-        <CardContent className="pt-6">
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="space-y-2">
-              <Label>Status</Label>
-              <Select value={status} onValueChange={(v) => v && setStatus(v)}>
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All statuses</SelectItem>
-                  <SelectItem value="PENDING">Pending</SelectItem>
-                  <SelectItem value="COMPLETED">Completed</SelectItem>
-                  <SelectItem value="FAILED">Failed</SelectItem>
-                  <SelectItem value="REFUNDED">Refunded</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="order-id">Order ID</Label>
-              <Input
-                id="order-id"
-                type="number"
-                placeholder="Filter by order ID"
-                value={orderId}
-                onChange={(e) => setOrderId(e.target.value)}
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {error && (
+        <p className="text-sm text-destructive">
+          {error instanceof Error ? error.message : "Failed to load payments"}
+        </p>
+      )}
 
-      <DataTable columns={paymentColumns} data={filteredPayments} />
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="size-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : (
+        <DataTable
+          columns={paymentColumns}
+          data={data?.items ?? []}
+          manualPagination
+          pageIndex={page}
+          pageSize={pageSize}
+          pageCount={data?.meta.totalPages ?? 1}
+          totalRows={data?.meta.total}
+          onPageChange={setPage}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setPage(0);
+          }}
+        />
+      )}
     </div>
   );
 }
