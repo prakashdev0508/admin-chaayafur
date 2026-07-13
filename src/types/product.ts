@@ -9,6 +9,7 @@ export type ProductImage = {
 
 export type ProductImageInput = {
   url: string;
+  storageKey?: string;
   altText: string;
   sortOrder: number;
 };

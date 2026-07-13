@@ -54,7 +54,7 @@ export function productToFormValues(
             altText: img.altText,
             sortOrder: img.sortOrder,
           }))
-        : [{ url: "", altText: "", sortOrder: 0 }],
+        : [],
   };
 }
 
@@ -63,11 +63,17 @@ export function formValuesToCreatePayload(
 ): import("@/types/product").CreateProductPayload {
   const images = values.images
     .filter((img) => img.url.trim())
-    .map((img, index) => ({
-      url: img.url.trim(),
-      altText: img.altText.trim(),
-      sortOrder: img.sortOrder ?? index,
-    }));
+    .map((img, index) => {
+      const payload: import("@/types/product").ProductImageInput = {
+        url: img.url.trim(),
+        altText: img.altText.trim(),
+        sortOrder: img.sortOrder ?? index,
+      };
+      if (img.storageKey) {
+        payload.storageKey = img.storageKey;
+      }
+      return payload;
+    });
 
   return {
     name: values.name.trim(),
