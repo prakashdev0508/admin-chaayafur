@@ -33,6 +33,10 @@ export const emptyProductFormValues: ProductFormValues = {
   stock: "",
   subCategoryId: "",
   isActive: true,
+  isBestSeller: false,
+  isFeaturedProduct: false,
+  isMostPopular: false,
+  isNewArrival: false,
   productFeatures: [],
   images: [],
 };
@@ -322,6 +326,60 @@ export function ProductForm({
               checked={values.isActive}
               onCheckedChange={(checked) => updateField("isActive", checked)}
             />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Merchandising</CardTitle>
+            <CardDescription>
+              CMS tags for storefront sections
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {(
+              [
+                {
+                  key: "isFeaturedProduct" as const,
+                  label: "Featured product",
+                  description: "Show in Featured section",
+                },
+                {
+                  key: "isBestSeller" as const,
+                  label: "Best seller",
+                  description: "Show in Best sellers section",
+                },
+                {
+                  key: "isMostPopular" as const,
+                  label: "Most popular",
+                  description: "Show in Most popular section",
+                },
+                {
+                  key: "isNewArrival" as const,
+                  label: "New arrival",
+                  description: "Show in New arrivals section",
+                },
+              ] as const
+            ).map((tag) => (
+              <div
+                key={tag.key}
+                className="flex items-center justify-between gap-3"
+              >
+                <div>
+                  <Label htmlFor={tag.key}>{tag.label}</Label>
+                  <p className="text-xs text-muted-foreground">
+                    {tag.description}
+                  </p>
+                </div>
+                <Switch
+                  id={tag.key}
+                  checked={values[tag.key]}
+                  onCheckedChange={(checked) =>
+                    updateField(tag.key, checked)
+                  }
+                />
+              </div>
+            ))}
           </CardContent>
         </Card>
 

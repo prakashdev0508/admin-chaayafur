@@ -5,6 +5,7 @@ import type {
   ListProductsParams,
   Product,
   ProductListItem,
+  UpdateProductCmsTagsPayload,
   UpdateProductPayload,
 } from "@/types/product";
 
@@ -42,6 +43,16 @@ export function createProduct(payload: CreateProductPayload) {
 
 export function updateProduct(id: number, payload: UpdateProductPayload) {
   return apiRequest<Product>(`/products/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateProductCmsTags(
+  id: number,
+  payload: UpdateProductCmsTagsPayload,
+) {
+  return apiRequest<Product>(`/admin/cms/products/${id}/tags`, {
     method: "PATCH",
     body: JSON.stringify(payload),
   });

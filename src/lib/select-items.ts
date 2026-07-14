@@ -82,6 +82,14 @@ export const PRODUCT_SORT_BY_ITEMS: SelectOption[] = [
   { value: "price", label: "Price" },
 ];
 
+export const PRODUCT_TAG_FILTER_ITEMS: SelectOption[] = [
+  { value: "all", label: "All tags" },
+  { value: "isFeaturedProduct", label: "Featured" },
+  { value: "isBestSeller", label: "Best seller" },
+  { value: "isMostPopular", label: "Most popular" },
+  { value: "isNewArrival", label: "New arrival" },
+];
+
 export const SORT_ORDER_ITEMS: SelectOption[] = [
   { value: "desc", label: "Descending" },
   { value: "asc", label: "Ascending" },

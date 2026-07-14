@@ -14,6 +14,12 @@ export type ProductImageInput = {
   sortOrder: number;
 };
 
+export type ProductMerchandisingTag =
+  | "isBestSeller"
+  | "isFeaturedProduct"
+  | "isMostPopular"
+  | "isNewArrival";
+
 export type Product = {
   id: number;
   name: string;
@@ -22,6 +28,10 @@ export type Product = {
   price: string;
   stock: number;
   isActive: boolean;
+  isBestSeller: boolean;
+  isFeaturedProduct: boolean;
+  isMostPopular: boolean;
+  isNewArrival: boolean;
   productFeatures: string[];
   subCategoryId: number;
   subCategory: SubCategory;
@@ -37,6 +47,10 @@ export type ProductListItem = {
   price: string;
   stock: number;
   isActive: boolean;
+  isBestSeller: boolean;
+  isFeaturedProduct: boolean;
+  isMostPopular: boolean;
+  isNewArrival: boolean;
   productFeatures: string[];
   subCategoryId: number;
   subCategory: SubCategory;
@@ -55,6 +69,7 @@ export type ListProductsParams = {
   subCategoryId?: number;
   categoryId?: number;
   isActive?: boolean;
+  tag?: ProductMerchandisingTag;
   page?: number;
   limit?: number;
   sortBy?: ProductSortBy;
@@ -69,11 +84,22 @@ export type CreateProductPayload = {
   stock: number;
   subCategoryId: number;
   isActive?: boolean;
+  isBestSeller?: boolean;
+  isFeaturedProduct?: boolean;
+  isMostPopular?: boolean;
+  isNewArrival?: boolean;
   productFeatures?: string[];
   images?: ProductImageInput[];
 };
 
 export type UpdateProductPayload = Partial<CreateProductPayload>;
+
+export type UpdateProductCmsTagsPayload = {
+  isBestSeller?: boolean;
+  isFeaturedProduct?: boolean;
+  isMostPopular?: boolean;
+  isNewArrival?: boolean;
+};
 
 export type ProductFormValues = {
   name: string;
@@ -83,6 +109,10 @@ export type ProductFormValues = {
   stock: string;
   subCategoryId: string;
   isActive: boolean;
+  isBestSeller: boolean;
+  isFeaturedProduct: boolean;
+  isMostPopular: boolean;
+  isNewArrival: boolean;
   productFeatures: string[];
   images: ProductImageInput[];
 };

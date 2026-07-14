@@ -8,6 +8,15 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { fetchCategoriesTree } from "@/services/categories.service";
 import { listProducts } from "@/services/products.service";
 import { queryKeys } from "@/lib/query-keys";
+import { productTagLabels } from "@/lib/product-utils";
+import type { ProductMerchandisingTag } from "@/types/product";
+
+const VALID_TAGS = new Set<ProductMerchandisingTag>([
+  "isBestSeller",
+  "isFeaturedProduct",
+  "isMostPopular",
+  "isNewArrival",
+]);
 
 export function ShopCatalogPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -17,6 +26,11 @@ export function ShopCatalogPage() {
   const categoryId = searchParams.get("categoryId");
   const subCategoryId = searchParams.get("subCategoryId");
   const name = searchParams.get("name") ?? undefined;
+  const tagParam = searchParams.get("tag");
+  const tag =
+    tagParam && VALID_TAGS.has(tagParam as ProductMerchandisingTag)
+      ? (tagParam as ProductMerchandisingTag)
+      : undefined;
 
   const listParams = useMemo(
     () => ({
@@ -26,10 +40,11 @@ export function ShopCatalogPage() {
       ...(categoryId ? { categoryId: Number(categoryId) } : {}),
       ...(subCategoryId ? { subCategoryId: Number(subCategoryId) } : {}),
       ...(name ? { name } : {}),
+      ...(tag ? { tag } : {}),
       sortBy: "createdAt" as const,
       sortOrder: "desc" as const,
     }),
-    [page, categoryId, subCategoryId, name],
+    [page, categoryId, subCategoryId, name, tag],
   );
 
   const categoriesQuery = useQuery({
@@ -48,9 +63,13 @@ export function ShopCatalogPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-medium text-[#3D2B1F]">All products</h1>
+        <h1 className="text-3xl font-medium text-[#3D2B1F]">
+          {tag ? productTagLabels[tag] : "All products"}
+        </h1>
         <p className="mt-2 text-muted-foreground">
-          Browse our full catalogue and add items to your cart.
+          {tag
+            ? `Products tagged as ${productTagLabels[tag].toLowerCase()}.`
+            : "Browse our full catalogue and add items to your cart."}
         </p>
       </div>
 
@@ -81,7 +100,7 @@ export function ShopCatalogPage() {
 
         <div className="flex flex-wrap gap-2">
           <Button
-            variant={!categoryId && !subCategoryId ? "default" : "outline"}
+            variant={!categoryId && !subCategoryId && !tag ? "default" : "outline"}
             size="sm"
             onClick={() => setSearchParams({ page: "1" })}
           >

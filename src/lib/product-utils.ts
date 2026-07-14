@@ -1,4 +1,5 @@
-import type { ProductListItem } from "@/types/product";
+import type { ProductListItem, ProductMerchandisingTag } from "@/types/product";
+import type { StatusVariant } from "@/lib/status-variants";
 
 export function formatCurrency(amount: number | string) {
   const value = typeof amount === "string" ? parseFloat(amount) : amount;
@@ -25,6 +26,34 @@ export function slugify(value: string) {
     .replace(/-+/g, "-");
 }
 
+export const productTagLabels: Record<ProductMerchandisingTag, string> = {
+  isFeaturedProduct: "Featured",
+  isBestSeller: "Best seller",
+  isMostPopular: "Most popular",
+  isNewArrival: "New arrival",
+};
+
+export const productTagVariants: Record<ProductMerchandisingTag, StatusVariant> = {
+  isFeaturedProduct: "brand",
+  isBestSeller: "warning",
+  isMostPopular: "default",
+  isNewArrival: "success",
+};
+
+export function getActiveProductTags(
+  product: Pick<
+    ProductListItem,
+    "isBestSeller" | "isFeaturedProduct" | "isMostPopular" | "isNewArrival"
+  >,
+): ProductMerchandisingTag[] {
+  const tags: ProductMerchandisingTag[] = [];
+  if (product.isFeaturedProduct) tags.push("isFeaturedProduct");
+  if (product.isBestSeller) tags.push("isBestSeller");
+  if (product.isMostPopular) tags.push("isMostPopular");
+  if (product.isNewArrival) tags.push("isNewArrival");
+  return tags;
+}
+
 export function productToFormValues(
   product: {
     name: string;
@@ -34,8 +63,12 @@ export function productToFormValues(
     stock: number;
     subCategoryId: number;
     isActive: boolean;
+    isBestSeller?: boolean;
+    isFeaturedProduct?: boolean;
+    isMostPopular?: boolean;
+    isNewArrival?: boolean;
     productFeatures: string[];
-    images: { url: string; altText: string; sortOrder: number }[];
+    images: { url: string; altText: string; sortOrder: number; storageKey?: string }[];
   },
 ): import("@/types/product").ProductFormValues {
   return {
@@ -46,6 +79,10 @@ export function productToFormValues(
     stock: String(product.stock),
     subCategoryId: String(product.subCategoryId),
     isActive: product.isActive,
+    isBestSeller: product.isBestSeller ?? false,
+    isFeaturedProduct: product.isFeaturedProduct ?? false,
+    isMostPopular: product.isMostPopular ?? false,
+    isNewArrival: product.isNewArrival ?? false,
     productFeatures: product.productFeatures,
     images:
       product.images.length > 0
@@ -53,6 +90,7 @@ export function productToFormValues(
             url: img.url,
             altText: img.altText,
             sortOrder: img.sortOrder,
+            ...(img.storageKey ? { storageKey: img.storageKey } : {}),
           }))
         : [],
   };
@@ -83,6 +121,10 @@ export function formValuesToCreatePayload(
     stock: parseInt(values.stock, 10),
     subCategoryId: parseInt(values.subCategoryId, 10),
     isActive: values.isActive,
+    isBestSeller: values.isBestSeller,
+    isFeaturedProduct: values.isFeaturedProduct,
+    isMostPopular: values.isMostPopular,
+    isNewArrival: values.isNewArrival,
     productFeatures: values.productFeatures,
     images: images.length > 0 ? images : undefined,
   };

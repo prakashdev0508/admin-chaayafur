@@ -14,7 +14,13 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { Separator } from "@/components/ui/separator";
 import { usePermission } from "@/hooks/usePermission";
 import { ApiError } from "@/lib/api";
-import { formatCurrency, getStockStatus } from "@/lib/product-utils";
+import {
+  formatCurrency,
+  getActiveProductTags,
+  getStockStatus,
+  productTagLabels,
+  productTagVariants,
+} from "@/lib/product-utils";
 import { getProductDetail } from "@/services/products.service";
 import type { Product } from "@/types/product";
 
@@ -83,6 +89,7 @@ export function ProductDetailPage() {
   }
 
   const stockStatus = getStockStatus(product);
+  const activeTags = getActiveProductTags(product);
   const sortedImages = [...product.images].sort(
     (a, b) => a.sortOrder - b.sortOrder,
   );
@@ -205,6 +212,23 @@ export function ProductDetailPage() {
               </div>
             </CardContent>
           </Card>
+
+          {activeTags.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Merchandising</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-wrap gap-1.5">
+                  {activeTags.map((tag) => (
+                    <StatusBadge key={tag} variant={productTagVariants[tag]}>
+                      {productTagLabels[tag]}
+                    </StatusBadge>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           <Card>
             <CardHeader>

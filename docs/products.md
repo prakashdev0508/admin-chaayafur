@@ -11,6 +11,7 @@ Create, update, and list furniture products.
 - **No delete endpoint** — use `isActive: false` to soft-hide products
 - **Product images** — upload via [uploads.md](./uploads.md) (Cloudflare R2), then attach URLs in product create/update (max 10 per product)
 - **`productFeatures`** — optional array of feature strings (e.g. `"Solid oak wood"`, `"1-year warranty"`) for product detail bullets; max 50 items, 200 chars each
+- **CMS tags** — optional booleans `isBestSeller`, `isFeaturedProduct`, `isMostPopular`, `isNewArrival` for storefront sections; filter with `GET /products?tag=isFeaturedProduct`
 - Default list shows only **active** products (`isActive=true`)
 - Products link to **`subCategoryId`** (not top-level `categoryId`)
 - Public list responses are **cached** in Upstash Redis (60s default) and return `Cache-Control` headers for CDN edge caching
@@ -75,6 +76,10 @@ Authorization: Bearer <accessToken>
   "stock": 10,
   "subCategoryId": 1,
   "isActive": true,
+  "isBestSeller": false,
+  "isFeaturedProduct": true,
+  "isMostPopular": false,
+  "isNewArrival": true,
   "productFeatures": [
     "Solid oak wood",
     "Seats 6 people",
@@ -102,6 +107,10 @@ Authorization: Bearer <accessToken>
 | `stock` | number | Yes | Min `0` |
 | `subCategoryId` | integer | Yes | Must exist in `SubCategory` table |
 | `isActive` | boolean | No | Default `true` |
+| `isBestSeller` | boolean | No | Default `false` — CMS merchandising tag |
+| `isFeaturedProduct` | boolean | No | Default `false` — CMS merchandising tag |
+| `isMostPopular` | boolean | No | Default `false` — CMS merchandising tag |
+| `isNewArrival` | boolean | No | Default `false` — CMS merchandising tag |
 | `productFeatures` | string[] | No | Max 50 items; each string max 200 chars. Default `[]` |
 | `images` | array | No | Max 10 items. Upload files first via [uploads.md](./uploads.md); include `storageKey` from upload response |
 
@@ -118,6 +127,10 @@ Authorization: Bearer <accessToken>
     "price": "24999.99",
     "stock": 10,
     "isActive": true,
+    "isBestSeller": false,
+    "isFeaturedProduct": true,
+    "isMostPopular": false,
+    "isNewArrival": true,
     "productFeatures": [
       "Solid oak wood",
       "Seats 6 people",
@@ -193,6 +206,10 @@ Partial update. All body fields are optional.
 | `stock` | number | Min `0` |
 | `subCategoryId` | integer | Must exist in `SubCategory` table |
 | `isActive` | boolean | Set `false` to hide product |
+| `isBestSeller` | boolean | CMS tag |
+| `isFeaturedProduct` | boolean | CMS tag |
+| `isMostPopular` | boolean | CMS tag |
+| `isNewArrival` | boolean | CMS tag |
 | `productFeatures` | string[] | Replace entire list. Pass `[]` to clear all features |
 | `images` | array | Replaces all images when provided (max 10) |
 
@@ -252,6 +269,10 @@ Same shape as the create/update response: `description`, full `images` array, `p
     "price": "24999.99",
     "stock": 10,
     "isActive": true,
+    "isBestSeller": false,
+    "isFeaturedProduct": true,
+    "isMostPopular": false,
+    "isNewArrival": true,
     "productFeatures": [
       "Solid oak wood",
       "Seats 6 people",
@@ -319,6 +340,7 @@ Paginated product catalogue for the storefront. Defaults to **active** products 
 | `subCategoryId` | integer | — | Filter by sub-category |
 | `categoryId` | integer | — | Filter by parent category |
 | `isActive` | boolean | `true` | Use `false` for hidden products |
+| `tag` | string | — | CMS tag filter: `isBestSeller` \| `isFeaturedProduct` \| `isMostPopular` \| `isNewArrival` |
 | `page` | number | `1` | Page number |
 | `limit` | number | `10` | Items per page (max 100) |
 | `sortBy` | string | `createdAt` | `name` \| `price` \| `createdAt` |
@@ -330,6 +352,8 @@ Paginated product catalogue for the storefront. Defaults to **active** products 
 GET /api/v1/products?subCategoryId=1
 GET /api/v1/products?categoryId=1
 GET /api/v1/products?name=oak&page=1&limit=10
+GET /api/v1/products?tag=isFeaturedProduct
+GET /api/v1/products?tag=isBestSeller&limit=8
 ```
 
 ### List item fields
@@ -339,12 +363,14 @@ GET /api/v1/products?name=oak&page=1&limit=10
 | `subCategoryId` | Sub-category ID |
 | `subCategory` | Nested sub-category + parent category |
 | `productFeatures` | Array of feature strings (empty array if none) |
+| `isBestSeller` / `isFeaturedProduct` / `isMostPopular` / `isNewArrival` | CMS merchandising flags |
 | `primaryImage` | Lowest `sortOrder` image, or `null` |
 
 ### cURL
 
 ```bash
 curl "http://localhost:5000/api/v1/products?categoryId=1&page=1&limit=10"
+curl "http://localhost:5000/api/v1/products?tag=isFeaturedProduct&limit=10"
 ```
 
 ---

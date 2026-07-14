@@ -368,7 +368,17 @@ function CategorySection({
             )}
             <div>
               <div className="flex flex-wrap items-center gap-2">
+                {category.imageUrl && (
+                  <img
+                    src={category.imageUrl}
+                    alt={category.name}
+                    className="size-10 shrink-0 rounded-md object-cover"
+                  />
+                )}
                 <CardTitle className="text-base">{category.name}</CardTitle>
+                {category.isSignatureCollection && (
+                  <StatusBadge variant="brand">Signature</StatusBadge>
+                )}
                 {category.isActive === false && (
                   <StatusBadge variant="neutral">Inactive</StatusBadge>
                 )}

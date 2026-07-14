@@ -19,10 +19,15 @@ import {
 } from "@/components/ui/sheet";
 import { fetchCategoriesTree } from "@/services/categories.service";
 import type { CategoryTreeItem } from "@/types/category";
-import type { ProductSortBy, SortOrder } from "@/types/product";
+import type {
+  ProductMerchandisingTag,
+  ProductSortBy,
+  SortOrder,
+} from "@/types/product";
 import {
   PRODUCT_SORT_BY_ITEMS,
   PRODUCT_STOCK_FILTER_ITEMS,
+  PRODUCT_TAG_FILTER_ITEMS,
   PRODUCT_VISIBILITY_FILTER_ITEMS,
   SORT_ORDER_ITEMS,
 } from "@/lib/select-items";
@@ -35,6 +40,7 @@ export type ProductFilters = {
   subCategoryId: string;
   active: string;
   stock: string;
+  tag: "all" | ProductMerchandisingTag;
   sortBy: ProductSortBy;
   sortOrder: SortOrder;
 };
@@ -47,6 +53,7 @@ export const defaultProductFilters: ProductFilters = {
   subCategoryId: "all",
   active: "all",
   stock: "all",
+  tag: "all",
   sortBy: "createdAt",
   sortOrder: "desc",
 };
@@ -251,6 +258,32 @@ export function ProductFilterSheet({
                 <SelectItem value="in_stock">In stock</SelectItem>
                 <SelectItem value="low_stock">Low stock</SelectItem>
                 <SelectItem value="out_of_stock">Out of stock</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Merchandising tag</Label>
+            <Select
+              value={draft.tag}
+              onValueChange={(value) => {
+                if (!value) return;
+                onDraftChange({
+                  ...draft,
+                  tag: value as ProductFilters["tag"],
+                });
+              }}
+              items={PRODUCT_TAG_FILTER_ITEMS}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PRODUCT_TAG_FILTER_ITEMS.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>
+                    {item.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

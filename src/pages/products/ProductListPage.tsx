@@ -93,6 +93,10 @@ function buildBaseParams(
     params.categoryId = categoryId;
   }
 
+  if (filters.tag !== "all") {
+    params.tag = filters.tag;
+  }
+
   return params;
 }
 

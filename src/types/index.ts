@@ -8,15 +8,17 @@ export type {
   ListProductsParams,
 } from "@/types/product";
 
-export type { SubCategory, CategoryTreeItem } from "@/types/category";
-
 export type {
   Category,
+  CategoryImageInput,
+  SubCategory,
+  CategoryTreeItem,
   SubCategoryTreeItem,
   CreateCategoryPayload,
   UpdateCategoryPayload,
   CreateSubCategoryPayload,
   UpdateSubCategoryPayload,
+  ListCategoriesParams,
   ListSubCategoriesParams,
 } from "@/types/category";
 
