@@ -1,9 +1,17 @@
+export type CategoryImageInput = {
+  url: string;
+  storageKey?: string;
+};
+
 export type Category = {
   id: number;
   name: string;
   slug: string;
   description?: string | null;
   isActive?: boolean;
+  isSignatureCollection?: boolean;
+  /** Present on tree / detail responses */
+  imageUrl?: string | null;
   createdAt?: string;
   updatedAt?: string;
 };
@@ -35,6 +43,7 @@ export type SubCategoryTreeItem = {
   categoryId: number;
   isActive?: boolean;
   productsCount?: number;
+  updatedAt?: string;
 };
 
 export type CategoryTreeItem = Category & {
@@ -46,6 +55,8 @@ export type CreateCategoryPayload = {
   slug: string;
   description?: string;
   isActive?: boolean;
+  isSignatureCollection?: boolean;
+  image?: CategoryImageInput;
 };
 
 export type UpdateCategoryPayload = Partial<CreateCategoryPayload>;
@@ -62,6 +73,15 @@ export type CreateSubCategoryPayload = {
 export type UpdateSubCategoryPayload = Partial<
   Omit<CreateSubCategoryPayload, "categoryId">
 >;
+
+export type ListCategoriesParams = {
+  name?: string;
+  slug?: string;
+  isActive?: boolean;
+  isSignatureCollection?: boolean;
+  page?: number;
+  limit?: number;
+};
 
 export type ListSubCategoriesParams = {
   categoryId?: number;

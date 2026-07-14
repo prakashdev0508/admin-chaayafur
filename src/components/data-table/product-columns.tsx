@@ -9,7 +9,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { formatCurrency, getStockStatus } from "@/lib/product-utils";
+import {
+  formatCurrency,
+  getActiveProductTags,
+  getStockStatus,
+  productTagLabels,
+  productTagVariants,
+} from "@/lib/product-utils";
 import type { ProductListItem } from "@/types/product";
 
 type ProductColumnsOptions = {
@@ -39,9 +45,22 @@ export function createProductColumns({
                 className="size-10 rounded-md object-cover"
               />
             )}
-            <div>
+            <div className="min-w-0">
               <p className="font-medium">{product.name}</p>
               <p className="text-xs text-muted-foreground">{product.slug}</p>
+              {(() => {
+                const tags = getActiveProductTags(product);
+                if (tags.length === 0) return null;
+                return (
+                  <div className="mt-1.5 flex flex-wrap gap-1">
+                    {tags.map((tag) => (
+                      <StatusBadge key={tag} variant={productTagVariants[tag]}>
+                        {productTagLabels[tag]}
+                      </StatusBadge>
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
           </Link>
         );

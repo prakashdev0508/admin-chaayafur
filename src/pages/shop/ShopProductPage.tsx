@@ -8,7 +8,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { getProduct } from "@/services/products.service";
 import { queryKeys } from "@/lib/query-keys";
 import { formatCurrency } from "@/lib/format";
-import { getStockStatus } from "@/lib/product-utils";
+import {
+  getActiveProductTags,
+  getStockStatus,
+  productTagLabels,
+} from "@/lib/product-utils";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -26,6 +30,7 @@ export function ShopProductPage() {
 
   const product = productQuery.data;
   const stockStatus = product ? getStockStatus(product) : null;
+  const activeTags = product ? getActiveProductTags(product) : [];
   const canPurchase = stockStatus === "in_stock" || stockStatus === "low_stock";
   const sortedImages = [...(product?.images ?? [])].sort(
     (a, b) => a.sortOrder - b.sortOrder,
@@ -96,6 +101,18 @@ export function ShopProductPage() {
             {product.subCategory.category.name} · {product.subCategory.name}
           </p>
           <h1 className="mt-2 text-4xl font-medium text-[#3D2B1F]">{product.name}</h1>
+          {activeTags.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {activeTags.map((tag) => (
+                <span
+                  key={tag}
+                  className="rounded-md bg-[#F8F1E8] px-2 py-0.5 text-xs font-medium text-[#8B5E3C]"
+                >
+                  {productTagLabels[tag]}
+                </span>
+              ))}
+            </div>
+          )}
           <p className="mt-3 text-2xl font-semibold text-[#8B5E3C]">
             {formatCurrency(product.price)}
           </p>

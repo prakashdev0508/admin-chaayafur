@@ -13,6 +13,7 @@ import {
   HelpCircle,
   ChevronsUpDown,
   UserPlus,
+  Globe,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -66,6 +67,7 @@ const navMain: NavItem[] = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Products", url: "/products", icon: Package },
   { title: "Categories", url: "/categories", icon: FolderTree, permission: "view-categories" },
+  { title: "Website", url: "/website/home", icon: Globe, permission: "view-banners" },
   { title: "Orders", url: "/orders", icon: ShoppingCart, permission: "view-orders" },
   { title: "Support", url: "/support-tickets", icon: LifeBuoy, permission: "view-order-support" },
   { title: "Payments", url: "/payments", icon: CreditCard, permission: "view-payments" },

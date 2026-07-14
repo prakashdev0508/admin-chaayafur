@@ -17,6 +17,8 @@ Category (top-level)  →  SubCategory  →  Product
 - **Category** — top-level groups (Bedroom, Living, Dining, …)
 - **SubCategory** — assignable product category with optional `heading` for navigation columns
 - **`isActive`** — hide categories/sub-categories from the public tree without deleting them
+- **`isSignatureCollection`** — CMS flag for featured/signature collections; filter with `GET /categories?isSignatureCollection=true`
+- **Category image** — optional single image via [uploads.md](./uploads.md) (`POST /uploads/category-images`), then attach on create/update
 - **No delete endpoints** — update records as needed; set `isActive: false` to deactivate
 
 ### Who can access?
@@ -29,6 +31,7 @@ Category (top-level)  →  SubCategory  →  Product
 | `GET /admin/categories/tree` | `view-categories` | Yes | Yes | Yes |
 | `GET /categories/:id` | `view-categories` | Yes | Yes | Yes |
 | `PATCH /categories/:id` | `update-categories` | Yes | Yes | No |
+| `POST /uploads/category-images` | `create-categories` **or** `update-categories` | Yes | Yes | No |
 | `POST /sub-categories` | `create-categories` | Yes | Yes | No |
 | `GET /sub-categories` | `view-categories` | Yes | Yes | Yes |
 | `GET /sub-categories/:id` | `view-categories` | Yes | Yes | Yes |
@@ -55,7 +58,12 @@ Category (top-level)  →  SubCategory  →  Product
 {
   "name": "Bedroom",
   "slug": "bedroom",
-  "description": "Bedroom furniture"
+  "description": "Bedroom furniture",
+  "isSignatureCollection": true,
+  "image": {
+    "url": "https://cdn.example.com/categories/bedroom.webp",
+    "storageKey": "categories/2026/07/uuid.webp"
+  }
 }
 ```
 
@@ -65,6 +73,19 @@ Category (top-level)  →  SubCategory  →  Product
 | `slug` | string | Yes (unique) |
 | `description` | string | No |
 | `isActive` | boolean | No (default `true`) |
+| `isSignatureCollection` | boolean | No (default `false`) |
+| `image` | object | No — `{ url, storageKey? }` from [uploads.md](./uploads.md) |
+
+### GET /api/v1/categories
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `name` | string | Partial name match |
+| `slug` | string | Exact slug match |
+| `isActive` | boolean | Filter by active status |
+| `isSignatureCollection` | boolean | Filter signature collection categories |
+| `page` | number | Default `1` |
+| `limit` | number | Default `10`, max `100` |
 
 ### GET /api/v1/categories/tree
 
@@ -73,7 +94,7 @@ Category (top-level)  →  SubCategory  →  Product
 | **Auth** | Public — no Bearer token required |
 | **Status** | `200` |
 
-Returns **active** top-level categories with nested **active** sub-categories, sorted by latest `updatedAt` first (for storefront navigation).
+Returns **active** top-level categories with nested **active** sub-categories, sorted by latest `updatedAt` first (for storefront navigation). Includes `isSignatureCollection` and `imageUrl`.
 
 ```json
 {
@@ -84,6 +105,8 @@ Returns **active** top-level categories with nested **active** sub-categories, s
       "name": "Bedroom",
       "slug": "bedroom",
       "description": "Bedroom furniture",
+      "isSignatureCollection": true,
+      "imageUrl": "https://cdn.example.com/categories/bedroom.webp",
       "subCategories": [
         {
           "id": 1,
@@ -125,6 +148,8 @@ Returns **all** categories and sub-categories, including inactive records. Sorte
       "name": "Bedroom",
       "slug": "bedroom",
       "description": "Bedroom furniture",
+      "isSignatureCollection": false,
+      "imageUrl": null,
       "isActive": true,
       "updatedAt": "2026-07-13T10:00:00.000Z",
       "subCategories": [

@@ -5,7 +5,9 @@ import {
   defaultProductFilters,
   type ProductFilters,
 } from "@/components/products/ProductFilterSheet";
+import { productTagLabels } from "@/lib/product-utils";
 import type { CategoryTreeItem } from "@/types/category";
+import type { ProductMerchandisingTag } from "@/types/product";
 
 type ActiveFilterChip = {
   key: keyof ProductFilters;
@@ -65,6 +67,13 @@ function getActiveFilterChips(
     chips.push({
       key: "stock",
       label: labels[filters.stock as keyof typeof labels] ?? filters.stock,
+    });
+  }
+
+  if (filters.tag !== "all") {
+    chips.push({
+      key: "tag",
+      label: `Tag: ${productTagLabels[filters.tag as ProductMerchandisingTag] ?? filters.tag}`,
     });
   }
 

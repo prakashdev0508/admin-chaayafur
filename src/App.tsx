@@ -31,6 +31,7 @@ import { StaffCreatePage } from "@/pages/staff/StaffCreatePage";
 import { SuperAdminRoute } from "@/components/auth/SuperAdminRoute";
 import { SupportTicketListPage } from "@/pages/support-tickets/SupportTicketListPage";
 import { SupportTicketDetailPage } from "@/pages/support-tickets/SupportTicketDetailPage";
+import { WebsiteHomePage } from "@/pages/website/WebsiteHomePage";
 import { ShopHomePage } from "@/pages/shop/ShopHomePage";
 import { ShopCatalogPage } from "@/pages/shop/ShopCatalogPage";
 import { ShopProductPage } from "@/pages/shop/ShopProductPage";
@@ -62,6 +63,8 @@ const App = () => {
         <Route element={<AdminLayout />}>
           <Route index element={<DashboardPage />} />
           <Route path="categories" element={<CategoryMasterPage />} />
+          <Route path="website" element={<Navigate to="/website/home" replace />} />
+          <Route path="website/home" element={<WebsiteHomePage />} />
           <Route path="products" element={<ProductListPage />} />
           <Route path="products/new" element={<AddProductPage />} />
           <Route path="products/:id" element={<ProductDetailPage />} />

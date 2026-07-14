@@ -24,6 +24,26 @@ export function uploadProductImage(file: File) {
   ).then(normalizeUploadResponse);
 }
 
+export function uploadCategoryImage(file: File) {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  return apiFormRequest<ProductImageUploadResult | ProductImageUploadResult[]>(
+    "/uploads/category-images",
+    formData,
+  ).then(normalizeUploadResponse);
+}
+
+export function uploadBannerImage(file: File) {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  return apiFormRequest<ProductImageUploadResult | ProductImageUploadResult[]>(
+    "/uploads/banner-images",
+    formData,
+  ).then(normalizeUploadResponse);
+}
+
 export function uploadSupportImage(file: File) {
   const formData = new FormData();
   formData.append("file", file);
