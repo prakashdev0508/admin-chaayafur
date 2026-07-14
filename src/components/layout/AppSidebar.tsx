@@ -5,6 +5,7 @@ import {
   FolderTree,
   ShoppingCart,
   CreditCard,
+  LifeBuoy,
   Ticket,
   Users,
   ScrollText,
@@ -66,6 +67,7 @@ const navMain: NavItem[] = [
   { title: "Products", url: "/products", icon: Package },
   { title: "Categories", url: "/categories", icon: FolderTree, permission: "view-categories" },
   { title: "Orders", url: "/orders", icon: ShoppingCart, permission: "view-orders" },
+  { title: "Support", url: "/support-tickets", icon: LifeBuoy, permission: "view-order-support" },
   { title: "Payments", url: "/payments", icon: CreditCard, permission: "view-payments" },
 ];
 

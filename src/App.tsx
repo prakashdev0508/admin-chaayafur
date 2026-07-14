@@ -29,6 +29,8 @@ import { AuditLogsPage } from "@/pages/audit-logs/AuditLogsPage";
 import { StaffListPage } from "@/pages/staff/StaffListPage";
 import { StaffCreatePage } from "@/pages/staff/StaffCreatePage";
 import { SuperAdminRoute } from "@/components/auth/SuperAdminRoute";
+import { SupportTicketListPage } from "@/pages/support-tickets/SupportTicketListPage";
+import { SupportTicketDetailPage } from "@/pages/support-tickets/SupportTicketDetailPage";
 import { ShopHomePage } from "@/pages/shop/ShopHomePage";
 import { ShopCatalogPage } from "@/pages/shop/ShopCatalogPage";
 import { ShopProductPage } from "@/pages/shop/ShopProductPage";
@@ -66,6 +68,8 @@ const App = () => {
           <Route path="products/:id/edit" element={<EditProductPage />} />
           <Route path="orders" element={<OrderListPage />} />
           <Route path="orders/:id" element={<OrderDetailPage />} />
+          <Route path="support-tickets" element={<SupportTicketListPage />} />
+          <Route path="support-tickets/:id" element={<SupportTicketDetailPage />} />
           <Route path="payments" element={<PaymentListPage />} />
           <Route path="payments/:id" element={<PaymentDetailPage />} />
           <Route path="coupons" element={<CouponListPage />} />

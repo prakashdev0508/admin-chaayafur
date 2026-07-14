@@ -24,6 +24,7 @@ import { OrderStatusForm } from "@/components/orders/OrderStatusForm";
 import { TrackingTimeline } from "@/components/shared/TrackingTimeline";
 import { InvoicePanel } from "@/components/shared/InvoicePanel";
 import { AuditLogTable } from "@/components/shared/AuditLogTable";
+import { SupportTicketStatusBadge } from "@/components/support-tickets/SupportTicketStatusBadge";
 import { formatCurrency, formatDate } from "@/lib/format";
 import {
   orderStatusLabels,
@@ -39,12 +40,16 @@ import {
   getOrderTracking,
   updateOrder,
 } from "@/services/orders.service";
+import { listSupportTickets } from "@/services/support-tickets.service";
+import { usePermission } from "@/hooks/usePermission";
 import type { UpdateOrderPayload } from "@/types/order";
 
 export function OrderDetailPage() {
   const { id } = useParams();
   const orderId = Number(id);
   const queryClient = useQueryClient();
+  const { hasPermission } = usePermission();
+  const canViewSupport = hasPermission("view-order-support");
 
   const orderQuery = useQuery({
     queryKey: queryKeys.orders.detail(orderId),
@@ -72,6 +77,12 @@ export function OrderDetailPage() {
     queryKey: queryKeys.orders.auditLogs(orderId),
     queryFn: () => getOrderAuditLogs(orderId, { limit: 50 }),
     enabled: Number.isFinite(orderId),
+  });
+
+  const supportTicketsQuery = useQuery({
+    queryKey: queryKeys.supportTickets.list({ orderId, limit: 10 }),
+    queryFn: () => listSupportTickets({ orderId, limit: 10 }),
+    enabled: Number.isFinite(orderId) && canViewSupport,
   });
 
   const updateMutation = useMutation({
@@ -224,6 +235,48 @@ export function OrderDetailPage() {
               </div>
             </CardContent>
           </Card>
+
+          {canViewSupport && (
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between gap-3">
+                  <CardTitle>Support tickets</CardTitle>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    render={
+                      <Link to={`/support-tickets?orderId=${orderId}`}>
+                        View all
+                      </Link>
+                    }
+                  />
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {supportTicketsQuery.isLoading ? (
+                  <p className="text-sm text-muted-foreground">Loading tickets...</p>
+                ) : (supportTicketsQuery.data?.items.length ?? 0) === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No support tickets for this order.
+                  </p>
+                ) : (
+                  supportTicketsQuery.data?.items.map((ticket) => (
+                    <Link
+                      key={ticket.id}
+                      to={`/support-tickets/${ticket.id}`}
+                      className="flex items-center justify-between gap-3 rounded-lg border p-3 transition hover:bg-muted/30"
+                    >
+                      <div>
+                        <p className="font-medium">{ticket.ticketNumber}</p>
+                        <p className="text-sm text-muted-foreground">{ticket.subject}</p>
+                      </div>
+                      <SupportTicketStatusBadge status={ticket.status} />
+                    </Link>
+                  ))
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           <Card>
             <CardHeader>

@@ -23,3 +23,25 @@ export function uploadProductImage(file: File) {
     formData,
   ).then(normalizeUploadResponse);
 }
+
+export function uploadSupportImage(file: File) {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  return apiFormRequest<ProductImageUploadResult | ProductImageUploadResult[]>(
+    "/uploads/support-images",
+    formData,
+    "customer",
+  ).then(normalizeUploadResponse);
+}
+
+export function uploadSupportImagesBatch(files: File[]) {
+  const formData = new FormData();
+  files.forEach((file) => formData.append("files", file));
+
+  return apiFormRequest<ProductImageUploadResult[]>(
+    "/uploads/support-images/batch",
+    formData,
+    "customer",
+  );
+}
