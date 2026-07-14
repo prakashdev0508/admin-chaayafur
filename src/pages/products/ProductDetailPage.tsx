@@ -210,6 +210,19 @@ export function ProductDetailPage() {
                 <span className="text-muted-foreground">Price</span>
                 <span className="font-semibold">{formatCurrency(product.price)}</span>
               </div>
+              <Separator />
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Rating</span>
+                <span>
+                  {product.ratingAverage != null
+                    ? `${product.ratingAverage.toFixed(1)} / 5`
+                    : "—"}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Reviews</span>
+                <span>{product.reviewCount ?? 0}</span>
+              </div>
             </CardContent>
           </Card>
 

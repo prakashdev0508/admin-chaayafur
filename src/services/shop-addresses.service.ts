@@ -6,7 +6,7 @@ import type {
 } from "@/types/address";
 
 export function listCustomerAddresses() {
-  return apiRequest<CustomerAddress[]>("/addresses", {}, "customer");
+  return apiRequest<CustomerAddress[]>("/users/me/addresses", {}, "customer");
 }
 
 export function createCustomerAddress(payload: CreateAddressPayload) {

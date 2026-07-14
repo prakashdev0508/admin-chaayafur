@@ -42,6 +42,7 @@ import { InvoicePanel } from "@/components/shared/InvoicePanel";
 import { AuditLogTable } from "@/components/shared/AuditLogTable";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { SupportTicketStatusBadge } from "@/components/support-tickets/SupportTicketStatusBadge";
+import { StarRating } from "@/components/reviews/StarRating";
 import type { OrderRefund } from "@/types/refund";
 import { formatCurrency, formatDate } from "@/lib/format";
 import {
@@ -417,6 +418,7 @@ export function OrderDetailPage() {
                         <TableHead>Product</TableHead>
                         <TableHead>Qty</TableHead>
                         <TableHead>Unit price</TableHead>
+                        <TableHead>Review</TableHead>
                         <TableHead className="text-right">Line total</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -424,10 +426,47 @@ export function OrderDetailPage() {
                       {order.items.map((item) => (
                         <TableRow key={item.id}>
                           <TableCell className="font-medium">
-                            {item.product.name}
+                            <Link
+                              to={`/products/${item.productId}`}
+                              className="hover:underline"
+                            >
+                              {item.product.name}
+                            </Link>
                           </TableCell>
                           <TableCell>{item.quantity}</TableCell>
                           <TableCell>{formatCurrency(item.price)}</TableCell>
+                          <TableCell>
+                            {item.review ? (
+                              <div className="max-w-[220px] space-y-1">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <StarRating
+                                    value={item.review.rating}
+                                    size="sm"
+                                  />
+                                  <StatusBadge
+                                    variant={
+                                      item.review.isVisible
+                                        ? "success"
+                                        : "neutral"
+                                    }
+                                  >
+                                    {item.review.isVisible
+                                      ? "Visible"
+                                      : "Hidden"}
+                                  </StatusBadge>
+                                </div>
+                                {item.review.comment && (
+                                  <p className="line-clamp-2 text-xs text-muted-foreground">
+                                    {item.review.comment}
+                                  </p>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-sm text-muted-foreground">
+                                —
+                              </span>
+                            )}
+                          </TableCell>
                           <TableCell className="text-right">
                             {formatCurrency(
                               parseFloat(item.price) * item.quantity,
@@ -471,6 +510,50 @@ export function OrderDetailPage() {
                       <span>{formatCurrency(order.totalAmount)}</span>
                     </div>
                   </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <CardTitle>Order review</CardTitle>
+                    {order.orderReview && (
+                      <StatusBadge
+                        variant={
+                          order.orderReview.isVisible ? "success" : "neutral"
+                        }
+                      >
+                        {order.orderReview.isVisible ? "Visible" : "Hidden"}
+                      </StatusBadge>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {order.orderReview ? (
+                    <div className="space-y-3">
+                      <StarRating value={order.orderReview.rating} />
+                      {order.orderReview.comment ? (
+                        <p className="text-sm leading-relaxed">
+                          {order.orderReview.comment}
+                        </p>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                          No comment provided.
+                        </p>
+                      )}
+                      <p className="text-xs text-muted-foreground">
+                        Submitted {formatDate(order.orderReview.createdAt)}
+                        {order.orderReview.updatedAt !==
+                          order.orderReview.createdAt &&
+                          ` · Updated ${formatDate(order.orderReview.updatedAt)}`}
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      No overall order review yet. Customers can submit one
+                      after delivery.
+                    </p>
+                  )}
                 </CardContent>
               </Card>
             </div>

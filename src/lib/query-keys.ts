@@ -104,5 +104,15 @@ export const queryKeys = {
         ["shop", "support-tickets", "order", orderId] as const,
       detail: (id: number) => ["shop", "support-tickets", "detail", id] as const,
     },
+    reviews: {
+      mine: ["shop", "reviews", "mine"] as const,
+      product: (productId: number, params?: Record<string, unknown>) =>
+        ["shop", "reviews", "product", productId, params] as const,
+    },
+  },
+  reviews: {
+    all: ["reviews"] as const,
+    list: (params: Record<string, unknown>) =>
+      ["reviews", "list", params] as const,
   },
 };

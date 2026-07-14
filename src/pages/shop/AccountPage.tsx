@@ -1,8 +1,10 @@
 import { Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { Button } from "@/components/ui/button";
-import { buttonVariants } from "@/components/ui/button";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { toast } from "sonner";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { ShopAddressForm } from "@/components/shop/ShopAddressForm";
+import { StarRating } from "@/components/reviews/StarRating";
 import { useCustomerAuth } from "@/contexts/CustomerAuthContext";
 import {
   createCustomerAddress,
@@ -10,12 +12,10 @@ import {
   listCustomerAddresses,
 } from "@/services/shop-addresses.service";
 import { listShopOrders } from "@/services/shop-orders.service";
+import { getMyReviews } from "@/services/reviews.service";
 import { queryKeys } from "@/lib/query-keys";
 import { formatCurrency, formatDate, formatPhone } from "@/lib/format";
 import { getOrderStatusLabel } from "@/lib/order-status";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
-import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 export function AccountPage() {
@@ -31,6 +31,11 @@ export function AccountPage() {
   const addressesQuery = useQuery({
     queryKey: queryKeys.shop.addresses.all,
     queryFn: listCustomerAddresses,
+  });
+
+  const reviewsQuery = useQuery({
+    queryKey: queryKeys.shop.reviews.mine,
+    queryFn: getMyReviews,
   });
 
   const createAddressMutation = useMutation({
@@ -50,6 +55,10 @@ export function AccountPage() {
     },
   });
 
+  const counts = user?.counts;
+  const productReviews = reviewsQuery.data?.productReviews ?? [];
+  const orderReviews = reviewsQuery.data?.orderReviews ?? [];
+
   return (
     <div className="space-y-8">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -65,6 +74,35 @@ export function AccountPage() {
           Logout
         </Button>
       </div>
+
+      {counts && (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-2xl border border-[#E8DFD3] bg-white p-4">
+            <p className="text-sm text-muted-foreground">Orders</p>
+            <p className="mt-1 text-2xl font-medium text-[#3D2B1F]">
+              {counts.orders}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-[#E8DFD3] bg-white p-4">
+            <p className="text-sm text-muted-foreground">Addresses</p>
+            <p className="mt-1 text-2xl font-medium text-[#3D2B1F]">
+              {counts.addresses}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-[#E8DFD3] bg-white p-4">
+            <p className="text-sm text-muted-foreground">Open tickets</p>
+            <p className="mt-1 text-2xl font-medium text-[#3D2B1F]">
+              {counts.openTickets}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-[#E8DFD3] bg-white p-4">
+            <p className="text-sm text-muted-foreground">Reviews</p>
+            <p className="mt-1 text-2xl font-medium text-[#3D2B1F]">
+              {counts.reviews}
+            </p>
+          </div>
+        </div>
+      )}
 
       <section className="space-y-4">
         <div className="flex items-center justify-between">
@@ -108,6 +146,87 @@ export function AccountPage() {
             </p>
           )}
         </div>
+      </section>
+
+      <section className="space-y-4">
+        <h2 className="text-xl font-medium text-[#3D2B1F]">My reviews</h2>
+
+        {reviewsQuery.isLoading ? (
+          <p className="text-sm text-muted-foreground">Loading reviews...</p>
+        ) : productReviews.length === 0 && orderReviews.length === 0 ? (
+          <p className="rounded-xl border border-dashed border-[#E8DFD3] p-6 text-sm text-muted-foreground">
+            No reviews yet. After an order is delivered, you can rate products
+            and the overall order.
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {productReviews.map((review) => (
+              <div
+                key={`product-${review.id}`}
+                className="rounded-2xl border border-[#E8DFD3] bg-white p-4"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                      Product review
+                    </p>
+                    {review.product ? (
+                      <Link
+                        to={`/shop/products/${review.product.id}`}
+                        className="font-medium hover:underline"
+                      >
+                        {review.product.name}
+                      </Link>
+                    ) : (
+                      <p className="font-medium">Product #{review.productId}</p>
+                    )}
+                  </div>
+                  <StarRating value={review.rating} size="sm" />
+                </div>
+                {review.comment && (
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {review.comment}
+                  </p>
+                )}
+                {review.orderId && (
+                  <Link
+                    to={`/shop/orders/${review.orderId}`}
+                    className="mt-2 inline-block text-xs text-[#8B5E3C] hover:underline"
+                  >
+                    View order
+                  </Link>
+                )}
+              </div>
+            ))}
+
+            {orderReviews.map((review) => (
+              <div
+                key={`order-${review.id}`}
+                className="rounded-2xl border border-[#E8DFD3] bg-white p-4"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                      Order review
+                    </p>
+                    <Link
+                      to={`/shop/orders/${review.orderId}`}
+                      className="font-medium hover:underline"
+                    >
+                      {review.order?.orderNumber ?? `Order #${review.orderId}`}
+                    </Link>
+                  </div>
+                  <StarRating value={review.rating} size="sm" />
+                </div>
+                {review.comment && (
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {review.comment}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="space-y-4">

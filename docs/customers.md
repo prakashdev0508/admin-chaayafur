@@ -25,7 +25,7 @@ Customer OTP authentication and profile for the Chaaya Furnitures storefront.
 ### OTP flow
 
 ```
-POST /auth/customer/send-otp   →  OTP sent (logged in dev console)
+POST /auth/customer/send-otp   →  OTP SMS via 2factor.in (also logged in non-production)
 POST /auth/customer/verify-otp →  JWT returned (auto-register if new)
 ```
 
@@ -35,8 +35,15 @@ POST /auth/customer/verify-otp →  JWT returned (auto-register if new)
 | OTP expiry | `OTP_TTL_MS` | `300000` (5 min) |
 | Max verify attempts | `OTP_MAX_ATTEMPTS` | `5` |
 | Resend cooldown | `OTP_RESEND_COOLDOWN_MS` | `60000` (1 min) |
+| SMS provider API key | `2FA_API_KEY` | — (required in production) |
+| SMS API base URL | `2FA_BASE_URL` | `https://2factor.in/API/V1` |
+| SMS template (optional) | `2FA_OTP_TEMPLATE` | — (DLT template name if required) |
 
-> In development, the OTP is printed to the server console. Wire an SMS gateway for production.
+OTP SMS is sent via [2factor.in](https://2factor.in/) when `2FA_API_KEY` is set. The app generates the code, stores it for verification, and delivers it with:
+
+`GET {2FA_BASE_URL}/{2FA_API_KEY}/SMS/91{phone}/{otp}[/{template}]`
+
+In non-production, the OTP is also printed to the server console. Without `2FA_API_KEY`, development still logs the OTP; production returns `503`.
 
 ### JWT payload (customer)
 
@@ -55,6 +62,15 @@ POST /auth/customer/verify-otp →  JWT returned (auto-register if new)
 | `POST` | `/api/v1/auth/customer/send-otp` | Public | Anyone |
 | `POST` | `/api/v1/auth/customer/verify-otp` | Public | Anyone |
 | `GET` | `/api/v1/users/me` | Bearer (customer) | Customer only |
+| `GET` | `/api/v1/users/me/orders` | Bearer (customer) | Own orders |
+| `GET` | `/api/v1/users/me/orders/:orderId` | Bearer (customer) | Own order |
+| `GET` | `/api/v1/users/me/orders/:orderId/tracking` | Bearer (customer) | Own order |
+| `GET` | `/api/v1/users/me/tickets` | Bearer (customer) | Own tickets |
+| `GET` | `/api/v1/users/me/tickets/:ticketId` | Bearer (customer) | Own ticket |
+| `GET` | `/api/v1/users/me/addresses` | Bearer (customer) | Own addresses |
+| `GET` | `/api/v1/users/me/reviews` | Bearer (customer) | Own reviews |
+
+These `/users/me/*` routes are **customer-only** (separate from staff `/customers` and dual-mode `/orders`). Every lookup is scoped to the JWT customer id — never trust a client-supplied customer id.
 
 ---
 
@@ -183,6 +199,24 @@ Get the authenticated customer's profile.
     "lastLogin": "2026-07-10T12:00:00.000Z",
     "createdAt": "2026-07-10T10:00:00.000Z",
     "updatedAt": "2026-07-10T12:00:00.000Z",
+    "defaultAddress": {
+      "id": 2,
+      "type": "SHIPPING",
+      "name": "Priya Sharma",
+      "email": "priya@example.com",
+      "phone": "9876543210",
+      "city": "Mumbai",
+      "state": "MH",
+      "isDefault": true
+    },
+    "counts": {
+      "addresses": 2,
+      "orders": 5,
+      "openTickets": 1,
+      "productReviews": 2,
+      "orderReviews": 1,
+      "reviews": 3
+    },
     "addressCount": 2
   }
 }
@@ -192,9 +226,40 @@ Get the authenticated customer's profile.
 
 ---
 
+## GET /api/v1/users/me/orders
+
+List the authenticated customer's own orders (same payload shape as customer `GET /orders`). Optional query: `status`, `page`, `limit`.
+
+## GET /api/v1/users/me/orders/:orderId
+
+Order detail for an owned order. Returns `404` if the order is missing or belongs to someone else.
+
+## GET /api/v1/users/me/orders/:orderId/tracking
+
+Tracking timeline for an owned order.
+
+## GET /api/v1/users/me/tickets
+
+Cross-order list of the customer's support tickets. Optional query: `status`, `type`, `orderId`, `q`, `page`, `limit`. `customerId` from the client is ignored.
+
+## GET /api/v1/users/me/tickets/:ticketId
+
+Ticket detail + messages for an owned ticket (`404` if not owned).
+
+## GET /api/v1/users/me/addresses
+
+Same as `GET /addresses` — list of the customer's addresses.
+
+## GET /api/v1/users/me/reviews
+
+Own product and order reviews. See [reviews.md](./reviews.md).
+
+---
+
 ## Typical storefront flow
 
 1. `POST /auth/customer/send-otp` → user receives OTP
 2. `POST /auth/customer/verify-otp` → store `accessToken`, `lastLogin` updated
 3. `POST /addresses` → save shipping/billing with name, email, phone (max 5)
 4. Checkout via `POST /orders` — see [orders.md](./orders.md)
+5. After delivery, submit reviews via [reviews.md](./reviews.md)

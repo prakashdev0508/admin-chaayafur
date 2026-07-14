@@ -25,18 +25,22 @@ export function listShopOrders(params: ListOrdersParams = {}) {
   const query = search.toString();
 
   return apiRequest<PaginatedResponse<Order>>(
-    `/orders${query ? `?${query}` : ""}`,
+    `/users/me/orders${query ? `?${query}` : ""}`,
     {},
     "customer",
   );
 }
 
 export function getShopOrder(id: number) {
-  return apiRequest<Order>(`/orders/${id}`, {}, "customer");
+  return apiRequest<Order>(`/users/me/orders/${id}`, {}, "customer");
 }
 
 export function getShopOrderTracking(id: number) {
-  return apiRequest<OrderTracking>(`/orders/${id}/tracking`, {}, "customer");
+  return apiRequest<OrderTracking>(
+    `/users/me/orders/${id}/tracking`,
+    {},
+    "customer",
+  );
 }
 
 export function getShopOrderInvoice(orderId: number) {
