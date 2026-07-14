@@ -12,6 +12,7 @@ import {
 import { listShopOrders } from "@/services/shop-orders.service";
 import { queryKeys } from "@/lib/query-keys";
 import { formatCurrency, formatDate, formatPhone } from "@/lib/format";
+import { getOrderStatusLabel } from "@/lib/order-status";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -86,7 +87,7 @@ export function AccountPage() {
               <div>
                 <p className="font-medium">{order.orderNumber}</p>
                 <p className="text-sm text-muted-foreground">
-                  {formatDate(order.createdAt)} · {order.status}
+                  {formatDate(order.createdAt)} · {getOrderStatusLabel(order.status)}
                   {order.coupon ? ` · ${order.coupon.code}` : ""}
                 </p>
               </div>

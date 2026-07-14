@@ -1,20 +1,15 @@
 import { type ColumnDef } from "@tanstack/react-table";
-import { MoreHorizontal } from "lucide-react";
+import { Eye } from "lucide-react";
 import { Link } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { buttonVariants } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatCurrency } from "@/lib/format";
 import type { RecentOrderRow } from "@/types";
 import {
-  orderStatusLabels,
-  orderStatusVariants,
+  getOrderStatusLabel,
+  getOrderStatusVariant,
 } from "@/lib/order-status";
+import { cn } from "@/lib/utils";
 
 export const recentOrdersColumns: ColumnDef<RecentOrderRow>[] = [
   {
@@ -46,8 +41,8 @@ export const recentOrdersColumns: ColumnDef<RecentOrderRow>[] = [
     cell: ({ row }) => {
       const status = row.getValue("status") as import("@/types/order").OrderStatus;
       return (
-        <StatusBadge variant={orderStatusVariants[status]}>
-          {orderStatusLabels[status]}
+        <StatusBadge variant={getOrderStatusVariant(status)}>
+          {getOrderStatusLabel(status)}
         </StatusBadge>
       );
     },
@@ -55,20 +50,13 @@ export const recentOrdersColumns: ColumnDef<RecentOrderRow>[] = [
   {
     id: "actions",
     cell: ({ row }) => (
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          render={
-            <Button variant="ghost" size="icon" className="size-8">
-              <MoreHorizontal className="size-4" />
-            </Button>
-          }
-        />
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem>
-            <Link to={`/orders/${row.original.id}`}>View order</Link>
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <Link
+        to={`/orders/${row.original.id}`}
+        aria-label="View order details"
+        className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "size-8")}
+      >
+        <Eye className="size-4" />
+      </Link>
     ),
   },
 ];

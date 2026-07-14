@@ -1,16 +1,11 @@
 import { type ColumnDef } from "@tanstack/react-table";
-import { MoreHorizontal } from "lucide-react";
+import { Eye, Pencil } from "lucide-react";
 import { Link } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { buttonVariants } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatDate } from "@/lib/format";
 import { formatCouponDiscount, getCouponStatus } from "@/lib/coupon-utils";
+import { cn } from "@/lib/utils";
 import type { Coupon } from "@/types/coupon";
 
 export const couponColumns: ColumnDef<Coupon>[] = [
@@ -71,23 +66,22 @@ export const couponColumns: ColumnDef<Coupon>[] = [
   {
     id: "actions",
     cell: ({ row }) => (
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          render={
-            <Button variant="ghost" size="icon" className="size-8">
-              <MoreHorizontal className="size-4" />
-            </Button>
-          }
-        />
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem>
-            <Link to={`/coupons/${row.original.id}`}>View details</Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem>
-            <Link to={`/coupons/${row.original.id}/edit`}>Edit</Link>
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <div className="flex items-center gap-1">
+        <Link
+          to={`/coupons/${row.original.id}`}
+          aria-label="View coupon details"
+          className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "size-8")}
+        >
+          <Eye className="size-4" />
+        </Link>
+        <Link
+          to={`/coupons/${row.original.id}/edit`}
+          aria-label="Edit coupon"
+          className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "size-8")}
+        >
+          <Pencil className="size-4" />
+        </Link>
+      </div>
     ),
   },
 ];

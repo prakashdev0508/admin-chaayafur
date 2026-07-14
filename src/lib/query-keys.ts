@@ -7,6 +7,7 @@ export const queryKeys = {
     auditLogs: (id: number, params?: Record<string, unknown>) =>
       ["orders", "audit-logs", id, params] as const,
     invoice: (id: number) => ["orders", "invoice", id] as const,
+    refund: (id: number) => ["orders", "refund", id] as const,
   },
   payments: {
     all: ["payments"] as const,
@@ -66,8 +67,17 @@ export const queryKeys = {
         ["admin", "banners", "list", params] as const,
       detail: (id: number) => ["admin", "banners", "detail", id] as const,
     },
+    siteSettings: ["admin", "site-settings"] as const,
+    shippingPincodes: {
+      all: ["admin", "shipping-pincodes"] as const,
+      list: (params: Record<string, unknown>) =>
+        ["admin", "shipping-pincodes", "list", params] as const,
+    },
   },
   shop: {
+    siteSettings: ["shop", "site-settings"] as const,
+    shippingQuote: (params: { pincode: string; subtotal: number }) =>
+      ["shop", "shipping-quote", params] as const,
     home: ["shop", "home"] as const,
     products: {
       list: (params: Record<string, unknown>) =>

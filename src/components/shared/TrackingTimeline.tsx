@@ -1,14 +1,19 @@
 import {
   Check,
-  Circle,
   Clock3,
+  MapPin,
   Package,
   PackageCheck,
+  RotateCcw,
   Truck,
+  Warehouse,
   X,
 } from "lucide-react";
 import type { OrderStatus, OrderTracking } from "@/types/order";
-import { orderStatusLabels, orderStatusVariants } from "@/lib/order-status";
+import {
+  getOrderStatusLabel,
+  getOrderStatusVariant,
+} from "@/lib/order-status";
 import {
   paymentStatusLabels,
   paymentStatusVariants,
@@ -21,6 +26,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 type TrackingTimelineProps = {
   tracking?: OrderTracking;
   loading?: boolean;
+  /** Destination label (city/state) from shipping address */
+  destination?: string | null;
+  origin?: string | null;
 };
 
 const statusIcons: Record<OrderStatus, typeof Clock3> = {
@@ -28,24 +36,230 @@ const statusIcons: Record<OrderStatus, typeof Clock3> = {
   CONFIRMED: Package,
   SHIPPED: Truck,
   DELIVERED: PackageCheck,
+  REFUND_INITIATED: RotateCcw,
+  REFUNDED: RotateCcw,
   CANCELLED: X,
 };
+
+const ROUTE_PATH =
+  "M 48 220 C 120 200, 140 120, 220 140 C 300 160, 320 70, 400 90 C 480 110, 500 160, 552 150";
 
 function getProgress(timeline: OrderTracking["timeline"]) {
   if (timeline.length === 0) return 0;
   const completed = timeline.filter((step) => step.isCompleted).length;
-  const current = timeline.some((step) => step.isCurrent) ? 0.5 : 0;
+  const current = timeline.some((step) => step.isCurrent) ? 0.45 : 0;
   return Math.min(100, ((completed + current) / timeline.length) * 100);
 }
 
-export function TrackingTimeline({ tracking, loading }: TrackingTimelineProps) {
+function stepState(step: OrderTracking["timeline"][number]) {
+  if (step.isCompleted) return "completed" as const;
+  if (step.isCurrent) return "current" as const;
+  return "upcoming" as const;
+}
+
+/** Approximate point along the SVG cubic path by progress 0–1 */
+function pointOnRoute(t: number): { x: number; y: number } {
+  const clamped = Math.min(1, Math.max(0, t));
+  // Sample key waypoints matching the path silhouette
+  const points = [
+    { x: 48, y: 220 },
+    { x: 120, y: 180 },
+    { x: 220, y: 140 },
+    { x: 320, y: 100 },
+    { x: 400, y: 90 },
+    { x: 480, y: 130 },
+    { x: 552, y: 150 },
+  ];
+  const scaled = clamped * (points.length - 1);
+  const i = Math.floor(scaled);
+  const f = scaled - i;
+  const a = points[Math.min(i, points.length - 1)];
+  const b = points[Math.min(i + 1, points.length - 1)];
+  return {
+    x: a.x + (b.x - a.x) * f,
+    y: a.y + (b.y - a.y) * f,
+  };
+}
+
+function JourneyMap({
+  progress,
+  isCancelled,
+  origin,
+  destination,
+  currentLabel,
+}: {
+  progress: number;
+  isCancelled: boolean;
+  origin: string;
+  destination: string;
+  currentLabel: string;
+}) {
+  const t = progress / 100;
+  const pin = pointOnRoute(isCancelled ? Math.min(t, 0.35) : t);
+  const stroke = isCancelled ? "hsl(var(--destructive))" : "hsl(var(--primary))";
+
+  return (
+    <div className="relative overflow-hidden rounded-2xl border bg-[#F4F6F8]">
+      {/* Soft map grid / terrain */}
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.45]"
+        style={{
+          backgroundImage: `
+            linear-gradient(rgba(148,163,184,0.25) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(148,163,184,0.25) 1px, transparent 1px)
+          `,
+          backgroundSize: "28px 28px",
+        }}
+        aria-hidden
+      />
+      <div
+        className="pointer-events-none absolute -top-10 right-10 size-40 rounded-full bg-sky-200/40 blur-3xl"
+        aria-hidden
+      />
+      <div
+        className="pointer-events-none absolute bottom-0 left-20 size-48 rounded-full bg-emerald-100/50 blur-3xl"
+        aria-hidden
+      />
+
+      <div className="relative px-4 pt-4 sm:px-6">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
+              Shipment route
+            </p>
+            <p className="mt-1 text-sm font-medium text-slate-700">
+              {origin}
+              <span className="mx-2 text-slate-400">→</span>
+              {destination}
+            </p>
+          </div>
+          <div className="rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-slate-600 shadow-sm ring-1 ring-slate-200/80">
+            {currentLabel}
+          </div>
+        </div>
+      </div>
+
+      <svg
+        viewBox="0 0 600 270"
+        className="relative h-[220px] w-full sm:h-[260px]"
+        role="img"
+        aria-label={`Route from ${origin} to ${destination}, ${Math.round(progress)}% complete`}
+      >
+        {/* Soft roads / streets */}
+        <path
+          d="M 0 80 Q 150 60 300 100 T 600 70"
+          fill="none"
+          stroke="#CBD5E1"
+          strokeWidth="10"
+          opacity="0.35"
+        />
+        <path
+          d="M 0 180 Q 200 160 350 200 T 600 190"
+          fill="none"
+          stroke="#CBD5E1"
+          strokeWidth="8"
+          opacity="0.3"
+        />
+
+        {/* Full route track */}
+        <path
+          d={ROUTE_PATH}
+          fill="none"
+          stroke="#94A3B8"
+          strokeWidth="4"
+          strokeLinecap="round"
+          strokeDasharray="8 10"
+          opacity="0.7"
+        />
+
+        {/* Progress along route */}
+        <path
+          d={ROUTE_PATH}
+          fill="none"
+          stroke={stroke}
+          strokeWidth="5"
+          strokeLinecap="round"
+          pathLength={100}
+          strokeDasharray={`${Math.max(2, progress)} 100`}
+          className="transition-[stroke-dasharray] duration-700 ease-out"
+          style={{
+            filter: isCancelled
+              ? "drop-shadow(0 0 6px rgba(220,38,38,0.35))"
+              : "drop-shadow(0 0 8px rgba(59,130,246,0.45))",
+          }}
+        />
+
+        {/* Origin marker */}
+        <g transform="translate(48, 220)">
+          <circle r="14" fill="#fff" stroke="#E2E8F0" strokeWidth="2" />
+          <circle r="7" fill={stroke} />
+        </g>
+
+        {/* Destination pin */}
+        <g transform="translate(552, 150)">
+          <path
+            d="M0,-28 C12,-28 18,-16 18,-6 C18,6 0,22 0,22 C0,22 -18,6 -18,-6 C-18,-16 -12,-28 0,-28 Z"
+            fill={progress >= 99 ? stroke : "#fff"}
+            stroke={stroke}
+            strokeWidth="2.5"
+          />
+          <circle
+            cy="-10"
+            r="5"
+            fill={progress >= 99 ? "#fff" : stroke}
+          />
+        </g>
+
+        {/* Moving package / courier pin */}
+        {!isCancelled && progress < 99 && (
+          <g transform={`translate(${pin.x}, ${pin.y})`}>
+            <circle
+              r="18"
+              fill="#fff"
+              stroke={stroke}
+              strokeWidth="2.5"
+              className="animate-pulse"
+              style={{
+                filter: "drop-shadow(0 6px 12px rgba(15,23,42,0.2))",
+              }}
+            />
+            <g transform="translate(-8, -8)" fill={stroke}>
+              <rect x="1" y="3" width="14" height="10" rx="1.5" />
+              <path d="M1 6h14M8 3v10" stroke="#fff" strokeWidth="1.2" fill="none" />
+            </g>
+          </g>
+        )}
+      </svg>
+
+      <div className="relative flex items-center justify-between gap-4 border-t border-slate-200/70 bg-white/70 px-4 py-3 text-xs text-slate-600 backdrop-blur-sm sm:px-6">
+        <div className="flex items-center gap-2">
+          <Warehouse className="size-3.5 text-slate-400" />
+          <span className="font-medium">{origin}</span>
+        </div>
+        <div className="hidden h-px flex-1 bg-linear-to-r from-transparent via-slate-300 to-transparent sm:block" />
+        <div className="flex items-center gap-2">
+          <MapPin className="size-3.5 text-slate-400" />
+          <span className="font-medium">{destination}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function TrackingTimeline({
+  tracking,
+  loading,
+  destination,
+  origin = "Warehouse",
+}: TrackingTimelineProps) {
   if (loading) {
     return (
-      <div className="space-y-4">
-        <Skeleton className="h-28 w-full rounded-2xl" />
-        <div className="grid gap-3 md:grid-cols-5">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-24 rounded-xl" />
+      <div className="grid gap-6 lg:grid-cols-[1.2fr_1fr]">
+        <Skeleton className="h-[320px] w-full rounded-2xl" />
+        <div className="space-y-4">
+          <Skeleton className="h-8 w-40" />
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-16 w-full rounded-xl" />
           ))}
         </div>
       </div>
@@ -54,7 +268,7 @@ export function TrackingTimeline({ tracking, loading }: TrackingTimelineProps) {
 
   if (!tracking) {
     return (
-      <div className="rounded-2xl border border-dashed bg-muted/20 px-6 py-10 text-center">
+      <div className="rounded-2xl border border-dashed bg-muted/20 px-6 py-16 text-center">
         <p className="text-sm font-medium">Tracking unavailable</p>
         <p className="mt-1 text-sm text-muted-foreground">
           This order does not have tracking data yet.
@@ -65,233 +279,129 @@ export function TrackingTimeline({ tracking, loading }: TrackingTimelineProps) {
 
   const progress = getProgress(tracking.timeline);
   const currentStep = tracking.timeline.find((step) => step.isCurrent);
-  const isCancelled = tracking.currentStatus === "CANCELLED";
+  const isCancelled =
+    tracking.currentStatus === "CANCELLED" ||
+    tracking.currentStatus === "REFUNDED";
+  const destinationLabel = destination?.trim() || "Customer";
 
   return (
-    <div className="space-y-6">
-      <div className="overflow-hidden rounded-2xl border bg-linear-to-br from-card via-card to-muted/30">
-        <div className="flex flex-col gap-5 p-5 sm:p-6 lg:flex-row lg:items-center lg:justify-between">
-          <div className="space-y-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <StatusBadge variant={orderStatusVariants[tracking.currentStatus]}>
-                {orderStatusLabels[tracking.currentStatus]}
-              </StatusBadge>
-              <StatusBadge
-                variant={paymentStatusVariants[tracking.paymentStatus]}
-              >
-                Payment · {paymentStatusLabels[tracking.paymentStatus]}
-              </StatusBadge>
-            </div>
-            <div>
-              <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                Order {tracking.orderNumber}
-              </p>
-              <h3 className="mt-1 text-lg font-semibold tracking-tight">
-                {currentStep?.label ?? orderStatusLabels[tracking.currentStatus]}
-              </h3>
-              <p className="mt-1 max-w-xl text-sm text-muted-foreground">
-                {currentStep?.description ??
-                  "Status updates will appear here as the order moves forward."}
-              </p>
-            </div>
-          </div>
+    <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr] lg:items-start">
+      <div className="space-y-4">
+        <JourneyMap
+          progress={isCancelled ? 0 : progress}
+          isCancelled={isCancelled}
+          origin={origin?.trim() || "Warehouse"}
+          destination={destinationLabel}
+          currentLabel={
+            currentStep?.label ?? getOrderStatusLabel(tracking.currentStatus)
+          }
+        />
 
-          <div className="flex items-center gap-4 lg:min-w-[220px] lg:justify-end">
-            <div className="relative flex size-20 items-center justify-center">
-              <svg className="absolute inset-0 -rotate-90" viewBox="0 0 80 80">
-                <circle
-                  cx="40"
-                  cy="40"
-                  r="34"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="6"
-                  className="text-muted/50"
-                />
-                <circle
-                  cx="40"
-                  cy="40"
-                  r="34"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="6"
-                  strokeLinecap="round"
-                  strokeDasharray={`${2 * Math.PI * 34}`}
-                  strokeDashoffset={`${2 * Math.PI * 34 * (1 - progress / 100)}`}
-                  className={cn(
-                    "transition-[stroke-dashoffset] duration-700 ease-out",
-                    isCancelled ? "text-destructive/70" : "text-primary",
-                  )}
-                />
-              </svg>
-              <div className="text-center">
-                <p className="text-lg font-semibold leading-none">
-                  {Math.round(progress)}%
-                </p>
-                <p className="mt-1 text-[10px] uppercase tracking-wide text-muted-foreground">
-                  Complete
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="h-1.5 bg-muted/50">
-          <div
-            className={cn(
-              "h-full transition-all duration-700 ease-out",
-              isCancelled ? "bg-destructive/60" : "bg-primary",
-            )}
-            style={{ width: `${progress}%` }}
-          />
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border bg-card px-4 py-3">
+          <StatusBadge variant={getOrderStatusVariant(tracking.currentStatus)}>
+            {getOrderStatusLabel(tracking.currentStatus)}
+          </StatusBadge>
+          <StatusBadge variant={paymentStatusVariants[tracking.paymentStatus]}>
+            Payment · {paymentStatusLabels[tracking.paymentStatus]}
+          </StatusBadge>
+          <span className="ml-auto text-xs text-muted-foreground">
+            Order {tracking.orderNumber}
+          </span>
         </div>
       </div>
 
-      <div className="hidden md:grid md:grid-cols-5 md:gap-2">
-        {tracking.timeline.map((step, index) => {
-          const Icon = statusIcons[step.status];
-          const state = step.isCompleted
-            ? "completed"
-            : step.isCurrent
-              ? "current"
-              : "upcoming";
+      {/* Timeline panel — matches reference style */}
+      <div className="rounded-2xl border bg-card p-5 shadow-sm sm:p-6">
+        <h3 className="text-base font-semibold tracking-tight">
+          Order Tracking
+        </h3>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Journey from fulfillment to delivery
+        </p>
 
-          return (
-            <div
-              key={step.status}
-              className={cn(
-                "relative rounded-xl border p-4 transition-colors",
-                state === "completed" && "border-primary/20 bg-primary/5",
-                state === "current" &&
-                  "border-primary bg-primary/10 shadow-[0_10px_30px_-20px_rgba(107,78,61,0.8)]",
-                state === "upcoming" && "border-border/70 bg-muted/15",
-              )}
-            >
-              {index < tracking.timeline.length - 1 && (
-                <div
-                  className={cn(
-                    "absolute top-8 -right-2 z-10 hidden h-px w-4 xl:block",
-                    step.isCompleted ? "bg-primary/40" : "bg-border",
-                  )}
-                />
-              )}
+        <ol className="mt-6 space-y-0">
+          {tracking.timeline.map((step, index) => {
+            const Icon = statusIcons[step.status] ?? Clock3;
+            const state = stepState(step);
+            const isLast = index === tracking.timeline.length - 1;
 
-              <div
-                className={cn(
-                  "mb-3 flex size-9 items-center justify-center rounded-lg border",
-                  state === "completed" &&
-                    "border-primary/30 bg-primary text-primary-foreground",
-                  state === "current" &&
-                    "border-primary bg-background text-primary ring-2 ring-primary/20",
-                  state === "upcoming" &&
-                    "border-border bg-background text-muted-foreground",
+            return (
+              <li key={step.status} className="relative flex gap-3.5 pb-6 last:pb-0">
+                {!isLast && (
+                  <div
+                    className="absolute top-8 bottom-0 left-[11px] w-px"
+                    aria-hidden
+                  >
+                    {step.isCompleted ? (
+                      <div className="h-full w-full bg-primary" />
+                    ) : (
+                      <div
+                        className="h-full w-full"
+                        style={{
+                          backgroundImage:
+                            "repeating-linear-gradient(to bottom, hsl(var(--border)) 0 5px, transparent 5px 10px)",
+                        }}
+                      />
+                    )}
+                  </div>
                 )}
-              >
-                {state === "completed" ? (
-                  <Check className="size-4" />
-                ) : state === "current" ? (
-                  <Icon className="size-4 animate-pulse" />
-                ) : (
-                  <Icon className="size-4" />
-                )}
-              </div>
 
-              <p
-                className={cn(
-                  "text-sm font-medium",
-                  state === "upcoming" && "text-muted-foreground",
-                )}
-              >
-                {step.label}
-              </p>
-              {step.occurredAt && (
-                <p className="mt-2 text-[11px] text-muted-foreground">
-                  {formatDate(step.occurredAt)}
-                </p>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="space-y-0 md:hidden">
-        {tracking.timeline.map((step, index) => {
-          const Icon = statusIcons[step.status];
-          const state = step.isCompleted
-            ? "completed"
-            : step.isCurrent
-              ? "current"
-              : "upcoming";
-
-          return (
-            <div key={step.status} className="flex gap-4">
-              <div className="flex flex-col items-center">
-                <div
-                  className={cn(
-                    "flex size-10 items-center justify-center rounded-full border",
-                    state === "completed" &&
-                      "border-primary bg-primary text-primary-foreground",
-                    state === "current" &&
-                      "border-primary bg-background text-primary ring-4 ring-primary/10",
-                    state === "upcoming" &&
-                      "border-border bg-muted/30 text-muted-foreground",
-                  )}
-                >
-                  {state === "completed" ? (
-                    <Check className="size-4" />
-                  ) : state === "current" ? (
-                    <Icon className="size-4" />
-                  ) : (
-                    <Circle className="size-3 fill-current" />
-                  )}
-                </div>
-                {index < tracking.timeline.length - 1 && (
+                <div className="relative z-10 mt-0.5 shrink-0">
                   <div
                     className={cn(
-                      "my-1 w-px flex-1 min-h-10",
-                      step.isCompleted ? "bg-primary/35" : "bg-border",
+                      "flex size-6 items-center justify-center rounded-full border-2",
+                      state === "completed" &&
+                        "border-primary bg-primary text-primary-foreground",
+                      state === "current" &&
+                        "border-primary bg-background text-primary ring-[3px] ring-primary/20",
+                      state === "upcoming" &&
+                        "border-border bg-background text-muted-foreground",
                     )}
-                  />
-                )}
-              </div>
-
-              <div
-                className={cn(
-                  "mb-5 flex-1 rounded-xl border p-4",
-                  state === "current" && "border-primary/30 bg-primary/5",
-                  state === "upcoming" && "border-transparent bg-transparent px-0",
-                )}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p
-                      className={cn(
-                        "font-medium",
-                        state === "current" && "text-primary",
-                        state === "upcoming" && "text-muted-foreground",
-                      )}
-                    >
-                      {step.label}
-                    </p>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {step.description}
-                    </p>
+                  >
+                    {state === "completed" ? (
+                      <Check className="size-3" strokeWidth={3} />
+                    ) : state === "current" ? (
+                      <Icon className="size-3" />
+                    ) : (
+                      <span className="size-1.5 rounded-full bg-muted-foreground/40" />
+                    )}
                   </div>
-                  {state === "current" && (
-                    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-primary">
-                      Now
-                    </span>
-                  )}
                 </div>
-                {step.occurredAt && (
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    {formatDate(step.occurredAt)}
+
+                <div className="min-w-0 flex-1 -mt-0.5">
+                  <p
+                    className={cn(
+                      "text-sm font-semibold",
+                      state === "upcoming" && "text-muted-foreground",
+                      state === "current" && "text-primary",
+                    )}
+                  >
+                    {step.label}
                   </p>
-                )}
-              </div>
-            </div>
-          );
-        })}
+                  <p
+                    className={cn(
+                      "mt-0.5 text-sm",
+                      state === "upcoming"
+                        ? "text-muted-foreground/70"
+                        : "text-muted-foreground",
+                    )}
+                  >
+                    {step.description}
+                  </p>
+                  {step.occurredAt ? (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {formatDate(step.occurredAt)}
+                    </p>
+                  ) : state === "current" ? (
+                    <p className="mt-1 text-xs font-medium text-primary">
+                      In progress
+                    </p>
+                  ) : null}
+                </div>
+              </li>
+            );
+          })}
+        </ol>
       </div>
     </div>
   );

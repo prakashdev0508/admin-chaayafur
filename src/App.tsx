@@ -32,6 +32,7 @@ import { SuperAdminRoute } from "@/components/auth/SuperAdminRoute";
 import { SupportTicketListPage } from "@/pages/support-tickets/SupportTicketListPage";
 import { SupportTicketDetailPage } from "@/pages/support-tickets/SupportTicketDetailPage";
 import { WebsiteHomePage } from "@/pages/website/WebsiteHomePage";
+import { SettingsPage } from "@/pages/settings/SettingsPage";
 import { ShopHomePage } from "@/pages/shop/ShopHomePage";
 import { ShopCatalogPage } from "@/pages/shop/ShopCatalogPage";
 import { ShopProductPage } from "@/pages/shop/ShopProductPage";
@@ -94,6 +95,9 @@ const App = () => {
             <Route element={<PermissionRoute permission="create-staff" />}>
               <Route path="staff/new" element={<StaffCreatePage />} />
             </Route>
+          </Route>
+          <Route element={<PermissionRoute permission="view-settings" />}>
+            <Route path="settings" element={<SettingsPage />} />
           </Route>
         </Route>
       </Route>

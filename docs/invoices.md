@@ -1,8 +1,8 @@
 # Invoices API
 
-JSON invoice snapshots for confirmed orders. No PDF generation in this phase.
+JSON invoice snapshots for confirmed orders, plus downloadable PDF stored on Cloudflare R2.
 
-[← Back to index](./README.md) · [Orders](./orders.md) · [Payments](./payments.md)
+[← Back to index](./README.md) · [Orders](./orders.md) · [Payments](./payments.md) · [Site Settings](./site-settings.md)
 
 ---
 
@@ -10,8 +10,10 @@ JSON invoice snapshots for confirmed orders. No PDF generation in this phase.
 
 - Invoices are **auto-generated** when an order is confirmed (via Razorpay webhook or staff action)
 - Generation is **idempotent** — calling confirm/payment complete twice does not create duplicate invoices
+- On generate/regenerate, a **PDF** is built with `pdfkit`, uploaded to R2 (`invoices/{year}/{month}/…`), and linked via `pdfUrl`
+- PDF header includes brand contact + **GSTIN** from [site settings](./site-settings.md) (tax amount remains `0` in v1)
 - Invoice data is a **snapshot** at generation time (billing address, line items, prices)
-- `taxAmount` defaults to `0` — GST/tax calculation can be added later
+- `totalAmount` = subtotal − discount + shipping + tax
 - Invoice numbers follow the format `INV-YYYYMMDD-XXXX` (sequential per day)
 
 ### When is an invoice created?
@@ -26,6 +28,8 @@ JSON invoice snapshots for confirmed orders. No PDF generation in this phase.
 | Endpoint | Customer | Staff |
 |----------|:--------:|:-----:|
 | `GET /orders/:id/invoice` | Own order | All (`view-orders`) |
+| `POST /orders/:id/invoice/generate` | No | `update-orders` |
+| `GET /orders/:id/invoice/pdf` | Own order | All (`view-orders`) |
 
 ---
 
@@ -34,6 +38,45 @@ JSON invoice snapshots for confirmed orders. No PDF generation in this phase.
 | Method | Endpoint | Auth | Status |
 |--------|----------|------|--------|
 | `GET` | `/api/v1/orders/:id/invoice` | Customer or staff | `200` |
+| `POST` | `/api/v1/orders/:id/invoice/generate` | Staff (`update-orders`) | `200` |
+| `GET` | `/api/v1/orders/:id/invoice/pdf` | Customer or staff | `302` redirect to PDF URL |
+
+---
+
+## POST /api/v1/orders/:id/invoice/generate
+
+Generate or refresh the invoice snapshot, build a PDF with `pdfkit`, upload it to Cloudflare R2, and return the invoice including `pdfUrl`.
+
+| | |
+|---|---|
+| **Auth** | Staff Bearer (`update-orders`) |
+| **Status** | `200` |
+
+- Creates the invoice if missing; regenerates snapshot if one already exists
+- Always re-uploads a new PDF (`pdfUrl` / `pdfStorageKey` updated; previous R2 object deleted when replaced)
+- Requires R2 env vars (`503` if storage is not configured)
+
+```bash
+curl -X POST http://localhost:5000/api/v1/orders/1/invoice/generate \
+  -H "Authorization: Bearer $STAFF_TOKEN"
+```
+
+### Success response
+
+Same shape as `GET /orders/:id/invoice`, with a non-null `pdfUrl`:
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "orderId": 1,
+    "invoiceNumber": "INV-20260714-0001",
+    "pdfUrl": "https://cdn.example.com/invoices/2026/07/uuid.pdf",
+    "totalAmount": "14999.00"
+  }
+}
+```
 
 ---
 
@@ -45,8 +88,6 @@ Get the JSON invoice for an order.
 |---|---|
 | **Auth** | Bearer (customer or staff JWT) |
 | **Status** | `200` |
-
-Customers can only access invoices for their own orders.
 
 ### Success response
 
@@ -60,9 +101,12 @@ Customers can only access invoices for their own orders.
     "issuedAt": "2026-07-10T12:30:00.000Z",
     "billingName": "John Doe",
     "billingAddress": "456 Business Park, Mumbai, Maharashtra, 400002, IN",
-    "subtotal": "49999.98",
+    "subtotal": "5000.00",
+    "discountAmount": "500.00",
+    "shippingAmount": "499.00",
     "taxAmount": "0.00",
-    "totalAmount": "49999.98",
+    "totalAmount": "4999.00",
+    "pdfUrl": "https://cdn.example.com/invoices/2026/07/uuid.pdf",
     "lineItems": [
       {
         "productId": 1,
@@ -79,9 +123,6 @@ Customers can only access invoices for their own orders.
       "orderNumber": "ORD-20260710-0001",
       "customer": {
         "id": 1,
-        "email": "customer@example.com",
-        "firstName": "John",
-        "lastName": "Doe",
         "phone": "+919876543210"
       }
     }
@@ -89,53 +130,21 @@ Customers can only access invoices for their own orders.
 }
 ```
 
-### Response fields
+---
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `invoiceNumber` | string | Unique invoice ID (`INV-YYYYMMDD-XXXX`) |
-| `issuedAt` | string | ISO timestamp when invoice was issued |
-| `billingName` | string | Customer name or email fallback |
-| `billingAddress` | string | Billing address snapshot from order |
-| `subtotal` | string | Subtotal (decimal string) |
-| `taxAmount` | string | Tax amount (defaults to `0.00`) |
-| `totalAmount` | string | Total amount (decimal string) |
-| `lineItems` | array | Snapshot of order line items |
-| `lineItems[].productId` | integer | Product ID |
-| `lineItems[].name` | string | Product name at invoice time |
-| `lineItems[].quantity` | integer | Quantity ordered |
-| `lineItems[].unitPrice` | string | Unit price at invoice time |
-| `lineItems[].lineTotal` | string | Line total |
+## GET /api/v1/orders/:id/invoice/pdf
+
+Redirects to the public R2 PDF URL. If an older invoice has no PDF yet, the API generates and uploads one on demand (requires R2 configured).
+
+```bash
+curl -L http://localhost:5000/api/v1/orders/1/invoice/pdf \
+  -H "Authorization: Bearer $CUSTOMER_TOKEN" \
+  -o invoice.pdf
+```
 
 ### Errors
 
 | Status | When |
 |--------|------|
 | `403` | Customer accessing another customer's invoice |
-| `404` | Order not found, or invoice not yet generated |
-
-> Invoice not found (`404`) means the order has not been confirmed yet. Confirm the order or complete the payment first.
-
-### cURL
-
-```bash
-curl http://localhost:5000/api/v1/orders/1/invoice \
-  -H "Authorization: Bearer $CUSTOMER_TOKEN"
-```
-
----
-
-## Invoice data model
-
-Invoices are stored in the `Invoice` table with a one-to-one relation to `Order`.
-
-| DB field | Description |
-|----------|-------------|
-| `orderId` | Unique — one invoice per order |
-| `invoiceNumber` | Unique human-readable number |
-| `billingName` | Customer display name |
-| `billingAddress` | Text snapshot |
-| `subtotal` | `Decimal(10,2)` |
-| `taxAmount` | `Decimal(10,2)`, default 0 |
-| `totalAmount` | `Decimal(10,2)` |
-| `lineItems` | `JSON` array snapshot |
+| `404` | Order not confirmed / invoice missing, or PDF unavailable (e.g. R2 not configured) |

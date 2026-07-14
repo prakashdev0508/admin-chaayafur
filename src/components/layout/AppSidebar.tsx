@@ -173,17 +173,20 @@ export function AppSidebar() {
 
       <SidebarFooter>
         <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              tooltip="Settings"
-              render={
-                <button type="button">
-                  <Settings />
-                  <span>Settings</span>
-                </button>
-              }
-            />
-          </SidebarMenuItem>
+          {hasPermission("view-settings") && (
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                isActive={isActive("/settings")}
+                tooltip="Settings"
+                render={
+                  <Link to="/settings">
+                    <Settings />
+                    <span>Settings</span>
+                  </Link>
+                }
+              />
+            </SidebarMenuItem>
+          )}
           <SidebarMenuItem>
             <SidebarMenuButton
               tooltip="Get Help"

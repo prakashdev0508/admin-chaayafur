@@ -3,8 +3,8 @@ import { Link } from "react-router-dom";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatCurrency, formatDate } from "@/lib/format";
 import {
-  orderStatusLabels,
-  orderStatusVariants,
+  getOrderStatusLabel,
+  getOrderStatusVariant,
 } from "@/lib/order-status";
 import type { CustomerOrderSummary } from "@/types/customer";
 
@@ -27,8 +27,8 @@ export const customerOrderColumns: ColumnDef<CustomerOrderSummary>[] = [
     cell: ({ row }) => {
       const status = row.getValue("status") as CustomerOrderSummary["status"];
       return (
-        <StatusBadge variant={orderStatusVariants[status]}>
-          {orderStatusLabels[status]}
+        <StatusBadge variant={getOrderStatusVariant(status)}>
+          {getOrderStatusLabel(status)}
         </StatusBadge>
       );
     },

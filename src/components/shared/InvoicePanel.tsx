@@ -11,15 +11,26 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/shared/EmptyState";
-import { FileText } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Download, FileText, RefreshCw } from "lucide-react";
 
 type InvoicePanelProps = {
   invoice?: Invoice;
   loading?: boolean;
   notFound?: boolean;
+  canGenerate?: boolean;
+  generating?: boolean;
+  onGenerate?: () => void;
 };
 
-export function InvoicePanel({ invoice, loading, notFound }: InvoicePanelProps) {
+export function InvoicePanel({
+  invoice,
+  loading,
+  notFound,
+  canGenerate,
+  generating,
+  onGenerate,
+}: InvoicePanelProps) {
   if (loading) {
     return (
       <div className="space-y-4">
@@ -34,7 +45,25 @@ export function InvoicePanel({ invoice, loading, notFound }: InvoicePanelProps) 
       <EmptyState
         icon={FileText}
         title="Invoice not available"
-        description="Invoice is generated when the order is confirmed."
+        description={
+          canGenerate
+            ? "No invoice exists yet. Generate a snapshot and PDF for this order."
+            : "Invoice is generated when the order is confirmed."
+        }
+        action={
+          canGenerate && onGenerate ? (
+            <Button onClick={onGenerate} disabled={generating}>
+              {generating ? (
+                <>
+                  <RefreshCw className="size-4 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                "Generate invoice"
+              )}
+            </Button>
+          ) : undefined
+        }
       />
     );
   }
@@ -50,9 +79,59 @@ export function InvoicePanel({ invoice, loading, notFound }: InvoicePanelProps) 
           <p className="text-sm text-muted-foreground">Invoice number</p>
           <p className="text-lg font-semibold">{invoice.invoiceNumber}</p>
         </div>
-        <div className="text-right">
-          <p className="text-sm text-muted-foreground">Issued</p>
-          <p className="text-sm">{formatDate(invoice.issuedAt)}</p>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="text-right">
+            <p className="text-sm text-muted-foreground">Issued</p>
+            <p className="text-sm">{formatDate(invoice.issuedAt)}</p>
+          </div>
+          {invoice.pdfUrl ? (
+            <Button
+              variant="outline"
+              size="sm"
+              render={
+                <a href={invoice.pdfUrl} target="_blank" rel="noreferrer">
+                  <Download className="size-4" />
+                  Download PDF
+                </a>
+              }
+            />
+          ) : canGenerate && onGenerate ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onGenerate}
+              disabled={generating}
+            >
+              {generating ? (
+                <>
+                  <RefreshCw className="size-4 animate-spin" />
+                  Generating PDF...
+                </>
+              ) : (
+                "Generate PDF"
+              )}
+            </Button>
+          ) : null}
+          {canGenerate && onGenerate && invoice.pdfUrl && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onGenerate}
+              disabled={generating}
+            >
+              {generating ? (
+                <>
+                  <RefreshCw className="size-4 animate-spin" />
+                  Regenerating...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="size-4" />
+                  Regenerate
+                </>
+              )}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -98,6 +177,16 @@ export function InvoicePanel({ invoice, loading, notFound }: InvoicePanelProps) 
             <span className="text-muted-foreground">Discount</span>
             <span className="text-[#346538]">
               -{formatCurrency(invoice.discountAmount)}
+            </span>
+          </div>
+        )}
+        {invoice.shippingAmount != null && (
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Shipping</span>
+            <span>
+              {parseFloat(invoice.shippingAmount) === 0
+                ? "Free"
+                : formatCurrency(invoice.shippingAmount)}
             </span>
           </div>
         )}

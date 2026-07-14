@@ -10,6 +10,7 @@ import type {
   UpdateOrderPayload,
 } from "@/types/order";
 import type { AuditLog, ListAuditLogsParams } from "@/types/audit-log";
+import type { InitiateRefundPayload, OrderRefund } from "@/types/refund";
 
 export function listOrders(params: ListOrdersParams = {}) {
   return apiRequest<PaginatedResponse<OrderListItem>>(
@@ -43,4 +44,38 @@ export function getOrderAuditLogs(
 
 export function getOrderInvoice(orderId: number) {
   return apiRequest<Invoice>(`/orders/${orderId}/invoice`);
+}
+
+export function generateOrderInvoice(orderId: number) {
+  return apiRequest<Invoice>(`/orders/${orderId}/invoice/generate`, {
+    method: "POST",
+  });
+}
+
+export function getOrderRefund(orderId: number) {
+  return apiRequest<OrderRefund>(`/orders/${orderId}/refund`);
+}
+
+export function initiateOrderRefund(
+  orderId: number,
+  payload: InitiateRefundPayload,
+) {
+  return apiRequest<OrderRefund>(`/orders/${orderId}/refund`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function completeOrderRefund(orderId: number, refundId: number) {
+  return apiRequest<OrderRefund>(
+    `/orders/${orderId}/refund/${refundId}/complete`,
+    { method: "POST" },
+  );
+}
+
+export function cancelOrderRefund(orderId: number, refundId: number) {
+  return apiRequest<OrderRefund>(
+    `/orders/${orderId}/refund/${refundId}/cancel`,
+    { method: "POST" },
+  );
 }

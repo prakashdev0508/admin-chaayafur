@@ -1,15 +1,10 @@
 import { type ColumnDef } from "@tanstack/react-table";
-import { MoreHorizontal } from "lucide-react";
+import { Eye } from "lucide-react";
 import { Link } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { buttonVariants } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatDate, formatPhone } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import type { CustomerListItem } from "@/types/customer";
 
 export const customerColumns: ColumnDef<CustomerListItem>[] = [
@@ -53,20 +48,13 @@ export const customerColumns: ColumnDef<CustomerListItem>[] = [
   {
     id: "actions",
     cell: ({ row }) => (
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          render={
-            <Button variant="ghost" size="icon" className="size-8">
-              <MoreHorizontal className="size-4" />
-            </Button>
-          }
-        />
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem>
-            <Link to={`/customers/${row.original.id}`}>View profile</Link>
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <Link
+        to={`/customers/${row.original.id}`}
+        aria-label="View customer profile"
+        className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "size-8")}
+      >
+        <Eye className="size-4" />
+      </Link>
     ),
   },
 ];

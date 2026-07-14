@@ -11,15 +11,18 @@ export type Payment = {
   paymentLinkUrl?: string;
   razorpayPaymentLinkId?: string;
   razorpayPaymentId: string | null;
+  razorpayRefundId?: string | null;
   keyId?: string;
   razorpayOrderId?: string;
   amountPaise?: number;
   currency?: string;
   transactionId: string | null;
   notes: string | null;
+  refundNotes?: string | null;
+  refundedAt?: string | null;
   createdAt: string;
   updatedAt: string;
-  order: {
+  order?: {
     id: number;
     orderNumber: string;
     customerId: number;

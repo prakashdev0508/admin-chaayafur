@@ -47,7 +47,6 @@ export function createProductColumns({
             )}
             <div className="min-w-0">
               <p className="font-medium">{product.name}</p>
-              <p className="text-xs text-muted-foreground">{product.slug}</p>
               {(() => {
                 const tags = getActiveProductTags(product);
                 if (tags.length === 0) return null;

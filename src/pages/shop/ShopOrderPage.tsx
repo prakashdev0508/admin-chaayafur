@@ -136,7 +136,10 @@ export function ShopOrderPage() {
     : order.shippingAddress;
 
   const hasDiscount = parseFloat(order.discountAmount) > 0;
-  const canOpenSupport = order.status !== "CANCELLED";
+  const canOpenSupport =
+    order.status !== "CANCELLED" &&
+    order.status !== "REFUNDED" &&
+    order.status !== "REFUND_INITIATED";
   const tickets = ticketsQuery.data ?? [];
 
   function openCreateDialog(type: SupportTicketType) {
@@ -214,6 +217,16 @@ export function ShopOrderPage() {
               <div className="flex justify-between text-[#5C7A4A]">
                 <span>Discount</span>
                 <span>-{formatCurrency(order.discountAmount)}</span>
+              </div>
+            )}
+            {order.shippingAmount != null && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Shipping</span>
+                <span>
+                  {parseFloat(order.shippingAmount) === 0
+                    ? "Free"
+                    : formatCurrency(order.shippingAmount)}
+                </span>
               </div>
             )}
             <div className="flex justify-between font-medium">
