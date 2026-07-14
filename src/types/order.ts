@@ -10,6 +10,30 @@ export type OrderStatus =
   | "REFUNDED"
   | "CANCELLED";
 
+export type OrderItemReview = {
+  id: number;
+  productId: number;
+  rating: number;
+  comment: string | null;
+  isVisible: boolean;
+  product?: {
+    id: number;
+    name: string;
+    slug: string;
+  };
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type OrderReviewSummary = {
+  id: number;
+  rating: number;
+  comment: string | null;
+  isVisible: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type OrderItem = {
   id: number;
   productId: number;
@@ -20,6 +44,7 @@ export type OrderItem = {
     name: string;
     slug: string;
   };
+  review?: OrderItemReview | null;
 };
 
 export type OrderPayment = {
@@ -100,6 +125,8 @@ export type Order = {
   shippingAddressRef?: OrderAddressRef;
   billingAddressRef?: OrderAddressRef;
   invoice: OrderInvoiceSummary | null;
+  orderReview?: OrderReviewSummary | null;
+  productReviews?: OrderItemReview[];
 };
 
 export type TrackingStep = {

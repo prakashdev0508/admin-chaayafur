@@ -29,7 +29,7 @@ export function createOrderSupportTicket(
 }
 
 export function getShopSupportTicket(id: number) {
-  return apiRequest<SupportTicket>(`/support-tickets/${id}`, {}, "customer");
+  return apiRequest<SupportTicket>(`/users/me/tickets/${id}`, {}, "customer");
 }
 
 export function replyToSupportTicket(

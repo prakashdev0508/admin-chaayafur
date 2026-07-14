@@ -2,7 +2,7 @@
 
 Create, update, and list furniture products.
 
-[← Back to index](./README.md) · [Categories docs](./categories.md) · [Auth docs](./auth.md) · [Orders / checkout](./orders.md)
+[← Back to index](./README.md) · [Categories docs](./categories.md) · [Home / CMS](./home.md) · [Auth docs](./auth.md) · [Orders / checkout](./orders.md)
 
 ---
 
@@ -11,7 +11,8 @@ Create, update, and list furniture products.
 - **No delete endpoint** — use `isActive: false` to soft-hide products
 - **Product images** — upload via [uploads.md](./uploads.md) (Cloudflare R2), then attach URLs in product create/update (max 10 per product)
 - **`productFeatures`** — optional array of feature strings (e.g. `"Solid oak wood"`, `"1-year warranty"`) for product detail bullets; max 50 items, 200 chars each
-- **CMS tags** — optional booleans `isBestSeller`, `isFeaturedProduct`, `isMostPopular`, `isNewArrival` for storefront sections; filter with `GET /products?tag=isFeaturedProduct`
+- **CMS tags** — optional booleans `isBestSeller`, `isFeaturedProduct`, `isMostPopular`, `isNewArrival` for storefront sections; filter with `GET /products?tag=isFeaturedProduct`, or assign via `PATCH /admin/cms/products/:id/tags` (see [home.md](./home.md))
+- Aggregated home sections: [home.md](./home.md) (`GET /home`)
 - Default list shows only **active** products (`isActive=true`)
 - Products link to **`subCategoryId`** (not top-level `categoryId`)
 - Public list responses are **cached** in Upstash Redis (60s default) and return `Cache-Control` headers for CDN edge caching
@@ -34,6 +35,7 @@ Use a sub-category ID from [categories.md](./categories.md). Example after seed:
 |----------|------------|:-----------:|:-----:|:-------------:|
 | `POST /products` | `create-products` | Yes | Yes | No |
 | `PATCH /products/:id` | `update-products` | Yes | Yes | No |
+| `PATCH /admin/cms/products/:id/tags` | `update-products` | Yes | Yes | No |
 | `POST /uploads/product-images` | `create-products` or `update-products` | Yes | Yes | No |
 | `GET /products` | **Public** | — | — | — |
 | `GET /products/:id` | **Public** | — | — | — |
@@ -153,10 +155,13 @@ Authorization: Bearer <accessToken>
       {
         "id": 10,
         "url": "https://cdn.example.com/products/oak-table.jpg",
+        "storageKey": "products/2026/07/8f3c2a1b.webp",
         "altText": "Oak dining table front view",
         "sortOrder": 0
       }
     ],
+    "ratingAverage": null,
+    "reviewCount": 0,
     "createdAt": "2026-07-09T18:02:58.000Z",
     "updatedAt": "2026-07-09T18:02:58.000Z"
   }
@@ -164,6 +169,9 @@ Authorization: Bearer <accessToken>
 ```
 
 > `price` is returned as a **string** for decimal precision.
+> Always round-trip `storageKey` when updating images so kept files are not deleted from R2.
+> `ratingAverage` / `reviewCount` reflect visible product reviews only — see [reviews.md](./reviews.md).
+> When `images` is sent on update, only storage keys that are **no longer** in the new list are deleted from Cloudflare R2.
 
 ### Errors
 
@@ -295,10 +303,13 @@ Same shape as the create/update response: `description`, full `images` array, `p
       {
         "id": 10,
         "url": "https://cdn.example.com/products/oak-table.jpg",
+        "storageKey": "products/2026/07/8f3c2a1b.webp",
         "altText": "Oak dining table front view",
         "sortOrder": 0
       }
     ],
+    "ratingAverage": 4.5,
+    "reviewCount": 12,
     "createdAt": "2026-07-09T18:02:58.000Z",
     "updatedAt": "2026-07-09T18:02:58.000Z"
   }

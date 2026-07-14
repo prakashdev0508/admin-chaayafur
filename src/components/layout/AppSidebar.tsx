@@ -8,6 +8,7 @@ import {
   LifeBuoy,
   Ticket,
   Users,
+  MessageSquareQuote,
   ScrollText,
   Settings,
   HelpCircle,
@@ -76,6 +77,7 @@ const navMain: NavItem[] = [
 const navMore: NavItem[] = [
   { title: "Coupons", url: "/coupons", icon: Ticket, permission: "view-coupons" },
   { title: "Customers", url: "/customers", icon: Users, permission: "view-customers" },
+  { title: "Reviews", url: "/reviews", icon: MessageSquareQuote, permission: "view-reviews" },
   { title: "Audit Logs", url: "/audit-logs", icon: ScrollText, permission: "view-orders" },
   { title: "Staff", url: "/staff", icon: UserPlus, superAdminOnly: true },
 ];

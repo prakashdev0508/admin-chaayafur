@@ -3,6 +3,7 @@ import type { SubCategory } from "@/types/category";
 export type ProductImage = {
   id?: number;
   url: string;
+  storageKey?: string;
   altText: string;
   sortOrder: number;
 };
@@ -36,6 +37,8 @@ export type Product = {
   subCategoryId: number;
   subCategory: SubCategory;
   images: ProductImage[];
+  ratingAverage?: number | null;
+  reviewCount?: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -55,6 +58,8 @@ export type ProductListItem = {
   subCategoryId: number;
   subCategory: SubCategory;
   primaryImage: { url: string; altText: string } | null;
+  ratingAverage?: number | null;
+  reviewCount?: number;
   createdAt: string;
 };
 

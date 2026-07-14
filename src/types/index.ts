@@ -103,6 +103,18 @@ export type {
   InitiateRefundPayload,
 } from "@/types/refund";
 
+export type {
+  ReviewKind,
+  ProductReview,
+  OrderReview,
+  PublicProductReview,
+  PublicProductReviewsResponse,
+  MyReviewsResponse,
+  CreateProductReviewPayload,
+  CreateOrderReviewPayload,
+  ListReviewsParams,
+} from "@/types/review";
+
 export type RecentOrderRow = {
   id: string;
   orderNumber: string;

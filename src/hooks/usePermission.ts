@@ -14,6 +14,7 @@ const routePermissions: Record<string, string | string[]> = {
   "/coupons/new": "create-coupons",
   "/customers": "view-customers",
   "/customers/new": "update-customers",
+  "/reviews": "view-reviews",
   "/audit-logs": "view-orders",
   "/staff": [],
   "/staff/new": "create-staff",

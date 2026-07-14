@@ -2,7 +2,7 @@
 
 Checkout from frontend cart, Razorpay payment links, order tracking, and staff order management.
 
-[← Back to index](./README.md) · [Customers](./customers.md) · [Addresses](./addresses.md) · [Payments](./payments.md) · [Invoices](./invoices.md) · [Order Support](./order-support.md)
+[← Back to index](./README.md) · [Customers](./customers.md) · [Addresses](./addresses.md) · [Payments](./payments.md) · [Refunds](./refund.md) · [Invoices](./invoices.md) · [Order Support](./order-support.md)
 
 ---
 
@@ -58,7 +58,9 @@ Razorpay webhook → Order CONFIRMED + invoice (or CANCELLED + stock restored)
 | `CONFIRMED` | Payment received; invoice generated |
 | `SHIPPED` | Order shipped |
 | `DELIVERED` | Order delivered |
-| `CANCELLED` | Order cancelled; stock restored |
+| `REFUND_INITIATED` | Staff started a refund request (see [refund.md](./refund.md)) |
+| `REFUNDED` | Refund completed; stock and coupon restored |
+| `CANCELLED` | Order cancelled (payment failed / staff cancel); stock restored |
 
 ### Payment method
 
@@ -78,7 +80,7 @@ All orders use `RAZORPAY`. Payment method is set server-side — not sent in the
 | `POST /orders/:id/refund/:refundId/cancel` | No | Yes (`update-payments`) | Yes | No |
 | `GET /orders/:id/refund` | No | Yes | Yes | No |
 
-Staff `PATCH` requires `update-orders`. Refunds are two-phase: initiate → complete (see [payments.md](./payments.md)).
+Staff `PATCH` requires `update-orders`. Refunds are two-phase: initiate → complete (see [refund.md](./refund.md)).
 
 ---
 
@@ -97,6 +99,7 @@ Staff `PATCH` requires `update-orders`. Refunds are two-phase: initiate → comp
 | `GET` | `/api/v1/orders/:id/refund` | Staff (`view-payments` or `view-orders`) | `200` |
 | `GET` | `/api/v1/orders/:id/audit-logs` | Staff (`view-orders`) | `200` |
 | `GET` | `/api/v1/orders/:id/invoice` | Customer or staff | `200` |
+| `POST` | `/api/v1/orders/:id/invoice/generate` | Staff (`update-orders`) | `200` |
 | `GET` | `/api/v1/orders/:id/invoice/pdf` | Customer or staff | `302` |
 | `POST` | `/api/v1/orders/:id/support-tickets` | Customer | `201` |
 | `GET` | `/api/v1/orders/:id/support-tickets` | Customer or staff | `200` |
@@ -744,7 +747,7 @@ All of `POST /orders`, `GET /orders/:id`, and each item in `GET /orders` return 
 | `customerId` | integer | Customer who placed the order |
 | `addressId` | integer | Shipping address ID |
 | `billingAddressId` | integer \| null | Billing address ID (`null` if same as shipping) |
-| `status` | string | `PENDING` \| `CONFIRMED` \| `SHIPPED` \| `DELIVERED` \| `CANCELLED` |
+| `status` | string | `PENDING` \| `CONFIRMED` \| `SHIPPED` \| `DELIVERED` \| `REFUND_INITIATED` \| `REFUNDED` \| `CANCELLED` |
 | `subtotalAmount` | string | Sum of line items before discount |
 | `discountAmount` | string | Coupon discount ( `0.00` if none) |
 | `shippingAmount` | string | Shipping fee applied at checkout |
@@ -761,6 +764,8 @@ All of `POST /orders`, `GET /orders/:id`, and each item in `GET /orders` return 
 | `items` | array | Line items (see below) |
 | `payment` | object \| null | Payment + Razorpay checkout fields (see [Payment object](#payment-object-fields-on-every-order-detail)) |
 | `invoice` | object \| null | Summary after confirmation; `null` while `PENDING` |
+| `orderReview` | object \| null | Overall order review if submitted (see below) |
+| `productReviews` | array | Product reviews linked to this order |
 
 ### `items[]` fields
 
@@ -771,6 +776,35 @@ All of `POST /orders`, `GET /orders/:id`, and each item in `GET /orders` return 
 | `quantity` | integer | Quantity ordered |
 | `price` | string | Unit price at checkout (server-side) |
 | `product` | object | `{ id, name, slug }` |
+| `review` | object \| null | Product review for this line item if submitted for this order |
+
+### Reviews on order detail
+
+`orderReview` (overall order experience):
+
+| Field | Type |
+|-------|------|
+| `id` | integer |
+| `rating` | integer (`1`–`5`) |
+| `comment` | string \| null |
+| `isVisible` | boolean |
+| `createdAt` | string |
+| `updatedAt` | string |
+
+`productReviews[]` / `items[].review`:
+
+| Field | Type |
+|-------|------|
+| `id` | integer |
+| `productId` | integer |
+| `rating` | integer (`1`–`5`) |
+| `comment` | string \| null |
+| `isVisible` | boolean |
+| `product` | `{ id, name, slug }` |
+| `createdAt` | string |
+| `updatedAt` | string |
+
+See [reviews.md](./reviews.md) for create/update APIs. Reviews appear only after the customer submits them (typically once the order is `DELIVERED`).
 
 ### Address ref fields (`shippingAddressRef` / `billingAddressRef`)
 

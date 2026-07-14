@@ -1,16 +1,23 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { LifeBuoy, MessageCircleQuestion } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { LifeBuoy, MessageCircleQuestion, Star } from "lucide-react";
 import { TrackingTimeline } from "@/components/shared/TrackingTimeline";
 import { CreateSupportTicketDialog } from "@/components/shop/CreateSupportTicketDialog";
 import { SupportTicketDetailSheet } from "@/components/shop/SupportTicketDetailSheet";
 import { SupportTicketStatusBadge } from "@/components/support-tickets/SupportTicketStatusBadge";
+import { ReviewFormDialog } from "@/components/reviews/ReviewFormDialog";
+import { StarRating } from "@/components/reviews/StarRating";
 import { Button } from "@/components/ui/button";
 import { buttonVariants } from "@/components/ui/button";
 import { getShopOrder, getShopOrderTracking } from "@/services/shop-orders.service";
 import { listOrderSupportTickets } from "@/services/shop-support-tickets.service";
 import { verifyPayment } from "@/services/shop-payments.service";
+import {
+  createOrderReview,
+  createProductReview,
+  getMyReviews,
+} from "@/services/reviews.service";
 import { queryKeys } from "@/lib/query-keys";
 import { supportTicketTypeLabels } from "@/lib/support-ticket-status";
 import { ApiError } from "@/lib/api";
@@ -25,15 +32,26 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 import type { SupportTicketType } from "@/types/support-ticket";
+import type { OrderReview, ProductReview } from "@/types/review";
+
+type ProductReviewTarget = {
+  productId: number;
+  productName: string;
+  existing?: ProductReview;
+};
 
 export function ShopOrderPage() {
   const { id } = useParams();
   const orderId = Number(id);
+  const queryClient = useQueryClient();
   const [paying, setPaying] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [createDialogType, setCreateDialogType] = useState<SupportTicketType>("QUESTION");
   const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null);
   const [detailSheetOpen, setDetailSheetOpen] = useState(false);
+  const [productReviewTarget, setProductReviewTarget] =
+    useState<ProductReviewTarget | null>(null);
+  const [orderReviewOpen, setOrderReviewOpen] = useState(false);
 
   const orderQuery = useQuery({
     queryKey: queryKeys.shop.orders.detail(orderId),
@@ -56,6 +74,32 @@ export function ShopOrderPage() {
       return response.items;
     },
     enabled: Number.isFinite(orderId),
+  });
+
+  const myReviewsQuery = useQuery({
+    queryKey: queryKeys.shop.reviews.mine,
+    queryFn: getMyReviews,
+    enabled: Number.isFinite(orderId),
+  });
+
+  const invalidateReviews = () => {
+    void queryClient.invalidateQueries({ queryKey: queryKeys.shop.reviews.mine });
+  };
+
+  const productReviewMutation = useMutation({
+    mutationFn: createProductReview,
+    onSuccess: () => {
+      invalidateReviews();
+      toast.success("Product review saved");
+    },
+  });
+
+  const orderReviewMutation = useMutation({
+    mutationFn: createOrderReview,
+    onSuccess: () => {
+      invalidateReviews();
+      toast.success("Order review saved");
+    },
   });
 
   const order = orderQuery.data;
@@ -140,7 +184,22 @@ export function ShopOrderPage() {
     order.status !== "CANCELLED" &&
     order.status !== "REFUNDED" &&
     order.status !== "REFUND_INITIATED";
+  const canReview = order.status === "DELIVERED";
   const tickets = ticketsQuery.data ?? [];
+
+  const productReviewsForOrder = (
+    myReviewsQuery.data?.productReviews ?? []
+  ).filter(
+    (review) =>
+      review.orderId === order.id ||
+      order.items.some((item) => item.productId === review.productId),
+  );
+  const productReviewByProductId = new Map<number, ProductReview>(
+    productReviewsForOrder.map((review) => [review.productId, review]),
+  );
+  const existingOrderReview: OrderReview | undefined = (
+    myReviewsQuery.data?.orderReviews ?? []
+  ).find((review) => review.orderId === order.id);
 
   function openCreateDialog(type: SupportTicketType) {
     setCreateDialogType(type);
@@ -196,17 +255,46 @@ export function ShopOrderPage() {
         <section className="rounded-2xl border border-[#E8DFD3] bg-white p-5">
           <h2 className="text-lg font-medium text-[#3D2B1F]">Items</h2>
           <div className="mt-4 space-y-3">
-            {order.items.map((item) => (
-              <div key={item.id} className="flex justify-between gap-3 text-sm">
-                <div>
-                  <p className="font-medium">{item.product.name}</p>
-                  <p className="text-muted-foreground">
-                    Qty {item.quantity} · {formatCurrency(item.price)} each
-                  </p>
+            {order.items.map((item) => {
+              const existing = productReviewByProductId.get(item.productId);
+              return (
+                <div key={item.id} className="flex justify-between gap-3 text-sm">
+                  <div>
+                    <p className="font-medium">{item.product.name}</p>
+                    <p className="text-muted-foreground">
+                      Qty {item.quantity} · {formatCurrency(item.price)} each
+                    </p>
+                    {canReview && existing && (
+                      <div className="mt-1">
+                        <StarRating value={existing.rating} size="sm" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-right">
+                    <p>
+                      {formatCurrency(parseFloat(item.price) * item.quantity)}
+                    </p>
+                    {canReview && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="mt-1 h-auto px-0 text-[#8B5E3C]"
+                        onClick={() =>
+                          setProductReviewTarget({
+                            productId: item.productId,
+                            productName: item.product.name,
+                            existing,
+                          })
+                        }
+                      >
+                        <Star className="size-3.5" />
+                        {existing ? "Edit review" : "Review"}
+                      </Button>
+                    )}
+                  </div>
                 </div>
-                <p>{formatCurrency(parseFloat(item.price) * item.quantity)}</p>
-              </div>
-            ))}
+              );
+            })}
           </div>
           <div className="mt-4 space-y-2 border-t border-[#E8DFD3] pt-4 text-sm">
             <div className="flex justify-between">
@@ -260,6 +348,38 @@ export function ShopOrderPage() {
           )}
         </section>
       </div>
+
+      {canReview && (
+        <section className="rounded-2xl border border-[#E8DFD3] bg-white p-5">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h2 className="text-lg font-medium text-[#3D2B1F]">
+                Rate this order
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Share overall feedback about delivery and experience.
+              </p>
+              {existingOrderReview && (
+                <div className="mt-3 flex items-center gap-2">
+                  <StarRating value={existingOrderReview.rating} size="sm" />
+                  {existingOrderReview.comment && (
+                    <span className="text-sm text-muted-foreground line-clamp-1">
+                      {existingOrderReview.comment}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+            <Button
+              variant="outline"
+              onClick={() => setOrderReviewOpen(true)}
+            >
+              <Star className="size-4" />
+              {existingOrderReview ? "Edit order review" : "Write order review"}
+            </Button>
+          </div>
+        </section>
+      )}
 
       <section className="rounded-2xl border border-[#E8DFD3] bg-white p-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -341,6 +461,52 @@ export function ShopOrderPage() {
         open={detailSheetOpen}
         onOpenChange={setDetailSheetOpen}
         orderId={orderId}
+      />
+
+      <ReviewFormDialog
+        open={productReviewTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setProductReviewTarget(null);
+        }}
+        title={
+          productReviewTarget
+            ? `Review ${productReviewTarget.productName}`
+            : "Review product"
+        }
+        description="Only delivered order items can be reviewed."
+        initialRating={productReviewTarget?.existing?.rating ?? 0}
+        initialComment={productReviewTarget?.existing?.comment}
+        loading={productReviewMutation.isPending}
+        confirmLabel={
+          productReviewTarget?.existing ? "Update review" : "Submit review"
+        }
+        onSubmit={async ({ rating, comment }) => {
+          if (!productReviewTarget) return;
+          await productReviewMutation.mutateAsync({
+            orderId: order.id,
+            productId: productReviewTarget.productId,
+            rating,
+            comment,
+          });
+        }}
+      />
+
+      <ReviewFormDialog
+        open={orderReviewOpen}
+        onOpenChange={setOrderReviewOpen}
+        title="Review this order"
+        description="Tell us how the overall order experience was."
+        initialRating={existingOrderReview?.rating ?? 0}
+        initialComment={existingOrderReview?.comment}
+        loading={orderReviewMutation.isPending}
+        confirmLabel={existingOrderReview ? "Update review" : "Submit review"}
+        onSubmit={async ({ rating, comment }) => {
+          await orderReviewMutation.mutateAsync({
+            orderId: order.id,
+            rating,
+            comment,
+          });
+        }}
       />
     </div>
   );

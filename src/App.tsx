@@ -33,6 +33,7 @@ import { SupportTicketListPage } from "@/pages/support-tickets/SupportTicketList
 import { SupportTicketDetailPage } from "@/pages/support-tickets/SupportTicketDetailPage";
 import { WebsiteHomePage } from "@/pages/website/WebsiteHomePage";
 import { SettingsPage } from "@/pages/settings/SettingsPage";
+import { ReviewListPage } from "@/pages/reviews/ReviewListPage";
 import { ShopHomePage } from "@/pages/shop/ShopHomePage";
 import { ShopCatalogPage } from "@/pages/shop/ShopCatalogPage";
 import { ShopProductPage } from "@/pages/shop/ShopProductPage";
@@ -89,6 +90,9 @@ const App = () => {
             <Route path="customers/new" element={<AddCustomerPage />} />
           </Route>
           <Route path="customers/:id" element={<CustomerDetailPage />} />
+          <Route element={<PermissionRoute permission="view-reviews" />}>
+            <Route path="reviews" element={<ReviewListPage />} />
+          </Route>
           <Route path="audit-logs" element={<AuditLogsPage />} />
           <Route element={<SuperAdminRoute />}>
             <Route path="staff" element={<StaffListPage />} />
