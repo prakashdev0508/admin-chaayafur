@@ -16,8 +16,10 @@ export type Invoice = {
   billingAddress: string;
   subtotal: string;
   discountAmount?: string;
+  shippingAmount?: string;
   taxAmount: string;
   totalAmount: string;
+  pdfUrl?: string | null;
   lineItems: InvoiceLineItem[];
   createdAt: string;
   updatedAt: string;

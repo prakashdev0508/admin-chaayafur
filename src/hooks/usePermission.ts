@@ -17,6 +17,7 @@ const routePermissions: Record<string, string | string[]> = {
   "/audit-logs": "view-orders",
   "/staff": [],
   "/staff/new": "create-staff",
+  "/settings": "view-settings",
 };
 
 export function usePermission() {

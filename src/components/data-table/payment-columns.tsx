@@ -1,20 +1,19 @@
 import { type ColumnDef } from "@tanstack/react-table";
-import { MoreHorizontal } from "lucide-react";
+import { Eye } from "lucide-react";
 import { Link } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { buttonVariants } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatCurrency } from "@/lib/format";
 import {
   paymentStatusLabels,
   paymentStatusVariants,
 } from "@/lib/payment-status";
-import type { Payment } from "@/types/payment";
+import { cn } from "@/lib/utils";
+import type { Payment, PaymentStatus } from "@/types/payment";
+
+function stopRowClick(event: React.MouseEvent) {
+  event.stopPropagation();
+}
 
 export const paymentColumns: ColumnDef<Payment>[] = [
   {
@@ -23,23 +22,31 @@ export const paymentColumns: ColumnDef<Payment>[] = [
     cell: ({ row }) => (
       <Link
         to={`/payments/${row.original.id}`}
+        onClick={stopRowClick}
         className="font-medium hover:underline"
       >
-        #{row.getValue("id")}
+        #{row.original.id}
       </Link>
     ),
   },
   {
     id: "orderNumber",
     header: "Order",
-    cell: ({ row }) => (
-      <Link
-        to={`/orders/${row.original.orderId}`}
-        className="text-muted-foreground hover:underline"
-      >
-        {row.original.order.orderNumber}
-      </Link>
-    ),
+    cell: ({ row }) => {
+      const orderId = row.original.order?.id ?? row.original.orderId;
+      const label =
+        row.original.order?.orderNumber ?? `Order #${row.original.orderId}`;
+
+      return (
+        <Link
+          to={`/orders/${orderId}`}
+          onClick={stopRowClick}
+          className="text-muted-foreground hover:underline"
+        >
+          {label}
+        </Link>
+      );
+    },
   },
   {
     accessorKey: "amount",
@@ -50,10 +57,10 @@ export const paymentColumns: ColumnDef<Payment>[] = [
     accessorKey: "status",
     header: "Status",
     cell: ({ row }) => {
-      const status = row.getValue("status") as import("@/types/payment").PaymentStatus;
+      const status = row.getValue("status") as PaymentStatus;
       return (
-        <StatusBadge variant={paymentStatusVariants[status]}>
-          {paymentStatusLabels[status]}
+        <StatusBadge variant={paymentStatusVariants[status] ?? "neutral"}>
+          {paymentStatusLabels[status] ?? status}
         </StatusBadge>
       );
     },
@@ -74,21 +81,20 @@ export const paymentColumns: ColumnDef<Payment>[] = [
   },
   {
     id: "actions",
+    header: " ",
     cell: ({ row }) => (
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          render={
-            <Button variant="ghost" size="icon" className="size-8">
-              <MoreHorizontal className="size-4" />
-            </Button>
-          }
-        />
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem>
-            <Link to={`/payments/${row.original.id}`}>View details</Link>
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <div className="relative z-10 flex justify-end" onClick={stopRowClick}>
+        <Link
+          to={`/payments/${row.original.id}`}
+          aria-label="View payment details"
+          className={cn(
+            buttonVariants({ variant: "ghost", size: "icon" }),
+            "size-8 text-foreground",
+          )}
+        >
+          <Eye className="size-4" />
+        </Link>
+      </div>
     ),
   },
 ];

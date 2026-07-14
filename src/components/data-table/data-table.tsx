@@ -29,6 +29,7 @@ type DataTableProps<TData, TValue> = {
   onPageChange?: (page: number) => void;
   onPageSizeChange?: (size: number) => void;
   totalRows?: number;
+  onRowClick?: (row: TData) => void;
 };
 
 export function DataTable<TData, TValue>({
@@ -41,6 +42,7 @@ export function DataTable<TData, TValue>({
   onPageChange,
   onPageSizeChange,
   totalRows,
+  onRowClick,
 }: DataTableProps<TData, TValue>) {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
@@ -111,7 +113,15 @@ export function DataTable<TData, TValue>({
           <TableBody>
             {table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id}>
+                <TableRow
+                  key={row.id}
+                  className={onRowClick ? "cursor-pointer" : undefined}
+                  onClick={
+                    onRowClick
+                      ? () => onRowClick(row.original)
+                      : undefined
+                  }
+                >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
                       {flexRender(

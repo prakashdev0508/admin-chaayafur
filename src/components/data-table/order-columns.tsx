@@ -11,8 +11,8 @@ import {
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatCurrency } from "@/lib/format";
 import {
-  orderStatusLabels,
-  orderStatusVariants,
+  getOrderStatusLabel,
+  getOrderStatusVariant,
 } from "@/lib/order-status";
 import type { OrderListItem } from "@/types/order";
 
@@ -40,8 +40,8 @@ export const orderColumns: ColumnDef<OrderListItem>[] = [
     cell: ({ row }) => {
       const status = row.getValue("status") as import("@/types/order").OrderStatus;
       return (
-        <StatusBadge variant={orderStatusVariants[status]}>
-          {orderStatusLabels[status]}
+        <StatusBadge variant={getOrderStatusVariant(status)}>
+          {getOrderStatusLabel(status)}
         </StatusBadge>
       );
     },
@@ -73,9 +73,9 @@ export const orderColumns: ColumnDef<OrderListItem>[] = [
           }
         />
         <DropdownMenuContent align="end">
-          <DropdownMenuItem>
-            <Link to={`/orders/${row.original.id}`}>View details</Link>
-          </DropdownMenuItem>
+          <DropdownMenuItem
+            render={<Link to={`/orders/${row.original.id}`}>View details</Link>}
+          />
         </DropdownMenuContent>
       </DropdownMenu>
     ),

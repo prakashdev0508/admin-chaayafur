@@ -1,18 +1,22 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { AddressPicker } from "@/components/shop/AddressPicker";
 import { CouponInput } from "@/components/shop/CouponInput";
 import { OTPLoginDialog } from "@/components/shop/OTPLoginDialog";
 import { Button } from "@/components/ui/button";
 import { buttonVariants } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useCart } from "@/contexts/CartContext";
 import { useCustomerAuth } from "@/contexts/CustomerAuthContext";
 import { ApiError } from "@/lib/api";
 import { startOrderPayment } from "@/lib/razorpay";
 import { formatCurrency } from "@/lib/format";
+import { queryKeys } from "@/lib/query-keys";
 import { createShopOrder } from "@/services/shop-orders.service";
 import { verifyPayment } from "@/services/shop-payments.service";
+import { listCustomerAddresses } from "@/services/shop-addresses.service";
+import { getShippingQuote } from "@/services/shipping.service";
 import type { ValidateCouponResponse } from "@/services/shop-coupons.service";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -32,6 +36,43 @@ export function CheckoutPage() {
     }
   }, [isAuthenticated]);
 
+  const addressesQuery = useQuery({
+    queryKey: queryKeys.shop.addresses.all,
+    queryFn: listCustomerAddresses,
+    enabled: isAuthenticated,
+  });
+
+  const selectedAddress = useMemo(
+    () => addressesQuery.data?.find((address) => address.id === selectedAddressId),
+    [addressesQuery.data, selectedAddressId],
+  );
+
+  const quoteSubtotal = coupon ? parseFloat(coupon.totalAmount) : subtotal;
+  const pincode = selectedAddress?.zipCode;
+
+  const shippingQuoteQuery = useQuery({
+    queryKey: queryKeys.shop.shippingQuote({
+      pincode: pincode ?? "",
+      subtotal: quoteSubtotal,
+    }),
+    queryFn: () =>
+      getShippingQuote({
+        pincode: pincode!,
+        subtotal: quoteSubtotal,
+      }),
+    enabled: Boolean(pincode && /^\d{6}$/.test(pincode) && quoteSubtotal >= 0),
+  });
+
+  const shippingQuote = shippingQuoteQuery.data;
+  const shippingAmount = shippingQuote?.serviceable
+    ? parseFloat(shippingQuote.shippingAmount)
+    : 0;
+  const estimatedTotal = quoteSubtotal + shippingAmount;
+  const canPlaceOrder =
+    isAuthenticated &&
+    selectedAddressId &&
+    (!shippingQuote || shippingQuote.serviceable);
+
   const placeOrderMutation = useMutation({
     mutationFn: createShopOrder,
   });
@@ -39,6 +80,11 @@ export function CheckoutPage() {
   async function handlePlaceOrder() {
     if (!selectedAddressId) {
       toast.error("Select a shipping address");
+      return;
+    }
+
+    if (shippingQuote && !shippingQuote.serviceable) {
+      toast.error(shippingQuote.message);
       return;
     }
 
@@ -160,18 +206,50 @@ export function CheckoutPage() {
                 <span>-{formatCurrency(coupon.discountAmount)}</span>
               </div>
             )}
+            {selectedAddressId && (
+              <div className="mt-2 flex justify-between text-sm">
+                <span className="text-muted-foreground">Shipping</span>
+                {shippingQuoteQuery.isLoading ? (
+                  <Skeleton className="h-4 w-16" />
+                ) : shippingQuote ? (
+                  <span>
+                    {shippingQuote.serviceable
+                      ? shippingAmount === 0
+                        ? "Free"
+                        : formatCurrency(shippingAmount)
+                      : "—"}
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground">—</span>
+                )}
+              </div>
+            )}
             <div className="mt-3 flex justify-between font-medium">
               <span>Estimated total</span>
-              <span>{formatCurrency(coupon?.totalAmount ?? subtotal)}</span>
+              <span>
+                {selectedAddressId && shippingQuote?.serviceable
+                  ? formatCurrency(estimatedTotal)
+                  : formatCurrency(coupon?.totalAmount ?? subtotal)}
+              </span>
             </div>
-            <p className="mt-2 text-xs text-muted-foreground">
-              Final amount is confirmed server-side at checkout.
-            </p>
+            {!selectedAddressId && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Select a delivery address to see shipping.
+              </p>
+            )}
+            {shippingQuote && !shippingQuote.serviceable && (
+              <p className="mt-2 text-xs text-destructive">{shippingQuote.message}</p>
+            )}
+            {shippingQuote?.serviceable && shippingQuote.message && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                {shippingQuote.message}
+              </p>
+            )}
           </div>
 
           <Button
             className="w-full bg-[#8B5E3C] hover:bg-[#744C31]"
-            disabled={!isAuthenticated || !selectedAddressId || placingOrder}
+            disabled={!canPlaceOrder || placingOrder || shippingQuoteQuery.isFetching}
             onClick={() => void handlePlaceOrder()}
           >
             {placingOrder ? "Processing..." : "Pay with Razorpay"}

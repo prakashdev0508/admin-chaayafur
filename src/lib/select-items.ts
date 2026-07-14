@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { orderStatusLabels } from "@/lib/order-status";
+import { getOrderStatusLabel, orderStatusLabels } from "@/lib/order-status";
 import type { OrderStatus } from "@/types/order";
 
 export type SelectOption = {
@@ -102,11 +102,11 @@ export function toOrderStatusSelectItems(
   return [
     {
       value: currentStatus,
-      label: `${orderStatusLabels[currentStatus]} (current)`,
+      label: `${getOrderStatusLabel(currentStatus)} (current)`,
     },
     ...transitions.map((status) => ({
       value: status,
-      label: orderStatusLabels[status],
+      label: getOrderStatusLabel(status),
     })),
   ];
 }

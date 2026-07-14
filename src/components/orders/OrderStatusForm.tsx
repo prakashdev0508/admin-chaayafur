@@ -20,8 +20,8 @@ import {
 import { usePermission } from "@/hooks/usePermission";
 import {
   getAllowedStatusTransitions,
+  getOrderStatusLabel,
   isOrderEditable,
-  orderStatusLabels,
 } from "@/lib/order-status";
 import { toOrderStatusSelectItems } from "@/lib/select-items";
 import type { Order, OrderStatus, UpdateOrderPayload } from "@/types/order";
@@ -68,7 +68,8 @@ export function OrderStatusForm({
         <CardHeader>
           <CardTitle>Order status</CardTitle>
           <CardDescription>
-            This order is {order.status.toLowerCase()} and cannot be edited.
+            This order is {getOrderStatusLabel(order.status).toLowerCase()} and
+            cannot be edited.
           </CardDescription>
         </CardHeader>
       </Card>
@@ -102,7 +103,8 @@ export function OrderStatusForm({
       <CardHeader>
         <CardTitle>Update order</CardTitle>
         <CardDescription>
-          Change status or add payment notes.
+          Change status or add payment notes. Cancelling does not issue a
+          refund — use Initiate refund when needed.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -118,11 +120,11 @@ export function OrderStatusForm({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={order.status}>
-                {orderStatusLabels[order.status]} (current)
+                {getOrderStatusLabel(order.status)} (current)
               </SelectItem>
               {transitions.map((s) => (
                 <SelectItem key={s} value={s}>
-                  {orderStatusLabels[s]}
+                  {getOrderStatusLabel(s)}
                 </SelectItem>
               ))}
             </SelectContent>

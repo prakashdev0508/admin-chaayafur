@@ -2,7 +2,7 @@
 
 Checkout from frontend cart, Razorpay payment links, order tracking, and staff order management.
 
-[← Back to index](./README.md) · [Customers](./customers.md) · [Addresses](./addresses.md) · [Payments](./payments.md) · [Invoices](./invoices.md)
+[← Back to index](./README.md) · [Customers](./customers.md) · [Addresses](./addresses.md) · [Payments](./payments.md) · [Invoices](./invoices.md) · [Order Support](./order-support.md)
 
 ---
 
@@ -73,8 +73,12 @@ All orders use `RAZORPAY`. Payment method is set server-side — not sent in the
 | `GET /orders/:id` | Own order | All (`view-orders`) | All | All |
 | `GET /orders/:id/tracking` | Own order | All (`view-orders`) | All | All |
 | `PATCH /orders/:id` | No | Yes | Yes | Status only |
+| `POST /orders/:id/refund` | No | Yes (`update-payments`) | Yes | No |
+| `POST /orders/:id/refund/:refundId/complete` | No | Yes (`update-payments`) | Yes | No |
+| `POST /orders/:id/refund/:refundId/cancel` | No | Yes (`update-payments`) | Yes | No |
+| `GET /orders/:id/refund` | No | Yes | Yes | No |
 
-Staff `PATCH` requires `update-orders` permission.
+Staff `PATCH` requires `update-orders`. Refunds are two-phase: initiate → complete (see [payments.md](./payments.md)).
 
 ---
 
@@ -87,8 +91,17 @@ Staff `PATCH` requires `update-orders` permission.
 | `GET` | `/api/v1/orders/:id` | Customer or staff | `200` |
 | `GET` | `/api/v1/orders/:id/tracking` | Customer or staff | `200` |
 | `PATCH` | `/api/v1/orders/:id` | Staff (`update-orders`) | `200` |
+| `POST` | `/api/v1/orders/:id/refund` | Staff (`update-payments`) | `201` |
+| `POST` | `/api/v1/orders/:id/refund/:refundId/complete` | Staff (`update-payments`) | `200` |
+| `POST` | `/api/v1/orders/:id/refund/:refundId/cancel` | Staff (`update-payments`) | `200` |
+| `GET` | `/api/v1/orders/:id/refund` | Staff (`view-payments` or `view-orders`) | `200` |
 | `GET` | `/api/v1/orders/:id/audit-logs` | Staff (`view-orders`) | `200` |
 | `GET` | `/api/v1/orders/:id/invoice` | Customer or staff | `200` |
+| `GET` | `/api/v1/orders/:id/invoice/pdf` | Customer or staff | `302` |
+| `POST` | `/api/v1/orders/:id/support-tickets` | Customer | `201` |
+| `GET` | `/api/v1/orders/:id/support-tickets` | Customer or staff | `200` |
+
+See [order-support.md](./order-support.md) for the full support ticket API.
 
 ---
 
@@ -130,8 +143,10 @@ Create an order from frontend cart items. Creates a Razorpay Payment Link for th
 2. All products must exist and be `isActive: true`
 3. Sufficient stock for each line item
 4. `subtotalAmount` computed server-side from product prices
-5. Optional coupon validated and discount applied; `totalAmount = subtotal - discount`
-6. Razorpay Payment Link created for discounted `totalAmount`
+5. Optional coupon validated and discount applied
+6. Shipping address pincode checked for serviceability ([shipping.md](./shipping.md)); `shippingAmount` computed from site settings
+7. `totalAmount = subtotal - discount + shippingAmount`
+8. Razorpay Payment Link created for full `totalAmount`
 
 ### Success response `201`
 
@@ -732,7 +747,8 @@ All of `POST /orders`, `GET /orders/:id`, and each item in `GET /orders` return 
 | `status` | string | `PENDING` \| `CONFIRMED` \| `SHIPPED` \| `DELIVERED` \| `CANCELLED` |
 | `subtotalAmount` | string | Sum of line items before discount |
 | `discountAmount` | string | Coupon discount ( `0.00` if none) |
-| `totalAmount` | string | `subtotalAmount - discountAmount` |
+| `shippingAmount` | string | Shipping fee applied at checkout |
+| `totalAmount` | string | `subtotalAmount - discountAmount + shippingAmount` |
 | `coupon` | object \| null | `{ id, code, type }` or `{ code }` only, or `null` |
 | `paymentMethod` | string | Always `RAZORPAY` |
 | `shippingAddress` | string | Formatted address snapshot at checkout |

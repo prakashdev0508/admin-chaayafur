@@ -6,6 +6,8 @@ export type OrderStatus =
   | "CONFIRMED"
   | "SHIPPED"
   | "DELIVERED"
+  | "REFUND_INITIATED"
+  | "REFUNDED"
   | "CANCELLED";
 
 export type OrderItem = {
@@ -28,12 +30,15 @@ export type OrderPayment = {
   paymentLinkUrl?: string | null;
   razorpayPaymentLinkId?: string | null;
   razorpayPaymentId: string | null;
+  razorpayRefundId?: string | null;
   keyId?: string;
   razorpayOrderId?: string | null;
   amountPaise?: number;
   currency?: string;
   transactionId: string | null;
   notes: string | null;
+  refundNotes?: string | null;
+  refundedAt?: string | null;
   createdAt: string;
   updatedAt: string;
   gatewayPayload?: unknown;
@@ -76,6 +81,7 @@ export type Order = {
   status: OrderStatus;
   subtotalAmount: string;
   discountAmount: string;
+  shippingAmount?: string;
   totalAmount: string;
   paymentMethod: string;
   shippingAddress: string;
