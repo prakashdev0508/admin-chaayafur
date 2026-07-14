@@ -53,6 +53,12 @@ export const queryKeys = {
     all: ["staff"] as const,
     list: (params: Record<string, unknown>) => ["staff", "list", params] as const,
   },
+  supportTickets: {
+    all: ["support-tickets"] as const,
+    list: (params: Record<string, unknown>) =>
+      ["support-tickets", "list", params] as const,
+    detail: (id: number) => ["support-tickets", "detail", id] as const,
+  },
   shop: {
     products: {
       list: (params: Record<string, unknown>) =>
@@ -73,6 +79,11 @@ export const queryKeys = {
     },
     coupons: {
       public: ["shop", "coupons", "public"] as const,
+    },
+    supportTickets: {
+      byOrder: (orderId: number) =>
+        ["shop", "support-tickets", "order", orderId] as const,
+      detail: (id: number) => ["shop", "support-tickets", "detail", id] as const,
     },
   },
 };

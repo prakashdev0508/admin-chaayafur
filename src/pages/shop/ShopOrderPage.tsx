@@ -1,12 +1,18 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { LifeBuoy, MessageCircleQuestion } from "lucide-react";
 import { TrackingTimeline } from "@/components/shared/TrackingTimeline";
+import { CreateSupportTicketDialog } from "@/components/shop/CreateSupportTicketDialog";
+import { SupportTicketDetailSheet } from "@/components/shop/SupportTicketDetailSheet";
+import { SupportTicketStatusBadge } from "@/components/support-tickets/SupportTicketStatusBadge";
 import { Button } from "@/components/ui/button";
 import { buttonVariants } from "@/components/ui/button";
 import { getShopOrder, getShopOrderTracking } from "@/services/shop-orders.service";
+import { listOrderSupportTickets } from "@/services/shop-support-tickets.service";
 import { verifyPayment } from "@/services/shop-payments.service";
 import { queryKeys } from "@/lib/query-keys";
+import { supportTicketTypeLabels } from "@/lib/support-ticket-status";
 import { ApiError } from "@/lib/api";
 import {
   canUseEmbeddedCheckout,
@@ -18,10 +24,16 @@ import { formatCurrency, formatDate } from "@/lib/format";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
+import type { SupportTicketType } from "@/types/support-ticket";
+
 export function ShopOrderPage() {
   const { id } = useParams();
   const orderId = Number(id);
   const [paying, setPaying] = useState(false);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [createDialogType, setCreateDialogType] = useState<SupportTicketType>("QUESTION");
+  const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null);
+  const [detailSheetOpen, setDetailSheetOpen] = useState(false);
 
   const orderQuery = useQuery({
     queryKey: queryKeys.shop.orders.detail(orderId),
@@ -35,6 +47,15 @@ export function ShopOrderPage() {
     enabled: Number.isFinite(orderId),
     refetchInterval: (query) =>
       query.state.data?.currentStatus === "PENDING" ? 4000 : false,
+  });
+
+  const ticketsQuery = useQuery({
+    queryKey: queryKeys.shop.supportTickets.byOrder(orderId),
+    queryFn: async () => {
+      const response = await listOrderSupportTickets(orderId);
+      return response.items;
+    },
+    enabled: Number.isFinite(orderId),
   });
 
   const order = orderQuery.data;
@@ -115,6 +136,18 @@ export function ShopOrderPage() {
     : order.shippingAddress;
 
   const hasDiscount = parseFloat(order.discountAmount) > 0;
+  const canOpenSupport = order.status !== "CANCELLED";
+  const tickets = ticketsQuery.data ?? [];
+
+  function openCreateDialog(type: SupportTicketType) {
+    setCreateDialogType(type);
+    setCreateDialogOpen(true);
+  }
+
+  function openTicketDetail(ticketId: number) {
+    setSelectedTicketId(ticketId);
+    setDetailSheetOpen(true);
+  }
 
   return (
     <div className="space-y-8">
@@ -214,6 +247,88 @@ export function ShopOrderPage() {
           )}
         </section>
       </div>
+
+      <section className="rounded-2xl border border-[#E8DFD3] bg-white p-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="text-lg font-medium text-[#3D2B1F]">Support</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Ask a question or report a problem with this order.
+            </p>
+          </div>
+          {canOpenSupport && (
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                onClick={() => openCreateDialog("QUESTION")}
+              >
+                <MessageCircleQuestion className="size-4" />
+                Ask a question
+              </Button>
+              <Button
+                className="bg-[#8B5E3C] hover:bg-[#744C31]"
+                onClick={() => openCreateDialog("PROBLEM")}
+              >
+                <LifeBuoy className="size-4" />
+                Report a problem
+              </Button>
+            </div>
+          )}
+        </div>
+
+        {!canOpenSupport && (
+          <p className="mt-4 text-sm text-muted-foreground">
+            Support is not available for cancelled orders.
+          </p>
+        )}
+
+        {canOpenSupport && (
+          <div className="mt-4 space-y-3">
+            {ticketsQuery.isLoading ? (
+              <p className="text-sm text-muted-foreground">Loading support tickets...</p>
+            ) : tickets.length === 0 ? (
+              <p className="rounded-lg border border-dashed border-[#E8DFD3] p-4 text-sm text-muted-foreground">
+                No support tickets yet.
+              </p>
+            ) : (
+              tickets.map((ticket) => (
+                <button
+                  key={ticket.id}
+                  type="button"
+                  onClick={() => openTicketDetail(ticket.id)}
+                  className="flex w-full items-center justify-between gap-3 rounded-xl border border-[#E8DFD3] p-4 text-left transition hover:border-[#C9B59A]"
+                >
+                  <div>
+                    <p className="font-medium text-[#3D2B1F]">{ticket.ticketNumber}</p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {ticket.subject} · {supportTicketTypeLabels[ticket.type]}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Updated {formatDate(ticket.updatedAt)}
+                    </p>
+                  </div>
+                  <SupportTicketStatusBadge status={ticket.status} />
+                </button>
+              ))
+            )}
+          </div>
+        )}
+      </section>
+
+      <CreateSupportTicketDialog
+        open={createDialogOpen}
+        onOpenChange={setCreateDialogOpen}
+        orderId={orderId}
+        type={createDialogType}
+        onCreated={(ticketId) => openTicketDetail(ticketId)}
+      />
+
+      <SupportTicketDetailSheet
+        ticketId={selectedTicketId}
+        open={detailSheetOpen}
+        onOpenChange={setDetailSheetOpen}
+        orderId={orderId}
+      />
     </div>
   );
 }
