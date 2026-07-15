@@ -87,6 +87,7 @@ export type OrderListItem = {
   id: number;
   orderNumber: string;
   customerId: number;
+  customerPhone: string;
   status: OrderStatus;
   totalAmount: string;
   paymentMethod: string;

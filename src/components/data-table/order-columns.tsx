@@ -32,7 +32,7 @@ export const orderColumns: ColumnDef<OrderListItem>[] = [
   {
     id: "customer",
     header: "Customer",
-    cell: ({ row }) => row.original.customer?.phone ?? `Customer #${row.original.customerId}`,
+    cell: ({ row }) => row.original.customerPhone ?? `Customer #${row.original.customerId}`,
   },
   {
     accessorKey: "status",
