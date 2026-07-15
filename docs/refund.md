@@ -9,15 +9,20 @@ Two-phase staff refund flow for completed Razorpay payments: initiate with reaso
 ## Overview
 
 ```text
-1. POST /orders/:id/refund                    → INITIATED (who, when, required reason)
+1. POST /orders/:id/refund                    → refund INITIATED + order status REFUND_INITIATED
 2. POST /orders/:id/refund/:refundId/complete → PROCESSING → Razorpay refund API
 3. Gateway result                             → PROCESSED or FAILED
-4. On PROCESSED only                          → payment REFUNDED, order CANCELLED, stock/coupon restored
+4. On PROCESSED                               → if fully refunded: payment REFUNDED, order REFUNDED, stock/coupon restored
+                                              → if partial: payment stays COMPLETED, order stays REFUND_INITIATED
 ```
 
-- **Full refund only** (v1) — amount always matches the payment total
-- Payment stays `COMPLETED` until refund is `PROCESSED`, then payment → `REFUNDED`
-- Side effects (cancel order, restore stock/coupon) run **only** on `PROCESSED`
+- **Partial or full refunds** — optional `amount` on initiate; omit to refund the full remaining balance
+- Multiple sequential refunds allowed until remaining balance is `0`
+- Payment stays `COMPLETED` until the payment is **fully** refunded, then → `REFUNDED`
+- On initiate, order status becomes **`REFUND_INITIATED`**
+- On full processed, order status becomes **`REFUNDED`**; partial processed keeps **`REFUND_INITIATED`**
+- Cancelling an initiated refund reverts the order only when there are no prior processed refunds
+- Side effects (mark order refunded, restore stock/coupon) run **only** when the payment becomes fully refunded
 - Cancelling an order via `PATCH /orders/:id` does **not** auto-refund — refund is always explicit
 - At most **one active** refund (`INITIATED` or `PROCESSING`) per payment
 
@@ -27,7 +32,7 @@ Two-phase staff refund flow for completed Razorpay payments: initiate with reaso
 |--------|---------|
 | `INITIATED` | Staff created refund request with reason — Razorpay not called yet |
 | `PROCESSING` | Complete clicked; Razorpay refund submitted |
-| `PROCESSED` | Money refunded; payment `REFUNDED`; order cancelled + stock/coupon restored |
+| `PROCESSED` | Money refunded for this request; payment/order become `REFUNDED` only when remaining balance is 0 |
 | `FAILED` | Razorpay API or `refund.failed` webhook reported failure |
 | `CANCELLED` | Staff cancelled before clicking Complete |
 
@@ -66,21 +71,38 @@ Two-phase staff refund flow for completed Razorpay payments: initiate with reaso
 
 ## POST /api/v1/orders/:id/refund
 
-Initiate a full refund for a **COMPLETED** payment. Does **not** call Razorpay.
+Initiate a refund for a **COMPLETED** payment (partial or full remaining). Does **not** call Razorpay.
 
 | | |
 |---|---|
 | **Auth** | Staff Bearer (`update-payments`) |
 | **Status** | `201` |
-| **Body** | `{ "reason": "…" }` **required** (min 3 chars, max 2000) |
+| **Body** | `{ "reason": "…", "amount"?: number }` — `reason` required; `amount` optional |
+
+| Field | Type | Required | Rules |
+|-------|------|----------|-------|
+| `reason` | string | Yes | Min 3, max 2000 chars |
+| `amount` | number | No | Min `0.01`, max 2 decimal places. Omit to refund **full remaining** balance |
 
 ### Preconditions
 
 - Order exists and has a payment
-- Payment status is `COMPLETED`
+- Payment status is `COMPLETED` (not yet fully refunded)
 - No active refund (`INITIATED` / `PROCESSING`) already exists for the payment
+- If `amount` is set, it must be `≤ remaining` (`payment.amount − sum of PROCESSED refunds`)
+
+### Example — partial refund
+
+```json
+{
+  "reason": "Damaged item — partial goodwill credit",
+  "amount": 500
+}
+```
 
 ### Success response
+
+Includes balance fields for the staff UI:
 
 ```json
 {
@@ -90,11 +112,21 @@ Initiate a full refund for a **COMPLETED** payment. Does **not** call Razorpay.
     "orderId": 1,
     "paymentId": 1,
     "status": "INITIATED",
-    "reason": "Customer requested cancellation after delivery delay",
-    "amount": "14999.00",
+    "reason": "Damaged item — partial goodwill credit",
+    "amount": "500.00",
+    "paymentAmount": "14999.00",
+    "refundedAmount": "0.00",
+    "remainingAmount": "14999.00",
     "initiatedByStaffId": 2,
+    "initiatedBy": {
+      "id": 2,
+      "firstName": "Priya",
+      "lastName": "Sharma",
+      "email": "priya@chaaya.com"
+    },
     "initiatedAt": "2026-07-14T09:00:00.000Z",
     "completedByStaffId": null,
+    "completedBy": null,
     "completedAt": null,
     "processedAt": null,
     "failedAt": null,
@@ -193,7 +225,7 @@ curl -X POST http://localhost:5000/api/v1/orders/1/refund/3/cancel \
 
 ## GET /api/v1/orders/:id/refund
 
-Returns the **latest** refund for the order, including full `events` timeline.
+Returns refunds for the order: balance summary, `items` (all refunds newest first), plus the latest refund fields at the top level for backward compatibility.
 
 | | |
 |---|---|
@@ -209,21 +241,27 @@ curl http://localhost:5000/api/v1/orders/1/refund \
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `id` | integer | Refund ID |
+| `paymentAmount` | string | Original payment amount |
+| `refundedAmount` | string | Sum of `PROCESSED` refund amounts |
+| `remainingAmount` | string | `paymentAmount − refundedAmount` |
+| `items` | array | All refunds for the order (newest first) |
+| `id` | integer | Latest refund ID |
 | `orderId` | integer | Order ID |
 | `paymentId` | integer | Payment ID |
-| `status` | string | `INITIATED` \| `PROCESSING` \| `PROCESSED` \| `FAILED` \| `CANCELLED` |
+| `status` | string | Latest refund status |
 | `reason` | string | Staff reason at initiate |
-| `amount` | string | Full refund amount (decimal string) |
-| `initiatedByStaffId` | integer | Who initiated |
+| `amount` | string | This refund request amount (decimal string) |
+| `initiatedByStaffId` | integer | Who initiated (scalar id) |
+| `initiatedBy` | object | `{ id, firstName, lastName, email }` |
 | `initiatedAt` | string | ISO timestamp |
 | `completedByStaffId` | integer \| null | Who clicked Complete |
+| `completedBy` | object \| null | `{ id, firstName, lastName, email }` or `null` |
 | `completedAt` | string \| null | When Complete was clicked |
 | `processedAt` | string \| null | When refund finalized |
 | `failedAt` | string \| null | When refund failed |
 | `failureReason` | string \| null | Gateway / API failure message |
 | `razorpayRefundId` | string \| null | Razorpay refund id (`rfnd_…`) |
-| `events` | array | Ordered timeline of refund steps |
+| `events` | array | Ordered timeline of the latest refund |
 
 ### Errors
 
@@ -249,8 +287,10 @@ Resolve by `razorpayRefundId`. If refund is already `PROCESSED` / `FAILED`, webh
 
 1. `Payment.status` → `REFUNDED`
 2. Mirror `razorpayRefundId`, `refundedAt`, `refundNotes` (= reason) onto `Payment`
-3. If order is not already `CANCELLED` → order `CANCELLED` + status event
+3. If order is not already `REFUNDED` / `CANCELLED` → order `REFUNDED` + status event (from `REFUND_INITIATED`)
 4. Restore product stock and coupon redemption
+
+When refund is **initiated**, order status also becomes `REFUND_INITIATED` (tracking label: “Refund initiated”). Cancelling the refund request reverts the order to the previous status. When the refund is **processed**, order status becomes `REFUNDED`.
 
 ---
 

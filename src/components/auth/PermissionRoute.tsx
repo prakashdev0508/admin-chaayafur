@@ -3,10 +3,11 @@ import { usePermission } from "@/hooks/usePermission";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
+import type { Permission } from "@/lib/roles";
 
 type PermissionRouteProps = {
-  permission?: string;
-  permissions?: string[];
+  permission?: Permission | string;
+  permissions?: Array<Permission | string>;
   requireAll?: boolean;
 };
 

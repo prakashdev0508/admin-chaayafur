@@ -18,6 +18,7 @@ import { fetchCategoriesTree } from "@/services/categories.service";
 import { listProducts, updateProduct } from "@/services/products.service";
 import type { CategoryTreeItem } from "@/types/category";
 import type { ListProductsParams, ProductListItem } from "@/types/product";
+import { PERMISSIONS } from "@/lib/roles";
 
 function countActiveFilters(filters: ProductFilters) {
   return Object.entries(filters).filter(([key, value]) => {
@@ -113,8 +114,8 @@ function removeFilter(
 
 export function ProductListPage() {
   const { hasPermission } = usePermission();
-  const canCreate = hasPermission("create-products");
-  const canUpdate = hasPermission("update-products");
+  const canCreate = hasPermission(PERMISSIONS.CREATE_PRODUCTS);
+  const canUpdate = hasPermission(PERMISSIONS.UPDATE_PRODUCTS);
 
   const [filterOpen, setFilterOpen] = useState(false);
   const [appliedFilters, setAppliedFilters] =

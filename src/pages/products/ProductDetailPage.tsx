@@ -13,6 +13,7 @@ import {
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Separator } from "@/components/ui/separator";
 import { usePermission } from "@/hooks/usePermission";
+import { PERMISSIONS } from "@/lib/roles";
 import { ApiError } from "@/lib/api";
 import {
   formatCurrency,
@@ -41,7 +42,7 @@ const stockVariants = {
 export function ProductDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { hasPermission } = usePermission();
-  const canUpdate = hasPermission("update-products");
+  const canUpdate = hasPermission(PERMISSIONS.UPDATE_PRODUCTS);
 
   const [product, setProduct] = useState<Product | null>(null);
   const [isLoading, setIsLoading] = useState(true);

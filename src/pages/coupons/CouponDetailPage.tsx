@@ -18,6 +18,7 @@ import { queryKeys } from "@/lib/query-keys";
 import { getCoupon, updateCoupon } from "@/services/coupons.service";
 import { usePermission } from "@/hooks/usePermission";
 import type { UpdateCouponPayload } from "@/types/coupon";
+import { PERMISSIONS } from "@/lib/roles";
 
 export function CouponDetailPage() {
   const { id } = useParams();
@@ -65,7 +66,7 @@ export function CouponDetailPage() {
                 </Link>
               }
             />
-            {hasPermission("update-coupons") && (
+            {hasPermission(PERMISSIONS.UPDATE_COUPONS) && (
               <Button
                 render={
                   <Link to={`/coupons/${coupon.id}/edit`}>

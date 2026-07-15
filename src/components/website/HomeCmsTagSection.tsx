@@ -15,6 +15,7 @@ import { formatCurrency } from "@/lib/format";
 import { ApiError } from "@/lib/api";
 import { productTagLabels } from "@/lib/product-utils";
 import { queryKeys } from "@/lib/query-keys";
+import { cn } from "@/lib/utils";
 import {
   listProducts,
   updateProductCmsTags,
@@ -43,6 +44,7 @@ export function HomeCmsTagSection({
 }: HomeCmsTagSectionProps) {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
+  const [pendingProductId, setPendingProductId] = useState<number | null>(null);
   const debouncedSearch = useDebouncedValue(search.trim(), 300);
 
   const taggedParams = useMemo(
@@ -89,29 +91,39 @@ export function HomeCmsTagSection({
   }
 
   const tagMutation = useMutation({
-    mutationFn: ({
+    mutationFn: async ({
       productId,
       enabled,
     }: {
       productId: number;
       enabled: boolean;
-    }) => updateProductCmsTags(productId, { [tag]: enabled }),
-    onSuccess: async (_data, variables) => {
+    }) => {
+      const result = await updateProductCmsTags(productId, { [tag]: enabled });
+      await invalidateRelated();
+      return result;
+    },
+    onMutate: (variables) => {
+      setPendingProductId(variables.productId);
+    },
+    onSuccess: (_data, variables) => {
       toast.success(
         variables.enabled
           ? `Added to ${productTagLabels[tag]}`
           : `Removed from ${productTagLabels[tag]}`,
       );
-      setSearch("");
-      await invalidateRelated();
+      if (variables.enabled) setSearch("");
     },
     onError: (err) => {
       toast.error(
         err instanceof ApiError ? err.message : "Failed to update product tags",
       );
     },
+    onSettled: () => {
+      setPendingProductId(null);
+    },
   });
 
+  const isBusy = tagMutation.isPending;
   const searchResults = (searchQuery.data?.items ?? []).filter(
     (item) => !taggedIds.has(item.id),
   );
@@ -138,6 +150,7 @@ export function HomeCmsTagSection({
               onChange={(e) => setSearch(e.target.value)}
               placeholder={`Search products to add to ${productTagLabels[tag].toLowerCase()}…`}
               className="pl-9"
+              disabled={isBusy}
             />
             {debouncedSearch.length >= 2 && (
               <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-lg border bg-popover shadow-md">
@@ -152,40 +165,52 @@ export function HomeCmsTagSection({
                   </p>
                 ) : (
                   <ul className="max-h-64 overflow-y-auto py-1">
-                    {searchResults.map((product) => (
-                      <li key={product.id}>
-                        <button
-                          type="button"
-                          className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm hover:bg-muted"
-                          disabled={tagMutation.isPending}
-                          onClick={() =>
-                            tagMutation.mutate({
-                              productId: product.id,
-                              enabled: true,
-                            })
-                          }
-                        >
-                          {product.primaryImage ? (
-                            <img
-                              src={product.primaryImage.url}
-                              alt=""
-                              className="size-9 rounded object-cover"
-                            />
-                          ) : (
-                            <div className="size-9 rounded bg-muted" />
-                          )}
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate font-medium">{product.name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {formatCurrency(product.price)}
-                            </p>
-                          </div>
-                          <span className="text-xs font-medium text-primary">
-                            Add
-                          </span>
-                        </button>
-                      </li>
-                    ))}
+                    {searchResults.map((product) => {
+                      const isAdding = pendingProductId === product.id && isBusy;
+                      return (
+                        <li key={product.id}>
+                          <button
+                            type="button"
+                            className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm hover:bg-muted disabled:opacity-60"
+                            disabled={isBusy}
+                            onClick={() =>
+                              tagMutation.mutate({
+                                productId: product.id,
+                                enabled: true,
+                              })
+                            }
+                          >
+                            {product.primaryImage ? (
+                              <img
+                                src={product.primaryImage.url}
+                                alt=""
+                                className="size-9 rounded object-cover"
+                              />
+                            ) : (
+                              <div className="size-9 rounded bg-muted" />
+                            )}
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate font-medium">
+                                {product.name}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {formatCurrency(product.price)}
+                              </p>
+                            </div>
+                            {isAdding ? (
+                              <span className="flex items-center gap-1.5 text-xs font-medium text-primary">
+                                <Loader2 className="size-3.5 animate-spin" />
+                                Adding…
+                              </span>
+                            ) : (
+                              <span className="text-xs font-medium text-primary">
+                                Add
+                              </span>
+                            )}
+                          </button>
+                        </li>
+                      );
+                    })}
                   </ul>
                 )}
               </div>
@@ -193,32 +218,56 @@ export function HomeCmsTagSection({
           </div>
         )}
 
-        {taggedQuery.isLoading ? (
-          <div className="flex h-28 items-center justify-center">
-            <Loader2 className="size-5 animate-spin text-muted-foreground" />
-          </div>
-        ) : taggedItems.length === 0 ? (
-          <div className="flex h-28 items-center justify-center rounded-xl border border-dashed text-sm text-muted-foreground">
-            No products tagged yet
-          </div>
-        ) : (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {taggedItems.map((product) => (
-              <ProductChip
-                key={product.id}
-                product={product}
-                canRemove={canUpdate}
-                removing={tagMutation.isPending}
-                onRemove={() =>
-                  tagMutation.mutate({
-                    productId: product.id,
-                    enabled: false,
-                  })
-                }
-              />
-            ))}
-          </div>
-        )}
+        <div className="relative min-h-28">
+          {taggedQuery.isLoading ? (
+            <div className="flex h-28 items-center justify-center">
+              <Loader2 className="size-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : taggedItems.length === 0 ? (
+            <div className="flex h-28 items-center justify-center rounded-xl border border-dashed text-sm text-muted-foreground">
+              {isBusy ? (
+                <span className="flex items-center gap-2">
+                  <Loader2 className="size-4 animate-spin" />
+                  Updating…
+                </span>
+              ) : (
+                "No products tagged yet"
+              )}
+            </div>
+          ) : (
+            <div
+              className={cn(
+                "grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4",
+                isBusy && "pointer-events-none opacity-60",
+              )}
+            >
+              {taggedItems.map((product) => (
+                <ProductChip
+                  key={product.id}
+                  product={product}
+                  canRemove={canUpdate}
+                  removing={pendingProductId === product.id && isBusy}
+                  disabled={isBusy}
+                  onRemove={() =>
+                    tagMutation.mutate({
+                      productId: product.id,
+                      enabled: false,
+                    })
+                  }
+                />
+              ))}
+            </div>
+          )}
+
+          {isBusy && taggedItems.length > 0 && (
+            <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-background/60">
+              <div className="flex items-center gap-2 rounded-full border bg-background px-3 py-1.5 text-sm shadow-sm">
+                <Loader2 className="size-4 animate-spin" />
+                Updating products…
+              </div>
+            </div>
+          )}
+        </div>
       </CardContent>
     </Card>
   );
@@ -228,11 +277,13 @@ function ProductChip({
   product,
   canRemove,
   removing,
+  disabled,
   onRemove,
 }: {
   product: ProductListItem;
   canRemove: boolean;
   removing: boolean;
+  disabled: boolean;
   onRemove: () => void;
 }) {
   return (
@@ -258,10 +309,14 @@ function ProductChip({
           variant="ghost"
           size="icon-sm"
           aria-label={`Remove ${product.name}`}
-          disabled={removing}
+          disabled={disabled}
           onClick={onRemove}
         >
-          <X className="size-3.5" />
+          {removing ? (
+            <Loader2 className="size-3.5 animate-spin" />
+          ) : (
+            <X className="size-3.5" />
+          )}
         </Button>
       )}
     </div>

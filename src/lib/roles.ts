@@ -1,0 +1,45 @@
+/**
+ * Permission key catalog aligned with the backend.
+ * Runtime authorization uses GET /auth/staff/me/permissions via usePermission.
+ */
+export const PERMISSIONS = {
+  ALL: "all",
+  CREATE_STAFF: "create-staff",
+  UPDATE_STAFF: "update-staff",
+  DELETE_STAFF: "delete-staff",
+  VIEW_STAFF: "view-staff",
+  CREATE_PRODUCTS: "create-products",
+  UPDATE_PRODUCTS: "update-products",
+  DELETE_PRODUCTS: "delete-products",
+  VIEW_PRODUCTS: "view-products",
+  CREATE_CATEGORIES: "create-categories",
+  UPDATE_CATEGORIES: "update-categories",
+  DELETE_CATEGORIES: "delete-categories",
+  VIEW_CATEGORIES: "view-categories",
+  CREATE_ORDERS: "create-orders",
+  UPDATE_ORDERS: "update-orders",
+  VIEW_ORDERS: "view-orders",
+  CREATE_PAYMENTS: "create-payments",
+  UPDATE_PAYMENTS: "update-payments",
+  VIEW_PAYMENTS: "view-payments",
+  CREATE_REPORTS: "create-reports",
+  UPDATE_REPORTS: "update-reports",
+  VIEW_REPORTS: "view-reports",
+  CREATE_SETTINGS: "create-settings",
+  UPDATE_SETTINGS: "update-settings",
+  VIEW_SETTINGS: "view-settings",
+  VIEW_CUSTOMERS: "view-customers",
+  UPDATE_CUSTOMERS: "update-customers",
+  CREATE_COUPONS: "create-coupons",
+  UPDATE_COUPONS: "update-coupons",
+  VIEW_COUPONS: "view-coupons",
+  VIEW_ORDER_SUPPORT: "view-order-support",
+  UPDATE_ORDER_SUPPORT: "update-order-support",
+  CREATE_BANNERS: "create-banners",
+  UPDATE_BANNERS: "update-banners",
+  VIEW_BANNERS: "view-banners",
+  VIEW_REVIEWS: "view-reviews",
+  MODERATE_REVIEWS: "moderate-reviews",
+} as const;
+
+export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];

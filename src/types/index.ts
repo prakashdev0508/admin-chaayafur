@@ -100,6 +100,7 @@ export type {
   RefundEventActorType,
   RefundEvent,
   OrderRefund,
+  OrderRefundsResponse,
   InitiateRefundPayload,
 } from "@/types/refund";
 

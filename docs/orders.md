@@ -59,6 +59,7 @@ Razorpay webhook → Order CONFIRMED + invoice (or CANCELLED + stock restored)
 | `SHIPPED` | Order shipped |
 | `DELIVERED` | Order delivered |
 | `REFUND_INITIATED` | Staff started a refund request (see [refund.md](./refund.md)) |
+| `PARTIALLY_REFUNDED` | One or more partial refunds processed; remaining balance > 0 |
 | `REFUNDED` | Refund completed; stock and coupon restored |
 | `CANCELLED` | Order cancelled (payment failed / staff cancel); stock restored |
 
@@ -311,6 +312,10 @@ List orders with pagination.
 | `limit` | integer | `10` | Items per page (max 100) |
 | `status` | string | — | Filter by order status |
 | `customerId` | integer | — | Staff only — filter by customer |
+| `orderNumber` | string | — | Partial match on order number (e.g. `ORD-20260714-0011`) |
+| `customerPhone` | string | — | Partial match on customer phone |
+| `createdFrom` | string | — | ISO date/datetime — orders on/after this date |
+| `createdTo` | string | — | ISO date/datetime — orders on/before this date |
 
 > Customers always see only their own orders. `customerId` is ignored for customer tokens.
 
@@ -398,8 +403,11 @@ Each item in `items` uses the same shape as [Order detail response](#order-detai
 curl "http://localhost:5000/api/v1/orders?status=PENDING" \
   -H "Authorization: Bearer $CUSTOMER_TOKEN"
 
-# Staff — all orders
+# Staff — filter examples
 curl "http://localhost:5000/api/v1/orders?customerId=1" \
+  -H "Authorization: Bearer $STAFF_TOKEN"
+
+curl "http://localhost:5000/api/v1/orders?orderNumber=ORD-20260714-0011&customerPhone=98765&createdFrom=2026-07-01&createdTo=2026-07-14" \
   -H "Authorization: Bearer $STAFF_TOKEN"
 ```
 
@@ -747,7 +755,7 @@ All of `POST /orders`, `GET /orders/:id`, and each item in `GET /orders` return 
 | `customerId` | integer | Customer who placed the order |
 | `addressId` | integer | Shipping address ID |
 | `billingAddressId` | integer \| null | Billing address ID (`null` if same as shipping) |
-| `status` | string | `PENDING` \| `CONFIRMED` \| `SHIPPED` \| `DELIVERED` \| `REFUND_INITIATED` \| `REFUNDED` \| `CANCELLED` |
+| `status` | string | `PENDING` \| `CONFIRMED` \| `SHIPPED` \| `DELIVERED` \| `REFUND_INITIATED` \| `PARTIALLY_REFUNDED` \| `REFUNDED` \| `CANCELLED` |
 | `subtotalAmount` | string | Sum of line items before discount |
 | `discountAmount` | string | Coupon discount ( `0.00` if none) |
 | `shippingAmount` | string | Shipping fee applied at checkout |

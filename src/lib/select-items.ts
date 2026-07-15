@@ -22,17 +22,6 @@ export const COUPON_VISIBILITY_ITEMS: SelectOption[] = [
   { value: "PRIVATE", label: "Private" },
 ];
 
-export const STAFF_ROLE_ITEMS: SelectOption[] = [
-  { value: "ADMIN", label: "Admin" },
-  { value: "ORDER_MANAGER", label: "Order Manager" },
-];
-
-export const STAFF_ROLE_FILTER_ITEMS: SelectOption[] = [
-  { value: "all", label: "All roles" },
-  { value: "SUPER_ADMIN", label: "Super Admin" },
-  ...STAFF_ROLE_ITEMS,
-];
-
 export const ACTIVE_FILTER_ITEMS: SelectOption[] = [
   { value: "all", label: "All" },
   { value: "true", label: "Active" },

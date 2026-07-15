@@ -10,6 +10,7 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { queryKeys } from "@/lib/query-keys";
 import { listCoupons } from "@/services/coupons.service";
 import { usePermission } from "@/hooks/usePermission";
+import { PERMISSIONS } from "@/lib/roles";
 
 export function CouponListPage() {
   const { hasPermission } = usePermission();
@@ -21,10 +22,10 @@ export function CouponListPage() {
   const { data, isLoading, isFetching, refetch, error } = useQuery({
     queryKey: queryKeys.coupons.list(params),
     queryFn: () => listCoupons(params),
-    enabled: hasPermission("view-coupons"),
+    enabled: hasPermission(PERMISSIONS.VIEW_COUPONS),
   });
 
-  if (!hasPermission("view-coupons")) {
+  if (!hasPermission(PERMISSIONS.VIEW_COUPONS)) {
     return (
       <div className="flex flex-col gap-4">
         <PageHeader title="Coupons" description="Manage discount codes." />
@@ -52,7 +53,7 @@ export function CouponListPage() {
             >
               <RefreshCw className={`size-4 ${isFetching ? "animate-spin" : ""}`} />
             </Button>
-            {hasPermission("create-coupons") && (
+            {hasPermission(PERMISSIONS.CREATE_COUPONS) && (
               <Button render={<Link to="/coupons/new"><Plus className="size-4" />New coupon</Link>} />
             )}
           </div>
@@ -75,7 +76,7 @@ export function CouponListPage() {
           title="No coupons yet"
           description="Create your first discount code to boost sales."
           action={
-            hasPermission("create-coupons") ? (
+            hasPermission(PERMISSIONS.CREATE_COUPONS) ? (
               <Button render={<Link to="/coupons/new">Create coupon</Link>} />
             ) : undefined
           }

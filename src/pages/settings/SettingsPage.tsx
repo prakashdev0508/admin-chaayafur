@@ -7,13 +7,14 @@ import { FeesAnnouncementSection } from "@/components/settings/FeesAnnouncementS
 import { PincodesSection } from "@/components/settings/PincodesSection";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { usePermission } from "@/hooks/usePermission";
+import { PERMISSIONS } from "@/lib/roles";
 import { queryKeys } from "@/lib/query-keys";
 import { getAdminSiteSettings } from "@/services/site-settings.service";
 
 export function SettingsPage() {
   const { hasPermission } = usePermission();
-  const canView = hasPermission("view-settings");
-  const canUpdate = hasPermission("update-settings");
+  const canView = hasPermission(PERMISSIONS.VIEW_SETTINGS);
+  const canUpdate = hasPermission(PERMISSIONS.UPDATE_SETTINGS);
 
   const settingsQuery = useQuery({
     queryKey: queryKeys.admin.siteSettings,

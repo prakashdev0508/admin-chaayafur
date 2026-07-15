@@ -16,13 +16,13 @@ import {
   type StaffFilters,
 } from "@/lib/staff-filters";
 import { listStaff } from "@/services/auth.service";
-import { useAuth } from "@/contexts/AuthContext";
 import { usePermission } from "@/hooks/usePermission";
+import { PERMISSIONS } from "@/lib/roles";
 
 export function StaffListPage() {
-  const { user } = useAuth();
   const { hasPermission } = usePermission();
-  const isSuperAdmin = user?.role === "SUPER_ADMIN";
+  const canView = hasPermission(PERMISSIONS.VIEW_STAFF);
+  const canCreate = hasPermission(PERMISSIONS.CREATE_STAFF);
 
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(10);
@@ -36,17 +36,17 @@ export function StaffListPage() {
   const { data, isLoading, isFetching, refetch, error } = useQuery({
     queryKey: queryKeys.staff.list(params),
     queryFn: () => listStaff(params),
-    enabled: isSuperAdmin,
+    enabled: canView,
   });
 
-  if (!isSuperAdmin) {
+  if (!canView) {
     return (
       <div className="flex flex-col gap-4">
         <PageHeader title="Staff" description="Manage admin panel users." />
         <EmptyState
           icon={UserPlus}
           title="Access restricted"
-          description="Only Super Admins can view staff users."
+          description="You do not have permission to view staff users."
         />
       </div>
     );
@@ -75,7 +75,7 @@ export function StaffListPage() {
                 setPage(0);
               }}
             />
-            {hasPermission("create-staff") && (
+            {canCreate && (
               <Button render={<Link to="/staff/new"><Plus className="size-4" />Add staff</Link>} />
             )}
           </div>
@@ -98,7 +98,7 @@ export function StaffListPage() {
           title="No staff users found"
           description="Try adjusting your filters or add a new staff member."
           action={
-            hasPermission("create-staff") ? (
+            canCreate ? (
               <Button render={<Link to="/staff/new">Add staff</Link>} />
             ) : undefined
           }

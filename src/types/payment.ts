@@ -36,4 +36,8 @@ export type ListPaymentsParams = {
   status?: PaymentStatus;
   orderId?: number;
   customerId?: number;
+  orderNumber?: string;
+  customerPhone?: string;
+  createdFrom?: string;
+  createdTo?: string;
 };

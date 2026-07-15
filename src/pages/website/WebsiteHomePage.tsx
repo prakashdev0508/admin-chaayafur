@@ -10,6 +10,7 @@ import { usePermission } from "@/hooks/usePermission";
 import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
 import type { ProductMerchandisingTag } from "@/types/product";
+import { PERMISSIONS } from "@/lib/roles";
 
 const CMS_SECTIONS: {
   tag: ProductMerchandisingTag;
@@ -37,10 +38,10 @@ export function WebsiteHomePage() {
   const { hasPermission } = usePermission();
   const queryClient = useQueryClient();
 
-  const canView = hasPermission("view-banners");
-  const canCreateBanners = hasPermission("create-banners");
-  const canUpdateBanners = hasPermission("update-banners");
-  const canUpdateProducts = hasPermission("update-products");
+  const canView = hasPermission(PERMISSIONS.VIEW_BANNERS);
+  const canCreateBanners = hasPermission(PERMISSIONS.CREATE_BANNERS);
+  const canUpdateBanners = hasPermission(PERMISSIONS.UPDATE_BANNERS);
+  const canUpdateProducts = hasPermission(PERMISSIONS.UPDATE_PRODUCTS);
 
   if (!canView) {
     return (

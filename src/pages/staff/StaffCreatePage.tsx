@@ -1,8 +1,8 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,15 +14,28 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { createStaff } from "@/services/auth.service";
+import { createStaff, listRoles } from "@/services/auth.service";
 import { queryKeys } from "@/lib/query-keys";
-import type { AssignableStaffRole } from "@/types/auth";
-import { STAFF_ROLE_ITEMS } from "@/lib/select-items";
+import { formatRoleLabel, isSuperAdminSlug } from "@/lib/staff-utils";
 
 export function StaffCreatePage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [role, setRole] = useState<AssignableStaffRole>("ADMIN");
+  const [roleId, setRoleId] = useState<string>("");
+
+  const rolesQuery = useQuery({
+    queryKey: queryKeys.roles.list,
+    queryFn: listRoles,
+  });
+
+  const assignableRoles = (rolesQuery.data ?? []).filter(
+    (role) => !isSuperAdminSlug(role.slug),
+  );
+
+  const roleItems = assignableRoles.map((role) => ({
+    value: String(role.id),
+    label: formatRoleLabel(role),
+  }));
 
   const mutation = useMutation({
     mutationFn: createStaff,
@@ -42,7 +55,7 @@ export function StaffCreatePage() {
     <div className="flex flex-col gap-4">
       <PageHeader
         title="Add staff user"
-        description="Create a new admin or order manager account."
+        description="Create a staff account and assign any role except Super Admin."
         action={
           <Button
             variant="outline"
@@ -60,11 +73,15 @@ export function StaffCreatePage() {
         className="mx-auto w-full max-w-md space-y-4"
         onSubmit={async (e) => {
           e.preventDefault();
+          if (!roleId) {
+            toast.error("Select a role");
+            return;
+          }
           const form = new FormData(e.currentTarget);
           await mutation.mutateAsync({
             email: String(form.get("email")),
             password: String(form.get("password")),
-            role,
+            roleId: Number(roleId),
             firstName: String(form.get("firstName")) || undefined,
             lastName: String(form.get("lastName")) || undefined,
           });
@@ -96,24 +113,38 @@ export function StaffCreatePage() {
         </div>
         <div className="space-y-2">
           <Label>Role</Label>
-          <Select
-            value={role}
-            onValueChange={(v) => v && setRole(v as AssignableStaffRole)}
-            items={STAFF_ROLE_ITEMS}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ADMIN">Admin</SelectItem>
-              <SelectItem value="ORDER_MANAGER">Order Manager</SelectItem>
-            </SelectContent>
-          </Select>
+          {rolesQuery.isLoading ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="size-4 animate-spin" />
+              Loading roles…
+            </div>
+          ) : (
+            <Select
+              value={roleId || undefined}
+              onValueChange={(v) => v && setRoleId(v)}
+              items={roleItems}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select a role" />
+              </SelectTrigger>
+              <SelectContent>
+                {assignableRoles.map((role) => (
+                  <SelectItem key={role.id} value={String(role.id)}>
+                    {formatRoleLabel(role)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           <p className="text-xs text-muted-foreground">
-            Super Admin accounts cannot be created via this form.
+            Super Admin cannot be assigned here. Manage roles under Roles.
           </p>
         </div>
-        <Button type="submit" className="w-full" disabled={mutation.isPending}>
+        <Button
+          type="submit"
+          className="w-full"
+          disabled={mutation.isPending || !roleId}
+        >
           {mutation.isPending ? "Creating..." : "Create staff user"}
         </Button>
       </form>

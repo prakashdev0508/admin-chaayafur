@@ -16,6 +16,7 @@ import {
 } from "@/lib/support-ticket-filters";
 import { listSupportTickets } from "@/services/support-tickets.service";
 import { usePermission } from "@/hooks/usePermission";
+import { PERMISSIONS } from "@/lib/roles";
 
 export function SupportTicketListPage() {
   const { hasPermission } = usePermission();
@@ -37,10 +38,10 @@ export function SupportTicketListPage() {
   const { data, isLoading, isFetching, refetch, error } = useQuery({
     queryKey: queryKeys.supportTickets.list(params),
     queryFn: () => listSupportTickets(params),
-    enabled: hasPermission("view-order-support"),
+    enabled: hasPermission(PERMISSIONS.VIEW_ORDER_SUPPORT),
   });
 
-  if (!hasPermission("view-order-support")) {
+  if (!hasPermission(PERMISSIONS.VIEW_ORDER_SUPPORT)) {
     return (
       <div className="flex flex-col gap-4">
         <PageHeader

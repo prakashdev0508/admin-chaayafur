@@ -43,7 +43,11 @@ import { AuditLogTable } from "@/components/shared/AuditLogTable";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { SupportTicketStatusBadge } from "@/components/support-tickets/SupportTicketStatusBadge";
 import { StarRating } from "@/components/reviews/StarRating";
-import type { OrderRefund } from "@/types/refund";
+import type {
+  OrderRefund,
+  InitiateRefundPayload,
+  RefundStatus,
+} from "@/types/refund";
 import { formatCurrency, formatDate } from "@/lib/format";
 import {
   getOrderStatusLabel,
@@ -68,25 +72,29 @@ import {
 } from "@/services/orders.service";
 import { listSupportTickets } from "@/services/support-tickets.service";
 import { usePermission } from "@/hooks/usePermission";
+import { PERMISSIONS } from "@/lib/roles";
 import type { UpdateOrderPayload } from "@/types/order";
-import type { RefundStatus } from "@/types/refund";
 
 export function OrderDetailPage() {
   const { id } = useParams();
   const orderId = Number(id);
   const queryClient = useQueryClient();
   const { hasPermission } = usePermission();
-  const canViewSupport = hasPermission("view-order-support");
-  const canRefund = hasPermission("update-payments");
-  const canGenerateInvoice = hasPermission("update-orders");
+  const canViewSupport = hasPermission(PERMISSIONS.VIEW_ORDER_SUPPORT);
+  const canRefund = hasPermission(PERMISSIONS.UPDATE_PAYMENTS);
+  const canGenerateInvoice = hasPermission(PERMISSIONS.UPDATE_ORDERS);
   const canViewRefund =
-    hasPermission("view-payments") || hasPermission("view-orders");
+    hasPermission(PERMISSIONS.VIEW_PAYMENTS) ||
+    hasPermission(PERMISSIONS.VIEW_ORDERS);
   const [refundOpen, setRefundOpen] = useState(false);
   const [completeConfirmOpen, setCompleteConfirmOpen] = useState(false);
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
   const [completeResultOpen, setCompleteResultOpen] = useState(false);
   const [completeResultRefund, setCompleteResultRefund] =
     useState<OrderRefund | null>(null);
+  const [selectedRefund, setSelectedRefund] = useState<OrderRefund | null>(
+    null,
+  );
 
   const invalidateOrderQueries = () => {
     void queryClient.invalidateQueries({
@@ -136,8 +144,15 @@ export function OrderDetailPage() {
     enabled: Number.isFinite(orderId) && (canViewRefund || canRefund),
     retry: (count, error) =>
       !(error instanceof ApiError && error.statusCode === 404) && count < 1,
-    refetchInterval: (query) =>
-      query.state.data?.status === "PROCESSING" ? 4000 : false,
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      if (!data) return false;
+      const items =
+        Array.isArray(data.items) && data.items.length > 0
+          ? data.items
+          : [data];
+      return items.some((item) => item.status === "PROCESSING") ? 4000 : false;
+    },
   });
 
   const auditQuery = useQuery({
@@ -160,10 +175,9 @@ export function OrderDetailPage() {
   });
 
   const initiateRefundMutation = useMutation({
-    mutationFn: (reason: string) =>
-      initiateOrderRefund(orderId, { reason }),
-    onSuccess: (refund) => {
-      queryClient.setQueryData(queryKeys.orders.refund(orderId), refund);
+    mutationFn: (payload: InitiateRefundPayload) =>
+      initiateOrderRefund(orderId, payload),
+    onSuccess: () => {
       invalidateOrderQueries();
       toast.success("Refund request initiated");
     },
@@ -177,7 +191,6 @@ export function OrderDetailPage() {
   const completeRefundMutation = useMutation({
     mutationFn: (refundId: number) => completeOrderRefund(orderId, refundId),
     onSuccess: (refund) => {
-      queryClient.setQueryData(queryKeys.orders.refund(orderId), refund);
       invalidateOrderQueries();
       setCompleteResultRefund(refund);
       setCompleteResultOpen(true);
@@ -192,8 +205,7 @@ export function OrderDetailPage() {
 
   const cancelRefundMutation = useMutation({
     mutationFn: (refundId: number) => cancelOrderRefund(orderId, refundId),
-    onSuccess: (refund) => {
-      queryClient.setQueryData(queryKeys.orders.refund(orderId), refund);
+    onSuccess: () => {
       invalidateOrderQueries();
       toast.success("Refund request cancelled");
     },
@@ -248,23 +260,37 @@ export function OrderDetailPage() {
 
   const refundNotFound =
     refundQuery.error instanceof ApiError && refundQuery.error.statusCode === 404;
-  const refund = refundQuery.data ?? null;
-  const hasActiveRefund = refund
-    ? isActiveRefund(refund.status as RefundStatus)
-    : false;
+  const refundData = refundQuery.data ?? null;
+  const refundItems =
+    refundData &&
+    Array.isArray(refundData.items) &&
+    refundData.items.length > 0
+      ? refundData.items
+      : refundData?.id
+        ? [refundData]
+        : [];
+  const activeRefund =
+    refundItems.find((item) => isActiveRefund(item.status as RefundStatus)) ??
+    null;
+  const latestRefund = refundItems[0] ?? null;
+  const remainingAmount = refundData
+    ? parseFloat(refundData.remainingAmount ?? "0")
+    : parseFloat(order.payment.amount);
   const canInitiateRefund =
     canRefund &&
     order.payment.status === "COMPLETED" &&
     !refundQuery.isLoading &&
-    !hasActiveRefund;
-  const refundStatus = refund?.status as RefundStatus | undefined;
+    !activeRefund &&
+    remainingAmount > 0.001;
+  const refundStatus = (activeRefund ?? latestRefund)?.status as
+    | RefundStatus
+    | undefined;
   const refundStatusLabel = refundStatus
     ? (refundStatusLabels[refundStatus] ?? refundStatus)
     : null;
   const refundStatusVariant = refundStatus
     ? (refundStatusVariants[refundStatus] ?? "neutral")
     : "neutral";
-
   const destinationLabel = order.shippingAddressRef
     ? [order.shippingAddressRef.city, order.shippingAddressRef.state]
         .filter(Boolean)
@@ -331,7 +357,7 @@ export function OrderDetailPage() {
             >
               <RotateCcw className="size-4" />
               Refund
-              {refund && refundStatusLabel && (
+              {latestRefund && refundStatusLabel && (
                 <StatusBadge variant={refundStatusVariant} className="ml-0.5">
                   {refundStatusLabel}
                 </StatusBadge>
@@ -581,7 +607,7 @@ export function OrderDetailPage() {
                         order.payment.status}
                     </StatusBadge>
                   </div>
-                  {refund && refundStatusLabel && (
+                  {latestRefund && refundStatusLabel && (
                     <div className="flex justify-between">
                       <span className="text-sm text-muted-foreground">
                         Refund status
@@ -662,7 +688,7 @@ export function OrderDetailPage() {
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
                     <CardTitle>Refund</CardTitle>
-                    {refund && refundStatusLabel && (
+                    {latestRefund && refundStatusLabel && (
                       <StatusBadge variant={refundStatusVariant}>
                         {refundStatusLabel}
                       </StatusBadge>
@@ -683,14 +709,20 @@ export function OrderDetailPage() {
                   <div className="flex items-center justify-center py-8">
                     <Loader2 className="size-5 animate-spin text-muted-foreground" />
                   </div>
-                ) : refund ? (
+                ) : refundData ? (
                   <RefundPanel
-                    refund={refund}
+                    data={refundData}
                     canUpdate={canRefund}
                     completeLoading={completeRefundMutation.isPending}
                     cancelLoading={cancelRefundMutation.isPending}
-                    onComplete={() => setCompleteConfirmOpen(true)}
-                    onCancel={() => setCancelConfirmOpen(true)}
+                    onComplete={(item) => {
+                      setSelectedRefund(item);
+                      setCompleteConfirmOpen(true);
+                    }}
+                    onCancel={(item) => {
+                      setSelectedRefund(item);
+                      setCancelConfirmOpen(true);
+                    }}
                   />
                 ) : refundQuery.isError && !refundNotFound ? (
                   <p className="text-sm text-destructive">
@@ -701,9 +733,9 @@ export function OrderDetailPage() {
                 ) : (
                   <p className="text-sm text-muted-foreground">
                     {order.payment.status === "COMPLETED"
-                      ? "No refund request yet. Initiate a refund when needed."
+                      ? "No refund request yet. You can initiate a full or partial refund."
                       : order.payment.status === "REFUNDED"
-                        ? "Payment has been refunded."
+                        ? "Payment has been fully refunded."
                         : "Refunds are only available for completed payments."}
                   </p>
                 )}
@@ -791,36 +823,47 @@ export function OrderDetailPage() {
         open={refundOpen}
         onOpenChange={setRefundOpen}
         orderNumber={order.orderNumber}
-        amountLabel={formatCurrency(order.payment.amount)}
+        remainingAmount={
+          Number.isFinite(remainingAmount) && remainingAmount > 0
+            ? remainingAmount
+            : parseFloat(order.payment.amount)
+        }
+        paymentAmountLabel={formatCurrency(order.payment.amount)}
         loading={initiateRefundMutation.isPending}
-        onConfirm={(reason) => initiateRefundMutation.mutateAsync(reason)}
+        onConfirm={(payload) => initiateRefundMutation.mutateAsync(payload)}
       />
 
       <ConfirmDialog
         open={completeConfirmOpen}
-        onOpenChange={setCompleteConfirmOpen}
+        onOpenChange={(open) => {
+          setCompleteConfirmOpen(open);
+          if (!open) setSelectedRefund(null);
+        }}
         title="Complete this refund?"
-        description={`This submits a full refund of ${formatCurrency(order.payment.amount)} for ${order.orderNumber} to Razorpay. The payment stays completed until the gateway confirms the refund.`}
+        description={`This submits a refund of ${formatCurrency(selectedRefund?.amount ?? "0")} for ${order.orderNumber} to Razorpay. Payment becomes fully refunded only when remaining balance reaches zero.`}
         confirmLabel="Complete refund"
         variant="destructive"
         loading={completeRefundMutation.isPending}
         onConfirm={() => {
-          if (!refund) return Promise.resolve();
-          return completeRefundMutation.mutateAsync(refund.id);
+          if (!selectedRefund) return Promise.resolve();
+          return completeRefundMutation.mutateAsync(selectedRefund.id);
         }}
       />
 
       <ConfirmDialog
         open={cancelConfirmOpen}
-        onOpenChange={setCancelConfirmOpen}
+        onOpenChange={(open) => {
+          setCancelConfirmOpen(open);
+          if (!open) setSelectedRefund(null);
+        }}
         title="Cancel this refund request?"
         description="Razorpay has not been charged yet. You can initiate a new refund later."
         confirmLabel="Cancel request"
         variant="destructive"
         loading={cancelRefundMutation.isPending}
         onConfirm={() => {
-          if (!refund) return Promise.resolve();
-          return cancelRefundMutation.mutateAsync(refund.id);
+          if (!selectedRefund) return Promise.resolve();
+          return cancelRefundMutation.mutateAsync(selectedRefund.id);
         }}
       />
 

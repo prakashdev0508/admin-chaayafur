@@ -24,12 +24,27 @@ type RefundCompleteResultDialogProps = {
 };
 
 function resultCopy(refund: OrderRefund) {
+  const remaining =
+    refund.remainingAmount != null
+      ? parseFloat(refund.remainingAmount)
+      : null;
+  const stillPartial =
+    remaining != null && Number.isFinite(remaining) && remaining > 0.001;
+
   if (refund.status === "PROCESSED") {
+    if (stillPartial) {
+      return {
+        icon: CheckCircle2,
+        iconClass: "text-emerald-600",
+        title: "Partial refund processed",
+        description: `Refunded ${formatCurrency(refund.amount)}. Remaining balance is ${formatCurrency(remaining)}. Payment stays completed until fully refunded.`,
+      };
+    }
     return {
       icon: CheckCircle2,
       iconClass: "text-emerald-600",
       title: "Refund processed",
-      description: `The refund for ${formatCurrency(refund.amount)} has been processed. The payment is marked refunded and the order status is Refunded.`,
+      description: `The refund for ${formatCurrency(refund.amount)} has been processed. The payment is fully refunded and the order status is Refunded.`,
     };
   }
 
@@ -90,6 +105,14 @@ export function RefundCompleteResultDialog({
               {formatCurrency(refund.amount)}
             </span>
           </div>
+          {refund.remainingAmount != null && (
+            <div className="mt-2 flex items-center justify-between gap-3">
+              <span className="text-muted-foreground">Remaining</span>
+              <span className="font-medium">
+                {formatCurrency(refund.remainingAmount)}
+              </span>
+            </div>
+          )}
           <div className="mt-2 flex items-center justify-between gap-3">
             <span className="text-muted-foreground">Status</span>
             <StatusBadge variant={refundStatusVariants[refund.status]}>

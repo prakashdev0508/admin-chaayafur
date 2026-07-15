@@ -7,6 +7,7 @@ export const orderStatusLabels: Record<OrderStatus, string> = {
   SHIPPED: "Order shipped",
   DELIVERED: "Order delivered",
   REFUND_INITIATED: "Staff started a refund",
+  PARTIALLY_REFUNDED: "Partially refunded",
   REFUNDED: "Refund completed",
   CANCELLED: "Cancelled",
 };
@@ -17,6 +18,7 @@ export const orderStatusVariants: Record<OrderStatus, StatusVariant> = {
   SHIPPED: "default",
   DELIVERED: "success",
   REFUND_INITIATED: "warning",
+  PARTIALLY_REFUNDED: "warning",
   REFUNDED: "neutral",
   CANCELLED: "danger",
 };
@@ -27,6 +29,7 @@ const allowedTransitions: Record<OrderStatus, OrderStatus[]> = {
   SHIPPED: ["DELIVERED", "CANCELLED"],
   DELIVERED: [],
   REFUND_INITIATED: [],
+  PARTIALLY_REFUNDED: [],
   REFUNDED: [],
   CANCELLED: [],
 };
@@ -50,6 +53,7 @@ export function isOrderEditable(status: OrderStatus) {
     status !== "CANCELLED" &&
     status !== "DELIVERED" &&
     status !== "REFUND_INITIATED" &&
+    status !== "PARTIALLY_REFUNDED" &&
     status !== "REFUNDED"
   );
 }

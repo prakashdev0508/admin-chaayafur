@@ -42,13 +42,14 @@ import type {
   CreateAddressPayload,
   CustomerAddress,
 } from "@/types/address";
+import { PERMISSIONS } from "@/lib/roles";
 
 export function CustomerDetailPage() {
   const { id } = useParams();
   const customerId = Number(id);
   const queryClient = useQueryClient();
   const { hasPermission } = usePermission();
-  const canEdit = hasPermission("update-customers");
+  const canEdit = hasPermission(PERMISSIONS.UPDATE_CUSTOMERS);
 
   const [showAddressForm, setShowAddressForm] = useState(false);
   const [editingAddress, setEditingAddress] = useState<CustomerAddress | null>(
@@ -66,7 +67,7 @@ export function CustomerDetailPage() {
   const ordersQuery = useQuery({
     queryKey: queryKeys.customers.orders(customerId),
     queryFn: () => listCustomerOrders(customerId, { limit: 20 }),
-    enabled: Number.isFinite(customerId) && hasPermission("view-orders"),
+    enabled: Number.isFinite(customerId) && hasPermission(PERMISSIONS.VIEW_ORDERS),
   });
 
   const auditQuery = useQuery({
@@ -306,7 +307,7 @@ export function CustomerDetailPage() {
               </TabsContent>
 
               <TabsContent value="orders" className="mt-4">
-                {hasPermission("view-orders") ? (
+                {hasPermission(PERMISSIONS.VIEW_ORDERS) ? (
                   <DataTable
                     columns={customerOrderColumns}
                     data={

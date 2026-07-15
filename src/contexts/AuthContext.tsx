@@ -12,11 +12,11 @@ import {
   getStoredSession,
   setStoredSession,
 } from "@/lib/auth-storage";
-import { fetchRolesPermissions, loginStaff } from "@/services/auth.service";
+import { getStaffMePermissions, loginStaff } from "@/services/auth.service";
 import type {
   AuthSession,
   LoginPayload,
-  RolesPermissionsMap,
+  StaffMePermissions,
   StaffUser,
 } from "@/types/auth";
 import { ApiError } from "@/lib/api";
@@ -24,26 +24,28 @@ import { ApiError } from "@/lib/api";
 type AuthContextValue = {
   user: StaffUser | null;
   accessToken: string | null;
-  rolesPermissions: RolesPermissionsMap | null;
+  /** Effective permissions for the logged-in staff user */
+  myPermissions: StaffMePermissions | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (payload: LoginPayload) => Promise<void>;
   logout: () => void;
+  updateUser: (user: Partial<StaffUser>) => void;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<AuthSession | null>(null);
-  const [rolesPermissions, setRolesPermissions] =
-    useState<RolesPermissionsMap | null>(null);
+  const [myPermissions, setMyPermissions] =
+    useState<StaffMePermissions | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const hydrateSession = useCallback(async () => {
     const stored = getStoredSession();
     if (!stored) {
       setSession(null);
-      setRolesPermissions(null);
+      setMyPermissions(null);
       setIsLoading(false);
       return;
     }
@@ -51,13 +53,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(stored);
 
     try {
-      const permissions = await fetchRolesPermissions();
-      setRolesPermissions(permissions);
+      const permissions = await getStaffMePermissions();
+      setMyPermissions(permissions);
     } catch (error) {
       if (error instanceof ApiError && error.statusCode === 401) {
         clearStoredSession();
         setSession(null);
-        setRolesPermissions(null);
+        setMyPermissions(null);
       }
     } finally {
       setIsLoading(false);
@@ -78,27 +80,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setStoredSession(nextSession);
     setSession(nextSession);
 
-    const permissions = await fetchRolesPermissions();
-    setRolesPermissions(permissions);
+    const permissions = await getStaffMePermissions();
+    setMyPermissions(permissions);
   }, []);
 
   const logout = useCallback(() => {
     clearStoredSession();
     setSession(null);
-    setRolesPermissions(null);
+    setMyPermissions(null);
+  }, []);
+
+  const updateUser = useCallback((partial: Partial<StaffUser>) => {
+    setSession((prev) => {
+      if (!prev) return prev;
+      const nextSession: AuthSession = {
+        ...prev,
+        user: { ...prev.user, ...partial },
+      };
+      setStoredSession(nextSession);
+      return nextSession;
+    });
   }, []);
 
   const value = useMemo<AuthContextValue>(
     () => ({
       user: session?.user ?? null,
       accessToken: session?.accessToken ?? null,
-      rolesPermissions,
+      myPermissions,
       isAuthenticated: Boolean(session?.accessToken),
       isLoading,
       login,
       logout,
+      updateUser,
     }),
-    [session, rolesPermissions, isLoading, login, logout],
+    [session, myPermissions, isLoading, login, logout, updateUser],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

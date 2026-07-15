@@ -1,20 +1,28 @@
-import { Navigate, Outlet } from "react-router-dom";
+import { Navigate, Outlet, Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
-import { Link } from "react-router-dom";
+import { isSuperAdminSlug } from "@/lib/staff-utils";
 
 export function SuperAdminRoute() {
-  const { user } = useAuth();
+  const { myPermissions, isLoading } = useAuth();
+  const isSuperAdmin = isSuperAdminSlug(
+    myPermissions?.roleSlug ?? myPermissions?.role,
+  );
 
-  if (user?.role !== "SUPER_ADMIN") {
+  if (isLoading) return null;
+
+  if (!isSuperAdmin) {
     return (
       <div className="flex flex-col gap-4">
         <PageHeader
           title="Access denied"
           description="This section is restricted to Super Admins."
         />
-        <Button variant="outline" render={<Link to="/">Back to dashboard</Link>} />
+        <Button
+          variant="outline"
+          render={<Link to="/">Back to dashboard</Link>}
+        />
       </div>
     );
   }
@@ -23,8 +31,11 @@ export function SuperAdminRoute() {
 }
 
 export function SuperAdminRedirect({ to = "/" }: { to?: string }) {
-  const { user } = useAuth();
-  if (user?.role !== "SUPER_ADMIN") {
+  const { myPermissions } = useAuth();
+  const isSuperAdmin = isSuperAdminSlug(
+    myPermissions?.roleSlug ?? myPermissions?.role,
+  );
+  if (!isSuperAdmin) {
     return <Navigate to={to} replace />;
   }
   return <Outlet />;

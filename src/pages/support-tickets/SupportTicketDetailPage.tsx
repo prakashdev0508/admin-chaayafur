@@ -23,18 +23,19 @@ import {
 } from "@/services/support-tickets.service";
 import { usePermission } from "@/hooks/usePermission";
 import type { UpdateSupportTicketPayload } from "@/types/support-ticket";
+import { PERMISSIONS } from "@/lib/roles";
 
 export function SupportTicketDetailPage() {
   const { id } = useParams();
   const ticketId = Number(id);
   const queryClient = useQueryClient();
   const { hasPermission } = usePermission();
-  const canUpdate = hasPermission("update-order-support");
+  const canUpdate = hasPermission(PERMISSIONS.UPDATE_ORDER_SUPPORT);
 
   const ticketQuery = useQuery({
     queryKey: queryKeys.supportTickets.detail(ticketId),
     queryFn: () => getSupportTicket(ticketId),
-    enabled: Number.isFinite(ticketId) && hasPermission("view-order-support"),
+    enabled: Number.isFinite(ticketId) && hasPermission(PERMISSIONS.VIEW_ORDER_SUPPORT),
     refetchInterval: (query) => {
       const status = query.state.data?.status;
       return status && isSupportTicketActive(status) ? 5000 : false;
