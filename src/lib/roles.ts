@@ -40,6 +40,7 @@ export const PERMISSIONS = {
   VIEW_BANNERS: "view-banners",
   VIEW_REVIEWS: "view-reviews",
   MODERATE_REVIEWS: "moderate-reviews",
+  VIEW_DASHBOARD: "view-dashboard",
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];

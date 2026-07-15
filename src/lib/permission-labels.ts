@@ -39,6 +39,7 @@ export const PERMISSION_LABELS: Record<string, string> = {
   [PERMISSIONS.VIEW_BANNERS]: "View banners",
   [PERMISSIONS.VIEW_REVIEWS]: "View reviews",
   [PERMISSIONS.MODERATE_REVIEWS]: "Moderate reviews",
+  [PERMISSIONS.VIEW_DASHBOARD]: "View dashboard",
 };
 
 export function formatPermissionLabel(key: string) {
@@ -51,6 +52,10 @@ export type PermissionGroup = {
 };
 
 const GROUP_DEFS: { title: string; keys: Permission[] }[] = [
+  {
+    title: "Dashboard",
+    keys: [PERMISSIONS.VIEW_DASHBOARD],
+  },
   {
     title: "Staff",
     keys: [

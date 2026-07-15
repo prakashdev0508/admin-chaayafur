@@ -17,6 +17,7 @@ export const staffRoleLabels: Record<string, string> = {
   SUPER_ADMIN: "Super Admin",
   ADMIN: "Admin",
   ORDER_MANAGER: "Order Manager",
+  DASHBOARD: "Dashboard",
 };
 
 export function formatRoleLabel(

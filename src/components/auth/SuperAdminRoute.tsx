@@ -21,7 +21,7 @@ export function SuperAdminRoute() {
         />
         <Button
           variant="outline"
-          render={<Link to="/">Back to dashboard</Link>}
+          render={<Link to="/">Back to home</Link>}
         />
       </div>
     );

@@ -16,7 +16,7 @@ export function PermissionRoute({
   permissions = [],
   requireAll = false,
 }: PermissionRouteProps) {
-  const { hasPermission, hasAnyPermission } = usePermission();
+  const { hasPermission, hasAnyPermission, defaultHomePath } = usePermission();
 
   const required = permission ? [permission, ...permissions] : permissions;
 
@@ -31,7 +31,10 @@ export function PermissionRoute({
           title="Access denied"
           description="You do not have permission to view this page."
         />
-        <Button variant="outline" render={<Link to="/">Back to dashboard</Link>} />
+        <Button
+          variant="outline"
+          render={<Link to={defaultHomePath}>Go to home</Link>}
+        />
       </div>
     );
   }
@@ -41,14 +44,14 @@ export function PermissionRoute({
 
 export function PermissionRedirect({
   permission,
-  to = "/",
+  to,
 }: {
   permission: string;
   to?: string;
 }) {
-  const { hasPermission } = usePermission();
+  const { hasPermission, defaultHomePath } = usePermission();
   if (!hasPermission(permission)) {
-    return <Navigate to={to} replace />;
+    return <Navigate to={to ?? defaultHomePath} replace />;
   }
   return <Outlet />;
 }

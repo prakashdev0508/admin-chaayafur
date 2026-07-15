@@ -1,9 +1,13 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { PERMISSIONS, type Permission } from "@/lib/roles";
+import {
+  getDefaultStaffHomePath,
+  resolvePostLoginPath,
+} from "@/lib/staff-home";
 
 /** Route → required permission(s). Empty means any authenticated staff. */
 const routePermissions: Record<string, Permission | Permission[] | []> = {
-  "/": [],
+  "/": PERMISSIONS.VIEW_DASHBOARD,
   "/products": PERMISSIONS.VIEW_PRODUCTS,
   "/products/new": PERMISSIONS.CREATE_PRODUCTS,
   "/categories": PERMISSIONS.VIEW_CATEGORIES,
@@ -53,11 +57,25 @@ export function usePermission() {
     return hasAnyPermission(required);
   };
 
+  const defaultHomePath = getDefaultStaffHomePath(
+    myPermissions?.permissions,
+    myPermissions?.roleSlug ?? myPermissions?.role,
+  );
+
+  const resolveHomePath = (from?: string | null) =>
+    resolvePostLoginPath(
+      from,
+      myPermissions?.permissions,
+      myPermissions?.roleSlug ?? myPermissions?.role,
+    );
+
   return {
     hasPermission,
     hasAnyPermission,
     hasAllPermissions,
     canAccessRoute,
     myPermissions,
+    defaultHomePath,
+    resolveHomePath,
   };
 }

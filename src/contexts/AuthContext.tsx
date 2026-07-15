@@ -28,7 +28,7 @@ type AuthContextValue = {
   myPermissions: StaffMePermissions | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (payload: LoginPayload) => Promise<void>;
+  login: (payload: LoginPayload) => Promise<StaffMePermissions>;
   logout: () => void;
   updateUser: (user: Partial<StaffUser>) => void;
 };
@@ -82,6 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const permissions = await getStaffMePermissions();
     setMyPermissions(permissions);
+    return permissions;
   }, []);
 
   const logout = useCallback(() => {

@@ -11,7 +11,7 @@ Staff authentication and authorization for the Chaaya Furnitures admin backend.
 - JWT Bearer token authentication for **staff** and **customers** (separate token types)
 - **Dynamic RBAC** — roles and permissions live in the database (`roles`, `role_permissions`)
 - Super Admin can create custom roles and assign permissions from a fixed catalog
-- Three **system** default roles (seeded, non-deletable): `SUPER_ADMIN`, `ADMIN`, `ORDER_MANAGER`
+- Four **system** default roles (seeded, non-deletable): `SUPER_ADMIN`, `ADMIN`, `ORDER_MANAGER`, `DASHBOARD`
 - Permission key catalog (assignable values): `src/common/data/roles.ts` → `PERMISSIONS`
 - Customer auth (register/login) is documented in [customers.md](./customers.md)
 
@@ -59,6 +59,7 @@ Staff authentication and authorization for the Chaaya Furnitures admin backend.
 | `SUPER_ADMIN` | Super Admin | `all` permission; locked — cannot delete or edit permissions |
 | `ADMIN` | Admin | All concrete permissions except staff CRUD; system role (non-deletable); permissions editable |
 | `ORDER_MANAGER` | Order Manager | Orders / customers / support focused; system role; permissions editable |
+| `DASHBOARD` | Dashboard | `view-dashboard` only; system role; permissions editable |
 
 ---
 
@@ -202,7 +203,7 @@ Create a custom role.
 ### PATCH /api/v1/auth/roles/:id
 
 Update `name`, `description`, and/or replace `permissions`.  
-Cannot change permissions on `SUPER_ADMIN`. System roles cannot be deleted but `ADMIN` / `ORDER_MANAGER` permissions can be edited.
+Cannot change permissions on `SUPER_ADMIN`. System roles cannot be deleted but `ADMIN` / `ORDER_MANAGER` / `DASHBOARD` permissions can be edited.
 
 ### DELETE /api/v1/auth/roles/:id
 
@@ -572,6 +573,7 @@ Admin password reset (no current password). **SUPER_ADMIN only.** Cannot reset y
 | `view-banners` | View home banners (admin) |
 | `view-reviews` | List product/order reviews (staff) |
 | `moderate-reviews` | Show/hide reviews |
+| `view-dashboard` | View admin dashboard |
 
 Full list: `GET /api/v1/auth/permissions` (catalog) or `GET /api/v1/auth/roles-permissions` (per-role map). Permission keys are defined in `src/common/data/roles.ts`.
 

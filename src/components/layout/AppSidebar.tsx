@@ -68,7 +68,12 @@ type NavItem = {
 };
 
 const navMain: NavItem[] = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboard },
+  {
+    title: "Dashboard",
+    url: "/",
+    icon: LayoutDashboard,
+    permission: PERMISSIONS.VIEW_DASHBOARD,
+  },
   {
     title: "Products",
     url: "/products",
@@ -150,7 +155,7 @@ export function AppSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout, myPermissions } = useAuth();
-  const { hasPermission } = usePermission();
+  const { hasPermission, defaultHomePath } = usePermission();
   const isSuperAdmin = isSuperAdminSlug(
     myPermissions?.roleSlug ?? myPermissions?.role,
   );
@@ -172,7 +177,7 @@ export function AppSidebar() {
             <SidebarMenuButton
               size="lg"
               render={
-                <Link to="/">
+                <Link to={defaultHomePath}>
                   <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
                     <span className="text-sm font-semibold">CF</span>
                   </div>

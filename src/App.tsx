@@ -46,6 +46,7 @@ import { CheckoutPage } from "@/pages/shop/CheckoutPage";
 import { ShopOrderPage } from "@/pages/shop/ShopOrderPage";
 import { AccountPage } from "@/pages/shop/AccountPage";
 import { SuperAdminRoute } from "@/components/auth/SuperAdminRoute";
+import { StaffHomeRedirect } from "@/components/auth/StaffHomeRedirect";
 import { PERMISSIONS } from "@/lib/roles";
 
 const App = () => {
@@ -69,7 +70,13 @@ const App = () => {
 
       <Route element={<ProtectedRoute />}>
         <Route element={<AdminLayout />}>
-          <Route index element={<DashboardPage />} />
+          <Route
+            element={
+              <PermissionRoute permission={PERMISSIONS.VIEW_DASHBOARD} />
+            }
+          >
+            <Route index element={<DashboardPage />} />
+          </Route>
           <Route
             element={
               <PermissionRoute permission={PERMISSIONS.VIEW_CATEGORIES} />
@@ -204,7 +211,7 @@ const App = () => {
         </Route>
       </Route>
 
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<StaffHomeRedirect />} />
     </Routes>
   );
 };
