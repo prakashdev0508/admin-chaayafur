@@ -53,6 +53,14 @@ export const queryKeys = {
   staff: {
     all: ["staff"] as const,
     list: (params: Record<string, unknown>) => ["staff", "list", params] as const,
+    detail: (id: number) => ["staff", "detail", id] as const,
+    me: ["staff", "me"] as const,
+  },
+  roles: {
+    all: ["roles"] as const,
+    list: ["roles", "list"] as const,
+    detail: (id: number) => ["roles", "detail", id] as const,
+    permissions: ["roles", "permissions-catalog"] as const,
   },
   supportTickets: {
     all: ["support-tickets"] as const,

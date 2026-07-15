@@ -9,8 +9,10 @@ Staff authentication and authorization for the Chaaya Furnitures admin backend.
 ## Overview
 
 - JWT Bearer token authentication for **staff** and **customers** (separate token types)
-- Three staff roles: `SUPER_ADMIN`, `ADMIN`, `ORDER_MANAGER`
-- Role and permission source of truth: `src/common/data/roles.ts`
+- **Dynamic RBAC** — roles and permissions live in the database (`roles`, `role_permissions`)
+- Super Admin can create custom roles and assign permissions from a fixed catalog
+- Four **system** default roles (seeded, non-deletable): `SUPER_ADMIN`, `ADMIN`, `ORDER_MANAGER`, `DASHBOARD`
+- Permission key catalog (assignable values): `src/common/data/roles.ts` → `PERMISSIONS`
 - Customer auth (register/login) is documented in [customers.md](./customers.md)
 
 ### JWT configuration
@@ -26,7 +28,8 @@ Staff authentication and authorization for the Chaaya Furnitures admin backend.
 |-------|------|-------------|
 | `sub` | integer | Staff user ID |
 | `email` | string | Staff email |
-| `role` | string | `SUPER_ADMIN`, `ADMIN`, or `ORDER_MANAGER` |
+| `role` | string | Role **slug** (system or custom) |
+| `roleId` | integer | Role ID |
 | `type` | string | Always `staff` |
 
 ```json
@@ -34,27 +37,29 @@ Staff authentication and authorization for the Chaaya Furnitures admin backend.
   "sub": 1,
   "email": "admin@chaaya.com",
   "role": "SUPER_ADMIN",
+  "roleId": 1,
   "type": "staff",
   "iat": 1234567890,
   "exp": 1234567890
 }
 ```
 
-> All `id` fields in auth responses are **integers** (auto-increment). After a database reset or re-seed, log in again — old JWTs with outdated `sub` values will fail.
+> Authz uses permissions loaded from DB on each request (not only the JWT). After a role permission change, existing tokens pick it up immediately.
 
 ### Access control
 
 1. **JwtAuthGuard** — valid JWT required on all routes except `@Public()`
-2. **RolesGuard** — enforces `@Roles(...)` when set on a route
-3. **PermissionsGuard** — enforces `@RequirePermissions(...)` when set on a route
+2. **RolesGuard** — `@StaffOnly()` (any staff) or `@Roles('SUPER_ADMIN')` (system slug match)
+3. **PermissionsGuard** — `@RequirePermissions(...)` checks the staff user’s effective permission list
 
-### Staff roles
+### Default system roles
 
-| Role | Value |
-|------|-------|
-| Super Admin | `SUPER_ADMIN` |
-| Admin | `ADMIN` |
-| Order Manager | `ORDER_MANAGER` |
+| Slug | Name | Notes |
+|------|------|-------|
+| `SUPER_ADMIN` | Super Admin | `all` permission; locked — cannot delete or edit permissions |
+| `ADMIN` | Admin | All concrete permissions except staff CRUD; system role (non-deletable); permissions editable |
+| `ORDER_MANAGER` | Order Manager | Orders / customers / support focused; system role; permissions editable |
+| `DASHBOARD` | Dashboard | `view-dashboard` only; system role; permissions editable |
 
 ---
 
@@ -64,8 +69,21 @@ Staff authentication and authorization for the Chaaya Furnitures admin backend.
 |--------|----------|------|--------|
 | `POST` | `/api/v1/auth/login` | Public | Anyone |
 | `GET` | `/api/v1/auth/roles-permissions` | Bearer | Any staff |
+| `GET` | `/api/v1/auth/permissions` | Bearer | `SUPER_ADMIN` |
+| `GET` | `/api/v1/auth/roles` | Bearer | `SUPER_ADMIN` |
+| `GET` | `/api/v1/auth/roles/:id` | Bearer | `SUPER_ADMIN` |
+| `POST` | `/api/v1/auth/roles` | Bearer | `SUPER_ADMIN` |
+| `PATCH` | `/api/v1/auth/roles/:id` | Bearer | `SUPER_ADMIN` |
+| `DELETE` | `/api/v1/auth/roles/:id` | Bearer | `SUPER_ADMIN` |
+| `GET` | `/api/v1/auth/staff/me` | Bearer | Any staff |
+| `GET` | `/api/v1/auth/staff/me/permissions` | Bearer | Any staff |
+| `PATCH` | `/api/v1/auth/staff/me` | Bearer | Any staff |
+| `PATCH` | `/api/v1/auth/staff/me/password` | Bearer | Any staff |
 | `GET` | `/api/v1/auth/staff` | Bearer | `SUPER_ADMIN` only |
 | `POST` | `/api/v1/auth/staff` | Bearer | `SUPER_ADMIN` + `create-staff` |
+| `GET` | `/api/v1/auth/staff/:id` | Bearer | `SUPER_ADMIN` only |
+| `PATCH` | `/api/v1/auth/staff/:id` | Bearer | `SUPER_ADMIN` only |
+| `PATCH` | `/api/v1/auth/staff/:id/password` | Bearer | `SUPER_ADMIN` only |
 
 ---
 
@@ -139,81 +157,63 @@ curl -X POST http://localhost:5000/api/v1/auth/login \
 
 ## GET /api/v1/auth/roles-permissions
 
-Returns the full roles and permissions map for frontend validation.
+Returns all roles from the DB keyed by slug (includes custom roles).
 
 | | |
 |---|---|
-| **Auth** | Bearer token required |
+| **Auth** | Bearer (any staff) |
 | **Status** | `200` |
 
-### Request body
-
-None.
-
-### Success response
-
-```json
-{
-  "success": true,
-  "data": {
-    "SUPER_ADMIN": {
-      "label": "Super Admin",
-      "permissions": ["all"]
-    },
-    "ADMIN": {
-      "label": "Admin",
-      "permissions": [
-        "view-staff",
-        "create-products",
-        "update-products",
-        "delete-products",
-        "view-products",
-        "create-categories",
-        "update-categories",
-        "delete-categories",
-        "view-categories",
-        "create-orders",
-        "update-orders",
-        "view-orders",
-        "create-payments",
-        "update-payments",
-        "view-payments",
-        "create-reports",
-        "update-reports",
-        "view-reports",
-        "create-settings",
-        "update-settings",
-        "view-settings",
-        "view-customers",
-        "update-customers"
-      ]
-    },
-    "ORDER_MANAGER": {
-      "label": "Order Manager",
-      "permissions": [
-        "view-products",
-        "view-categories",
-        "view-orders",
-        "update-orders",
-        "view-payments",
-        "view-customers"
-      ]
-    }
-  }
-}
-```
-
-### Errors
-
-| Status | When |
-|--------|------|
-| `401` | Missing or invalid token |
-
-### cURL
+Each entry: `{ id, label, description, isSystem, permissions[] }`.
 
 ```bash
 curl http://localhost:5000/api/v1/auth/roles-permissions \
-  -H "Authorization: Bearer $TOKEN"
+  -H "Authorization: Bearer $STAFF_TOKEN"
+```
+
+---
+
+## Role management (SUPER_ADMIN)
+
+### GET /api/v1/auth/permissions
+
+Assignable permission catalog (excludes reserved `all`).
+
+### GET /api/v1/auth/roles
+
+List all roles with `permissions` and `staffCount`.
+
+### GET /api/v1/auth/roles/:id
+
+Role detail.
+
+### POST /api/v1/auth/roles
+
+Create a custom role.
+
+```json
+{
+  "name": "Warehouse Manager",
+  "slug": "WAREHOUSE_MANAGER",
+  "description": "Can view and update orders",
+  "permissions": ["view-orders", "update-orders", "view-products"]
+}
+```
+
+### PATCH /api/v1/auth/roles/:id
+
+Update `name`, `description`, and/or replace `permissions`.  
+Cannot change permissions on `SUPER_ADMIN`. System roles cannot be deleted but `ADMIN` / `ORDER_MANAGER` / `DASHBOARD` permissions can be edited.
+
+### DELETE /api/v1/auth/roles/:id
+
+Delete a **non-system** role with zero staff assigned.
+
+```bash
+curl -X POST http://localhost:5000/api/v1/auth/roles \
+  -H "Authorization: Bearer $SUPER_ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Warehouse Manager","slug":"WAREHOUSE_MANAGER","permissions":["view-orders","update-orders"]}'
 ```
 
 ---
@@ -234,7 +234,8 @@ List staff users with pagination and optional filters. Restricted to Super Admin
 |-------|------|---------|-------------|
 | `page` | integer | `1` | Page number (min 1) |
 | `limit` | integer | `10` | Items per page (1–100) |
-| `role` | string | — | Filter by role: `SUPER_ADMIN`, `ADMIN`, or `ORDER_MANAGER` |
+| `roleId` | integer | — | Filter by role ID |
+| `roleSlug` | string | — | Filter by role slug (e.g. `ORDER_MANAGER`) |
 | `isActive` | boolean | — | Filter by active status |
 | `email` | string | — | Partial email match (case-insensitive) |
 
@@ -327,7 +328,7 @@ Create a new staff user. Restricted to Super Admin only.
   "password": "password123",
   "firstName": "John",
   "lastName": "Doe",
-  "role": "ORDER_MANAGER"
+  "roleId": 3
 }
 ```
 
@@ -337,9 +338,9 @@ Create a new staff user. Restricted to Super Admin only.
 | `password` | string | Yes | Min 6 characters |
 | `firstName` | string | No | — |
 | `lastName` | string | No | — |
-| `role` | string | Yes | `ADMIN` or `ORDER_MANAGER` only |
+| `roleId` | integer | Yes | Existing role ID; cannot be `SUPER_ADMIN` |
 
-> `SUPER_ADMIN` cannot be assigned via this API.
+> `SUPER_ADMIN` cannot be assigned via this API. Use `GET /auth/roles` to resolve IDs.
 
 ### Response fields
 
@@ -349,7 +350,10 @@ Create a new staff user. Restricted to Super Admin only.
 | `email` | string | Staff email |
 | `firstName` | string \| null | First name |
 | `lastName` | string \| null | Last name |
-| `role` | string | Assigned role |
+| `roleId` | integer | Assigned role ID |
+| `role` / `roleSlug` | string | Role slug |
+| `roleName` | string | Role display name |
+| `permissions` | string[] | Effective permissions |
 | `isActive` | boolean | Account status |
 | `createdAt` | string | ISO timestamp |
 
@@ -363,7 +367,10 @@ Create a new staff user. Restricted to Super Admin only.
     "email": "manager@chaaya.com",
     "firstName": "John",
     "lastName": "Doe",
+    "roleId": 3,
     "role": "ORDER_MANAGER",
+    "roleSlug": "ORDER_MANAGER",
+    "roleName": "Order Manager",
     "isActive": true,
     "createdAt": "2026-07-09T15:40:07.100Z"
   }
@@ -374,7 +381,7 @@ Create a new staff user. Restricted to Super Admin only.
 
 | Status | When |
 |--------|------|
-| `400` | Invalid payload |
+| `400` | Invalid payload / SUPER_ADMIN roleId |
 | `401` | Missing or invalid token |
 | `403` | Not `SUPER_ADMIN` or missing `create-staff` permission |
 | `409` | Email already in use |
@@ -390,8 +397,137 @@ curl -X POST http://localhost:5000/api/v1/auth/staff \
     "password": "password123",
     "firstName": "John",
     "lastName": "Doe",
-    "role": "ORDER_MANAGER"
+    "roleId": 3
   }'
+```
+
+---
+
+## GET /api/v1/auth/staff/me
+
+Current staff profile plus activity stats. Available to any staff role.
+
+| | |
+|---|---|
+| **Auth** | Bearer (staff JWT) |
+| **Status** | `200` |
+
+### Response extras — `stats`
+
+| Field | Description |
+|-------|-------------|
+| `ordersConfirmed` | Status events `CONFIRMED` recorded by this staff |
+| `ordersShipped` | Status events `SHIPPED` |
+| `ordersDelivered` | Status events `DELIVERED` |
+| `ordersCancelled` | Status events `CANCELLED` |
+| `refundsInitiatedStatus` | Status events `REFUND_INITIATED` |
+| `refundsInitiated` | Refund rows this staff initiated |
+| `refundsCompleted` | Refund rows this staff completed (clicked Complete) |
+| `refundsProcessedAmount` | Sum of amounts for `PROCESSED` refunds they completed |
+
+Also returns profile fields: `id`, `email`, `firstName`, `lastName`, `role`, `isActive`, `createdBy`, `creator`, timestamps.
+
+```bash
+curl http://localhost:5000/api/v1/auth/staff/me \
+  -H "Authorization: Bearer $STAFF_TOKEN"
+```
+
+---
+
+## GET /api/v1/auth/staff/me/permissions
+
+Permissions for the logged-in staff user (derived from their role).
+
+| | |
+|---|---|
+| **Auth** | Bearer (staff JWT) |
+| **Status** | `200` |
+
+### Success response
+
+```json
+{
+  "success": true,
+  "data": {
+    "roleId": 2,
+    "role": "ADMIN",
+    "roleSlug": "ADMIN",
+    "permissions": ["create-products", "update-products", "view-orders"]
+  }
+}
+```
+
+| Field | Description |
+|-------|-------------|
+| `roleId` | Current role ID |
+| `role` / `roleSlug` | Role slug |
+| `permissions` | Effective permission keys (`SUPER_ADMIN` includes `all` plus every concrete permission) |
+
+```bash
+curl http://localhost:5000/api/v1/auth/staff/me/permissions \
+  -H "Authorization: Bearer $STAFF_TOKEN"
+```
+
+---
+
+## PATCH /api/v1/auth/staff/me
+
+Update own `firstName` / `lastName` only.
+
+```json
+{ "firstName": "Jane", "lastName": "Smith" }
+```
+
+---
+
+## PATCH /api/v1/auth/staff/me/password
+
+Change own password. Requires the current password.
+
+```json
+{
+  "currentPassword": "password123",
+  "newPassword": "newSecurePassword123"
+}
+```
+
+| Status | When |
+|--------|------|
+| `401` | Current password incorrect |
+| `400` | New password same as current |
+
+---
+
+## GET /api/v1/auth/staff/:id
+
+Staff detail + activity stats. **SUPER_ADMIN only.** Same response shape as `/auth/staff/me`.
+
+---
+
+## PATCH /api/v1/auth/staff/:id
+
+Update another staff user’s `firstName`, `lastName`, `roleId` (any role except `SUPER_ADMIN`), or `isActive`. **SUPER_ADMIN only.**
+
+Rules:
+- Cannot change your own role or deactivate yourself
+- Cannot change role of a `SUPER_ADMIN` account
+
+```json
+{
+  "firstName": "John",
+  "isActive": true,
+  "roleId": 2
+}
+```
+
+---
+
+## PATCH /api/v1/auth/staff/:id/password
+
+Admin password reset (no current password). **SUPER_ADMIN only.** Cannot reset your own password here — use `/auth/staff/me/password`.
+
+```json
+{ "newPassword": "temporaryPassword123" }
 ```
 
 ---
@@ -400,25 +536,46 @@ curl -X POST http://localhost:5000/api/v1/auth/staff \
 
 | Permission key | Description |
 |----------------|-------------|
-| `all` | Full access (`SUPER_ADMIN` only) |
-| `create-staff` | Create staff users |
-| `view-staff` | View staff users |
+| `all` | Full access (`SUPER_ADMIN` only; implies every permission below) |
+| `create-staff` | Create staff users (`SUPER_ADMIN` only) |
+| `update-staff` | Update other staff users (`SUPER_ADMIN` only) |
+| `delete-staff` | Delete staff users (`SUPER_ADMIN` only) |
+| `view-staff` | View staff users (`SUPER_ADMIN` only) |
 | `create-products` | Create products |
 | `update-products` | Update products |
+| `delete-products` | Delete products |
 | `view-products` | List/view products |
-| `create-categories` | Create categories |
-| `update-categories` | Update categories |
+| `create-categories` | Create categories / sub-categories |
+| `update-categories` | Update categories / sub-categories |
+| `delete-categories` | Delete categories |
 | `view-categories` | View categories |
-| `create-orders` | Create orders |
-| `update-orders` | Update orders |
-| `view-orders` | View orders |
+| `create-orders` | Create orders (staff) |
+| `update-orders` | Update orders / regenerate invoices |
+| `view-orders` | View orders and order audit logs |
 | `create-payments` | Create payments |
-| `update-payments` | Update payments |
+| `update-payments` | Update payments / process refunds |
 | `view-payments` | View payments |
+| `create-reports` | Create reports |
+| `update-reports` | Update reports |
+| `view-reports` | View reports |
+| `create-settings` | Create site settings |
+| `update-settings` | Update site settings / shipping pincodes / logo uploads |
+| `view-settings` | View site settings / shipping pincodes |
 | `view-customers` | View customers |
-| `update-customers` | Update customers |
+| `update-customers` | Create/update/block customers and addresses |
+| `create-coupons` | Create coupons |
+| `update-coupons` | Update coupons |
+| `view-coupons` | View coupons |
+| `view-order-support` | View order support tickets |
+| `update-order-support` | Reply to / update support tickets |
+| `create-banners` | Create home banners |
+| `update-banners` | Update home banners |
+| `view-banners` | View home banners (admin) |
+| `view-reviews` | List product/order reviews (staff) |
+| `moderate-reviews` | Show/hide reviews |
+| `view-dashboard` | View admin dashboard |
 
-Full list: `src/common/data/roles.ts` or `GET /api/v1/auth/roles-permissions`.
+Full list: `GET /api/v1/auth/permissions` (catalog) or `GET /api/v1/auth/roles-permissions` (per-role map). Permission keys are defined in `src/common/data/roles.ts`.
 
 ---
 

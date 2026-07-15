@@ -1,23 +1,26 @@
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { Separator } from "@/components/ui/separator";
 import { formatCurrency, formatDate } from "@/lib/format";
 import {
-  isActiveRefund,
-  refundEventLabels,
   refundStatusLabels,
   refundStatusVariants,
 } from "@/lib/refund-status";
-import type { OrderRefund, RefundStatus } from "@/types/refund";
+import { formatStaffName } from "@/lib/staff-utils";
+import type {
+  OrderRefund,
+  OrderRefundsResponse,
+  RefundStaffSummary,
+  RefundStatus,
+} from "@/types/refund";
 
 type RefundPanelProps = {
-  refund: OrderRefund;
+  data: OrderRefundsResponse;
   canUpdate: boolean;
   completeLoading?: boolean;
   cancelLoading?: boolean;
-  onComplete: () => void;
-  onCancel: () => void;
+  onComplete: (refund: OrderRefund) => void;
+  onCancel: (refund: OrderRefund) => void;
 };
 
 function statusLabel(status: string) {
@@ -28,18 +31,33 @@ function statusVariant(status: string) {
   return refundStatusVariants[status as RefundStatus] ?? "neutral";
 }
 
-export function RefundPanel({
+function refundActorLabel(
+  staff: RefundStaffSummary | null | undefined,
+  staffId: number | null | undefined,
+) {
+  if (staff) return formatStaffName(staff);
+  if (staffId != null) return `Staff #${staffId}`;
+  return "—";
+}
+
+function RefundItemCard({
   refund,
   canUpdate,
   completeLoading,
   cancelLoading,
   onComplete,
   onCancel,
-}: RefundPanelProps) {
+}: {
+  refund: OrderRefund;
+  canUpdate: boolean;
+  completeLoading?: boolean;
+  cancelLoading?: boolean;
+  onComplete: () => void;
+  onCancel: () => void;
+}) {
   const busy = Boolean(completeLoading || cancelLoading);
   const canComplete = canUpdate && refund.status === "INITIATED";
   const canCancelRequest = canUpdate && refund.status === "INITIATED";
-  const events = Array.isArray(refund.events) ? refund.events : [];
 
   return (
     <div className="space-y-4 rounded-lg border p-4">
@@ -56,25 +74,39 @@ export function RefundPanel({
       </div>
 
       <div className="space-y-2 text-sm">
-        <div className="flex justify-between gap-3">
-          <span className="text-muted-foreground">Status</span>
-          <StatusBadge variant={statusVariant(refund.status)}>
-            {statusLabel(refund.status)}
-          </StatusBadge>
-        </div>
         <div>
           <p className="text-muted-foreground">Reason</p>
           <p>{refund.reason || "—"}</p>
         </div>
         <div className="grid gap-2 sm:grid-cols-2">
           <div>
-            <p className="text-muted-foreground">Initiated</p>
-            <p>{refund.initiatedAt ? formatDate(refund.initiatedAt) : "—"}</p>
+            <p className="text-muted-foreground">Initiated by</p>
+            <p>
+              {refundActorLabel(
+                refund.initiatedBy,
+                refund.initiatedByStaffId,
+              )}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {refund.initiatedAt ? formatDate(refund.initiatedAt) : "—"}
+            </p>
           </div>
-          {refund.completedAt && (
+          {(refund.completedBy ||
+            refund.completedByStaffId != null ||
+            refund.completedAt) && (
             <div>
-              <p className="text-muted-foreground">Complete clicked</p>
-              <p>{formatDate(refund.completedAt)}</p>
+              <p className="text-muted-foreground">Completed by</p>
+              <p>
+                {refundActorLabel(
+                  refund.completedBy,
+                  refund.completedByStaffId,
+                )}
+              </p>
+              {refund.completedAt && (
+                <p className="text-xs text-muted-foreground">
+                  {formatDate(refund.completedAt)}
+                </p>
+              )}
             </div>
           )}
           {refund.processedAt && (
@@ -134,44 +166,69 @@ export function RefundPanel({
           )}
         </div>
       )}
+    </div>
+  );
+}
 
-      {events.length > 0 && (
-        <>
-          <Separator />
-          <div className="space-y-3">
-            <p className="text-sm font-medium">Timeline</p>
-            <ol className="space-y-3">
-              {events.map((event) => (
-                <li key={event.id} className="relative pl-4 text-sm">
-                  <span className="absolute top-1.5 left-0 size-1.5 rounded-full bg-foreground/40" />
-                  <div className="flex flex-wrap items-baseline justify-between gap-2">
-                    <span className="font-medium">
-                      {refundEventLabels[event.type] ?? event.type}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {formatDate(event.createdAt)}
-                    </span>
-                  </div>
-                  {event.message && (
-                    <p className="mt-0.5 text-muted-foreground">{event.message}</p>
-                  )}
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    {event.actorType}
-                    {event.actorId != null ? ` #${event.actorId}` : ""}
-                  </p>
-                </li>
-              ))}
-            </ol>
-          </div>
-        </>
-      )}
+export function RefundPanel({
+  data,
+  canUpdate,
+  completeLoading,
+  cancelLoading,
+  onComplete,
+  onCancel,
+}: RefundPanelProps) {
+  const items =
+    Array.isArray(data.items) && data.items.length > 0
+      ? data.items
+      : data.id
+        ? [data]
+        : [];
+  const remaining = parseFloat(data.remainingAmount ?? "0");
+  const refunded = parseFloat(data.refundedAmount ?? "0");
+  const paymentTotal = parseFloat(
+    data.paymentAmount ?? data.amount ?? "0",
+  );
 
-      {isActiveRefund(refund.status as RefundStatus) && (
-        <p className="text-xs text-muted-foreground">
-          Payment stays completed until the refund is processed. Order cancel
-          and stock restore happen only when the refund is processed.
-        </p>
-      )}
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-3 rounded-lg border bg-muted/20 p-4 sm:grid-cols-3">
+        <div>
+          <p className="text-xs text-muted-foreground">Payment total</p>
+          <p className="mt-1 text-sm font-medium">
+            {formatCurrency(paymentTotal)}
+          </p>
+        </div>
+        <div>
+          <p className="text-xs text-muted-foreground">Refunded</p>
+          <p className="mt-1 text-sm font-medium">{formatCurrency(refunded)}</p>
+        </div>
+        <div>
+          <p className="text-xs text-muted-foreground">Remaining</p>
+          <p className="mt-1 text-sm font-medium">
+            {formatCurrency(remaining)}
+          </p>
+        </div>
+      </div>
+
+      <p className="text-xs text-muted-foreground">
+        Payment stays completed until fully refunded. Stock and coupon restore
+        only when remaining balance reaches zero.
+      </p>
+
+      <div className="space-y-3">
+        {items.map((refund) => (
+          <RefundItemCard
+            key={refund.id}
+            refund={refund}
+            canUpdate={canUpdate}
+            completeLoading={completeLoading}
+            cancelLoading={cancelLoading}
+            onComplete={() => onComplete(refund)}
+            onCancel={() => onCancel(refund)}
+          />
+        ))}
+      </div>
     </div>
   );
 }

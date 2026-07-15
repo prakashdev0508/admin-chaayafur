@@ -18,16 +18,17 @@ import {
   paymentStatusVariants,
 } from "@/lib/payment-status";
 import {
-  refundEventLabels,
   refundStatusLabels,
   refundStatusVariants,
 } from "@/lib/refund-status";
+import { formatStaffName } from "@/lib/staff-utils";
 import { getOrderStatusLabel } from "@/lib/order-status";
 import { queryKeys } from "@/lib/query-keys";
 import { ApiError } from "@/lib/api";
 import { getPayment } from "@/services/payments.service";
 import { getOrderRefund } from "@/services/orders.service";
 import { usePermission } from "@/hooks/usePermission";
+import { PERMISSIONS } from "@/lib/roles";
 
 export function PaymentDetailPage() {
   const { id } = useParams();
@@ -35,7 +36,8 @@ export function PaymentDetailPage() {
   const isValidId = Number.isFinite(paymentId) && paymentId > 0;
   const { hasPermission } = usePermission();
   const canViewRefund =
-    hasPermission("view-payments") || hasPermission("view-orders");
+    hasPermission(PERMISSIONS.VIEW_PAYMENTS) ||
+    hasPermission(PERMISSIONS.VIEW_ORDERS);
 
   const {
     data: payment,
@@ -96,9 +98,18 @@ export function PaymentDetailPage() {
 
   const order = payment.order;
   const orderId = order?.id ?? payment.orderId;
-  const refund = refundQuery.data;
+  const refundData = refundQuery.data;
   const refundMissing =
     refundQuery.error instanceof ApiError && refundQuery.error.statusCode === 404;
+  const refundItems =
+    refundData &&
+    Array.isArray(refundData.items) &&
+    refundData.items.length > 0
+      ? refundData.items
+      : refundData?.id
+        ? [refundData]
+        : [];
+  const latestRefund = refundItems[0] ?? null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -275,9 +286,11 @@ export function PaymentDetailPage() {
                       Manage initiate / complete on the order page
                     </CardDescription>
                   </div>
-                  {refund && (
-                    <StatusBadge variant={refundStatusVariants[refund.status]}>
-                      {refundStatusLabels[refund.status]}
+                  {latestRefund && (
+                    <StatusBadge
+                      variant={refundStatusVariants[latestRefund.status]}
+                    >
+                      {refundStatusLabels[latestRefund.status]}
                     </StatusBadge>
                   )}
                 </div>
@@ -287,44 +300,71 @@ export function PaymentDetailPage() {
                   <div className="flex justify-center py-6">
                     <Loader2 className="size-5 animate-spin text-muted-foreground" />
                   </div>
-                ) : refund ? (
+                ) : refundData ? (
                   <>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Reason</p>
-                      <p className="text-sm">{refund.reason}</p>
-                    </div>
-                    {refund.failureReason && (
+                    <div className="grid gap-2 rounded-lg border bg-muted/20 p-3 text-sm sm:grid-cols-3">
                       <div>
-                        <p className="text-sm text-muted-foreground">Failure</p>
-                        <p className="text-sm text-destructive">
-                          {refund.failureReason}
+                        <p className="text-xs text-muted-foreground">Payment</p>
+                        <p className="font-medium">
+                          {formatCurrency(
+                            refundData.paymentAmount ?? payment.amount,
+                          )}
                         </p>
                       </div>
-                    )}
-                    {refund.events.length > 0 && (
-                      <div className="space-y-2">
-                        <p className="text-sm font-medium">Timeline</p>
-                        <ul className="space-y-2 text-sm">
-                          {refund.events.map((event) => (
-                            <li key={event.id} className="rounded-md bg-muted/50 p-2">
-                              <div className="flex justify-between gap-2">
-                                <span className="font-medium">
-                                  {refundEventLabels[event.type] ?? event.type}
-                                </span>
-                                <span className="text-xs text-muted-foreground">
-                                  {formatDate(event.createdAt)}
-                                </span>
-                              </div>
-                              {event.message && (
-                                <p className="mt-1 text-muted-foreground">
-                                  {event.message}
-                                </p>
-                              )}
-                            </li>
-                          ))}
-                        </ul>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Refunded</p>
+                        <p className="font-medium">
+                          {formatCurrency(refundData.refundedAmount ?? "0")}
+                        </p>
                       </div>
-                    )}
+                      <div>
+                        <p className="text-xs text-muted-foreground">
+                          Remaining
+                        </p>
+                        <p className="font-medium">
+                          {formatCurrency(refundData.remainingAmount ?? "0")}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      {refundItems.map((item) => (
+                        <div
+                          key={item.id}
+                          className="rounded-md border p-3 text-sm"
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <span className="font-medium">
+                              {formatCurrency(item.amount)}
+                            </span>
+                            <StatusBadge
+                              variant={refundStatusVariants[item.status]}
+                            >
+                              {refundStatusLabels[item.status]}
+                            </StatusBadge>
+                          </div>
+                          <p className="mt-1 text-muted-foreground">
+                            {item.reason}
+                          </p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Initiated by{" "}
+                            {item.initiatedBy
+                              ? formatStaffName(item.initiatedBy)
+                              : `Staff #${item.initiatedByStaffId}`}
+                            {item.completedBy && (
+                              <>
+                                {" · "}Completed by{" "}
+                                {formatStaffName(item.completedBy)}
+                              </>
+                            )}
+                          </p>
+                          {item.failureReason && (
+                            <p className="mt-1 text-destructive">
+                              {item.failureReason}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                     <Button
                       variant="outline"
                       className="w-full"

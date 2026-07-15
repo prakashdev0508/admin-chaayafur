@@ -15,6 +15,7 @@ import {
   updateProduct,
 } from "@/services/products.service";
 import type { ProductFormValues } from "@/types/product";
+import { PERMISSIONS } from "@/lib/roles";
 
 export function EditProductPage() {
   const { id } = useParams<{ id: string }>();
@@ -29,7 +30,7 @@ export function EditProductPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const productId = Number(id);
-  const canUpdate = hasPermission("update-products");
+  const canUpdate = hasPermission(PERMISSIONS.UPDATE_PRODUCTS);
 
   useEffect(() => {
     if (!productId || Number.isNaN(productId)) {

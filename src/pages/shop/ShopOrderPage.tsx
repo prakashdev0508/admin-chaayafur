@@ -183,6 +183,7 @@ export function ShopOrderPage() {
   const canOpenSupport =
     order.status !== "CANCELLED" &&
     order.status !== "REFUNDED" &&
+    order.status !== "PARTIALLY_REFUNDED" &&
     order.status !== "REFUND_INITIATED";
   const canReview = order.status === "DELIVERED";
   const tickets = ticketsQuery.data ?? [];

@@ -17,10 +17,12 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { queryKeys } from "@/lib/query-keys";
 import { listPayments } from "@/services/payments.service";
 import { usePermission } from "@/hooks/usePermission";
+import { PERMISSIONS } from "@/lib/roles";
 import type { PaymentStatus } from "@/types/payment";
 
 export function PaymentListPage() {
   const { hasPermission } = usePermission();
+  const canView = hasPermission(PERMISSIONS.VIEW_PAYMENTS);
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(10);
   const [filters, setFilters] = useState<PaymentFilters>(defaultPaymentFilters);
@@ -36,6 +38,18 @@ export function PaymentListPage() {
       ...(filters.customerId.trim()
         ? { customerId: Number(filters.customerId) }
         : {}),
+      ...(filters.orderNumber.trim()
+        ? { orderNumber: filters.orderNumber.trim() }
+        : {}),
+      ...(filters.customerPhone.trim()
+        ? { customerPhone: filters.customerPhone.trim() }
+        : {}),
+      ...(filters.createdFrom.trim()
+        ? { createdFrom: filters.createdFrom.trim() }
+        : {}),
+      ...(filters.createdTo.trim()
+        ? { createdTo: filters.createdTo.trim() }
+        : {}),
     }),
     [page, pageSize, filters],
   );
@@ -43,10 +57,10 @@ export function PaymentListPage() {
   const { data, isLoading, isFetching, refetch, error } = useQuery({
     queryKey: queryKeys.payments.list(params),
     queryFn: () => listPayments(params),
-    enabled: hasPermission("view-payments"),
+    enabled: canView,
   });
 
-  if (!hasPermission("view-payments")) {
+  if (!canView) {
     return (
       <div className="flex flex-col gap-4">
         <PageHeader title="Payments" description="View payment transactions." />

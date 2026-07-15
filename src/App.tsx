@@ -28,7 +28,11 @@ import { CustomerDetailPage } from "@/pages/customers/CustomerDetailPage";
 import { AuditLogsPage } from "@/pages/audit-logs/AuditLogsPage";
 import { StaffListPage } from "@/pages/staff/StaffListPage";
 import { StaffCreatePage } from "@/pages/staff/StaffCreatePage";
-import { SuperAdminRoute } from "@/components/auth/SuperAdminRoute";
+import { StaffDetailPage } from "@/pages/staff/StaffDetailPage";
+import { StaffAccountPage } from "@/pages/staff/StaffAccountPage";
+import { RoleListPage } from "@/pages/roles/RoleListPage";
+import { RoleCreatePage } from "@/pages/roles/RoleCreatePage";
+import { RoleDetailPage } from "@/pages/roles/RoleDetailPage";
 import { SupportTicketListPage } from "@/pages/support-tickets/SupportTicketListPage";
 import { SupportTicketDetailPage } from "@/pages/support-tickets/SupportTicketDetailPage";
 import { WebsiteHomePage } from "@/pages/website/WebsiteHomePage";
@@ -41,6 +45,9 @@ import { CartPage } from "@/pages/shop/CartPage";
 import { CheckoutPage } from "@/pages/shop/CheckoutPage";
 import { ShopOrderPage } from "@/pages/shop/ShopOrderPage";
 import { AccountPage } from "@/pages/shop/AccountPage";
+import { SuperAdminRoute } from "@/components/auth/SuperAdminRoute";
+import { StaffHomeRedirect } from "@/components/auth/StaffHomeRedirect";
+import { PERMISSIONS } from "@/lib/roles";
 
 const App = () => {
   return (
@@ -63,50 +70,148 @@ const App = () => {
 
       <Route element={<ProtectedRoute />}>
         <Route element={<AdminLayout />}>
-          <Route index element={<DashboardPage />} />
-          <Route path="categories" element={<CategoryMasterPage />} />
+          <Route
+            element={
+              <PermissionRoute permission={PERMISSIONS.VIEW_DASHBOARD} />
+            }
+          >
+            <Route index element={<DashboardPage />} />
+          </Route>
+          <Route
+            element={
+              <PermissionRoute permission={PERMISSIONS.VIEW_CATEGORIES} />
+            }
+          >
+            <Route path="categories" element={<CategoryMasterPage />} />
+          </Route>
           <Route path="website" element={<Navigate to="/website/home" replace />} />
-          <Route path="website/home" element={<WebsiteHomePage />} />
-          <Route path="products" element={<ProductListPage />} />
-          <Route path="products/new" element={<AddProductPage />} />
-          <Route path="products/:id" element={<ProductDetailPage />} />
-          <Route path="products/:id/edit" element={<EditProductPage />} />
-          <Route path="orders" element={<OrderListPage />} />
-          <Route path="orders/:id" element={<OrderDetailPage />} />
-          <Route path="support-tickets" element={<SupportTicketListPage />} />
-          <Route path="support-tickets/:id" element={<SupportTicketDetailPage />} />
-          <Route path="payments" element={<PaymentListPage />} />
-          <Route path="payments/:id" element={<PaymentDetailPage />} />
-          <Route path="coupons" element={<CouponListPage />} />
-          <Route element={<PermissionRoute permission="create-coupons" />}>
+          <Route
+            element={<PermissionRoute permission={PERMISSIONS.VIEW_BANNERS} />}
+          >
+            <Route path="website/home" element={<WebsiteHomePage />} />
+          </Route>
+          <Route
+            element={
+              <PermissionRoute permission={PERMISSIONS.VIEW_PRODUCTS} />
+            }
+          >
+            <Route path="products" element={<ProductListPage />} />
+            <Route path="products/:id" element={<ProductDetailPage />} />
+          </Route>
+          <Route
+            element={
+              <PermissionRoute permission={PERMISSIONS.CREATE_PRODUCTS} />
+            }
+          >
+            <Route path="products/new" element={<AddProductPage />} />
+          </Route>
+          <Route
+            element={
+              <PermissionRoute permission={PERMISSIONS.UPDATE_PRODUCTS} />
+            }
+          >
+            <Route path="products/:id/edit" element={<EditProductPage />} />
+          </Route>
+          <Route
+            element={<PermissionRoute permission={PERMISSIONS.VIEW_ORDERS} />}
+          >
+            <Route path="orders" element={<OrderListPage />} />
+            <Route path="orders/:id" element={<OrderDetailPage />} />
+          </Route>
+          <Route
+            element={
+              <PermissionRoute permission={PERMISSIONS.VIEW_ORDER_SUPPORT} />
+            }
+          >
+            <Route path="support-tickets" element={<SupportTicketListPage />} />
+            <Route
+              path="support-tickets/:id"
+              element={<SupportTicketDetailPage />}
+            />
+          </Route>
+          <Route
+            element={
+              <PermissionRoute permission={PERMISSIONS.VIEW_PAYMENTS} />
+            }
+          >
+            <Route path="payments" element={<PaymentListPage />} />
+            <Route path="payments/:id" element={<PaymentDetailPage />} />
+          </Route>
+          <Route
+            element={<PermissionRoute permission={PERMISSIONS.VIEW_COUPONS} />}
+          >
+            <Route path="coupons" element={<CouponListPage />} />
+            <Route path="coupons/:id" element={<CouponDetailPage />} />
+          </Route>
+          <Route
+            element={
+              <PermissionRoute permission={PERMISSIONS.CREATE_COUPONS} />
+            }
+          >
             <Route path="coupons/new" element={<AddCouponPage />} />
           </Route>
-          <Route path="coupons/:id" element={<CouponDetailPage />} />
-          <Route element={<PermissionRoute permission="update-coupons" />}>
+          <Route
+            element={
+              <PermissionRoute permission={PERMISSIONS.UPDATE_COUPONS} />
+            }
+          >
             <Route path="coupons/:id/edit" element={<EditCouponPage />} />
           </Route>
-          <Route path="customers" element={<CustomerListPage />} />
-          <Route element={<PermissionRoute permission="update-customers" />}>
+          <Route
+            element={
+              <PermissionRoute permission={PERMISSIONS.VIEW_CUSTOMERS} />
+            }
+          >
+            <Route path="customers" element={<CustomerListPage />} />
+            <Route path="customers/:id" element={<CustomerDetailPage />} />
+          </Route>
+          <Route
+            element={
+              <PermissionRoute permission={PERMISSIONS.UPDATE_CUSTOMERS} />
+            }
+          >
             <Route path="customers/new" element={<AddCustomerPage />} />
           </Route>
-          <Route path="customers/:id" element={<CustomerDetailPage />} />
-          <Route element={<PermissionRoute permission="view-reviews" />}>
+          <Route
+            element={<PermissionRoute permission={PERMISSIONS.VIEW_REVIEWS} />}
+          >
             <Route path="reviews" element={<ReviewListPage />} />
           </Route>
-          <Route path="audit-logs" element={<AuditLogsPage />} />
-          <Route element={<SuperAdminRoute />}>
-            <Route path="staff" element={<StaffListPage />} />
-            <Route element={<PermissionRoute permission="create-staff" />}>
-              <Route path="staff/new" element={<StaffCreatePage />} />
-            </Route>
+          <Route
+            element={<PermissionRoute permission={PERMISSIONS.VIEW_ORDERS} />}
+          >
+            <Route path="audit-logs" element={<AuditLogsPage />} />
           </Route>
-          <Route element={<PermissionRoute permission="view-settings" />}>
+          <Route path="account" element={<StaffAccountPage />} />
+          <Route element={<SuperAdminRoute />}>
+            <Route path="roles" element={<RoleListPage />} />
+            <Route path="roles/new" element={<RoleCreatePage />} />
+            <Route path="roles/:id" element={<RoleDetailPage />} />
+          </Route>
+          <Route
+            element={<PermissionRoute permission={PERMISSIONS.VIEW_STAFF} />}
+          >
+            <Route path="staff" element={<StaffListPage />} />
+            <Route path="staff/:id" element={<StaffDetailPage />} />
+          </Route>
+          <Route
+            element={
+              <PermissionRoute permission={PERMISSIONS.CREATE_STAFF} />
+            }
+          >
+            <Route path="staff/new" element={<StaffCreatePage />} />
+          </Route>
+          <Route
+            element={
+              <PermissionRoute permission={PERMISSIONS.VIEW_SETTINGS} />
+            }
+          >
             <Route path="settings" element={<SettingsPage />} />
           </Route>
         </Route>
       </Route>
 
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<StaffHomeRedirect />} />
     </Routes>
   );
 };

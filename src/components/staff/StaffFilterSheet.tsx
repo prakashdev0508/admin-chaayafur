@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import { Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,10 +20,10 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import type { StaffFilters } from "@/lib/staff-filters";
-import {
-  ACTIVE_FILTER_ITEMS,
-  STAFF_ROLE_FILTER_ITEMS,
-} from "@/lib/select-items";
+import { ACTIVE_FILTER_ITEMS } from "@/lib/select-items";
+import { queryKeys } from "@/lib/query-keys";
+import { formatRoleLabel } from "@/lib/staff-utils";
+import { listRoles } from "@/services/auth.service";
 
 type StaffFilterSheetProps = {
   filters: StaffFilters;
@@ -35,6 +36,20 @@ export function StaffFilterSheet({
   onApply,
   activeCount,
 }: StaffFilterSheetProps) {
+  const rolesQuery = useQuery({
+    queryKey: queryKeys.roles.list,
+    queryFn: listRoles,
+  });
+
+  const roles = rolesQuery.data ?? [];
+  const roleItems = [
+    { value: "all", label: "All roles" },
+    ...roles.map((role) => ({
+      value: role.slug,
+      label: formatRoleLabel(role),
+    })),
+  ];
+
   return (
     <Sheet>
       <SheetTrigger
@@ -63,7 +78,7 @@ export function StaffFilterSheet({
             e.preventDefault();
             const form = new FormData(e.currentTarget);
             onApply({
-              role: String(form.get("role") ?? "all"),
+              roleSlug: String(form.get("roleSlug") ?? "all"),
               isActive: String(form.get("isActive") ?? "all"),
               email: String(form.get("email") ?? ""),
             });
@@ -71,21 +86,31 @@ export function StaffFilterSheet({
         >
           <div className="space-y-2">
             <Label>Role</Label>
-            <Select name="role" defaultValue={filters.role} items={STAFF_ROLE_FILTER_ITEMS}>
+            <Select
+              name="roleSlug"
+              defaultValue={filters.roleSlug}
+              items={roleItems}
+            >
               <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All roles</SelectItem>
-                <SelectItem value="SUPER_ADMIN">Super Admin</SelectItem>
-                <SelectItem value="ADMIN">Admin</SelectItem>
-                <SelectItem value="ORDER_MANAGER">Order Manager</SelectItem>
+                {roles.map((role) => (
+                  <SelectItem key={role.id} value={role.slug}>
+                    {formatRoleLabel(role)}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-2">
             <Label>Status</Label>
-            <Select name="isActive" defaultValue={filters.isActive} items={ACTIVE_FILTER_ITEMS}>
+            <Select
+              name="isActive"
+              defaultValue={filters.isActive}
+              items={ACTIVE_FILTER_ITEMS}
+            >
               <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>

@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { usePermission } from "@/hooks/usePermission";
+import { PERMISSIONS } from "@/lib/roles";
 import { queryKeys } from "@/lib/query-keys";
 import {
   listReviews,
@@ -27,8 +28,8 @@ import type { OrderReview, ProductReview, ReviewKind } from "@/types/review";
 
 export function ReviewListPage() {
   const { hasPermission } = usePermission();
-  const canView = hasPermission("view-reviews");
-  const canModerate = hasPermission("moderate-reviews");
+  const canView = hasPermission(PERMISSIONS.VIEW_REVIEWS);
+  const canModerate = hasPermission(PERMISSIONS.MODERATE_REVIEWS);
   const queryClient = useQueryClient();
 
   const [kind, setKind] = useState<ReviewKind>("product");

@@ -51,7 +51,7 @@ export function PaymentFilterSheet({
         <SheetHeader>
           <SheetTitle>Filter payments</SheetTitle>
           <SheetDescription>
-            Filter by status, order, or customer.
+            Filter by status, order, customer, or date.
           </SheetDescription>
         </SheetHeader>
         <form
@@ -64,23 +64,40 @@ export function PaymentFilterSheet({
               status: String(data.get("status") ?? "all"),
               orderId: String(data.get("orderId") ?? ""),
               customerId: String(data.get("customerId") ?? ""),
+              orderNumber: String(data.get("orderNumber") ?? ""),
+              customerPhone: String(data.get("customerPhone") ?? ""),
+              createdFrom: String(data.get("createdFrom") ?? ""),
+              createdTo: String(data.get("createdTo") ?? ""),
             });
           }}
         >
           <div className="space-y-2">
             <Label>Status</Label>
-            <Select name="status" defaultValue={filters.status} items={PAYMENT_STATUS_FILTER_ITEMS}>
+            <Select
+              name="status"
+              defaultValue={filters.status}
+              items={PAYMENT_STATUS_FILTER_ITEMS}
+            >
               <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All statuses</SelectItem>
-                <SelectItem value="PENDING">Pending</SelectItem>
-                <SelectItem value="COMPLETED">Completed</SelectItem>
-                <SelectItem value="FAILED">Failed</SelectItem>
-                <SelectItem value="REFUNDED">Refunded</SelectItem>
+                {PAYMENT_STATUS_FILTER_ITEMS.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>
+                    {item.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="pay-order-number">Order number</Label>
+            <Input
+              id="pay-order-number"
+              name="orderNumber"
+              placeholder="e.g. ORD-20260714-0011"
+              defaultValue={filters.orderNumber}
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="order-id">Order ID</Label>
@@ -92,6 +109,15 @@ export function PaymentFilterSheet({
             />
           </div>
           <div className="space-y-2">
+            <Label htmlFor="pay-customer-phone">Customer phone</Label>
+            <Input
+              id="pay-customer-phone"
+              name="customerPhone"
+              placeholder="e.g. 98765"
+              defaultValue={filters.customerPhone}
+            />
+          </div>
+          <div className="space-y-2">
             <Label htmlFor="pay-customer-id">Customer ID</Label>
             <Input
               id="pay-customer-id"
@@ -99,6 +125,26 @@ export function PaymentFilterSheet({
               placeholder="e.g. 1"
               defaultValue={filters.customerId}
             />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="pay-created-from">Created from</Label>
+              <Input
+                id="pay-created-from"
+                name="createdFrom"
+                type="date"
+                defaultValue={filters.createdFrom}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="pay-created-to">Created to</Label>
+              <Input
+                id="pay-created-to"
+                name="createdTo"
+                type="date"
+                defaultValue={filters.createdTo}
+              />
+            </div>
           </div>
           <SheetFooter className="mt-auto">
             <Button type="submit">Apply filters</Button>

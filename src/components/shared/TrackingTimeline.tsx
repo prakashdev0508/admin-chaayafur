@@ -37,6 +37,7 @@ const statusIcons: Record<OrderStatus, typeof Clock3> = {
   SHIPPED: Truck,
   DELIVERED: PackageCheck,
   REFUND_INITIATED: RotateCcw,
+  PARTIALLY_REFUNDED: RotateCcw,
   REFUNDED: RotateCcw,
   CANCELLED: X,
 };

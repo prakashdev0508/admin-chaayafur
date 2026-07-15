@@ -28,6 +28,7 @@ import { listAuditLogs } from "@/services/audit-logs.service";
 import { usePermission } from "@/hooks/usePermission";
 import type { AuditEntityType } from "@/types/audit-log";
 import { AUDIT_ENTITY_TYPE_ITEMS } from "@/lib/select-items";
+import { PERMISSIONS } from "@/lib/roles";
 
 type AuditFilters = {
   entityType: string;
@@ -72,7 +73,7 @@ export function AuditLogsPage() {
   const { data, isLoading, isFetching, refetch, error } = useQuery({
     queryKey: queryKeys.auditLogs.list(params),
     queryFn: () => listAuditLogs(params),
-    enabled: hasPermission("view-orders"),
+    enabled: hasPermission(PERMISSIONS.VIEW_ORDERS),
   });
 
   const activeCount = [
@@ -82,7 +83,7 @@ export function AuditLogsPage() {
     filters.changedById.trim(),
   ].filter(Boolean).length;
 
-  if (!hasPermission("view-orders")) {
+  if (!hasPermission(PERMISSIONS.VIEW_ORDERS)) {
     return (
       <div className="flex flex-col gap-4">
         <PageHeader title="Audit logs" description="Staff change history." />

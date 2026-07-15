@@ -23,6 +23,7 @@ import {
   getOrderStatusLabel,
   isOrderEditable,
 } from "@/lib/order-status";
+import { PERMISSIONS } from "@/lib/roles";
 import { toOrderStatusSelectItems } from "@/lib/select-items";
 import type { Order, OrderStatus, UpdateOrderPayload } from "@/types/order";
 
@@ -38,7 +39,7 @@ export function OrderStatusForm({
   loading,
 }: OrderStatusFormProps) {
   const { hasPermission } = usePermission();
-  const canUpdate = hasPermission("update-orders");
+  const canUpdate = hasPermission(PERMISSIONS.UPDATE_ORDERS);
   const editable = isOrderEditable(order.status);
   const transitions = getAllowedStatusTransitions(order.status);
   const statusItems = useMemo(

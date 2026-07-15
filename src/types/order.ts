@@ -7,6 +7,7 @@ export type OrderStatus =
   | "SHIPPED"
   | "DELIVERED"
   | "REFUND_INITIATED"
+  | "PARTIALLY_REFUNDED"
   | "REFUNDED"
   | "CANCELLED";
 
@@ -151,6 +152,10 @@ export type ListOrdersParams = {
   limit?: number;
   status?: OrderStatus;
   customerId?: number;
+  orderNumber?: string;
+  customerPhone?: string;
+  createdFrom?: string;
+  createdTo?: string;
 };
 
 export type UpdateOrderPayload = {

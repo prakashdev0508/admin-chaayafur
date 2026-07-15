@@ -51,7 +51,7 @@ export function OrderFilterSheet({
         <SheetHeader>
           <SheetTitle>Filter orders</SheetTitle>
           <SheetDescription>
-            Narrow down orders by status or customer.
+            Narrow down by status, order number, customer, or date.
           </SheetDescription>
         </SheetHeader>
         <form
@@ -63,12 +63,20 @@ export function OrderFilterSheet({
             onApply({
               status: String(data.get("status") ?? "all"),
               customerId: String(data.get("customerId") ?? ""),
+              orderNumber: String(data.get("orderNumber") ?? ""),
+              customerPhone: String(data.get("customerPhone") ?? ""),
+              createdFrom: String(data.get("createdFrom") ?? ""),
+              createdTo: String(data.get("createdTo") ?? ""),
             });
           }}
         >
           <div className="space-y-2">
             <Label htmlFor="order-status">Status</Label>
-            <Select name="status" defaultValue={filters.status} items={ORDER_STATUS_FILTER_ITEMS}>
+            <Select
+              name="status"
+              defaultValue={filters.status}
+              items={ORDER_STATUS_FILTER_ITEMS}
+            >
               <SelectTrigger id="order-status" className="w-full">
                 <SelectValue />
               </SelectTrigger>
@@ -82,6 +90,24 @@ export function OrderFilterSheet({
             </Select>
           </div>
           <div className="space-y-2">
+            <Label htmlFor="order-number">Order number</Label>
+            <Input
+              id="order-number"
+              name="orderNumber"
+              placeholder="e.g. ORD-20260714-0011"
+              defaultValue={filters.orderNumber}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="customer-phone">Customer phone</Label>
+            <Input
+              id="customer-phone"
+              name="customerPhone"
+              placeholder="e.g. 98765"
+              defaultValue={filters.customerPhone}
+            />
+          </div>
+          <div className="space-y-2">
             <Label htmlFor="customer-id">Customer ID</Label>
             <Input
               id="customer-id"
@@ -89,6 +115,26 @@ export function OrderFilterSheet({
               placeholder="e.g. 1"
               defaultValue={filters.customerId}
             />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="created-from">Created from</Label>
+              <Input
+                id="created-from"
+                name="createdFrom"
+                type="date"
+                defaultValue={filters.createdFrom}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="created-to">Created to</Label>
+              <Input
+                id="created-to"
+                name="createdTo"
+                type="date"
+                defaultValue={filters.createdTo}
+              />
+            </div>
           </div>
           <SheetFooter className="mt-auto">
             <Button type="submit">Apply filters</Button>

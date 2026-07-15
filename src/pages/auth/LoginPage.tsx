@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { ApiError } from "@/lib/api";
+import { resolvePostLoginPath } from "@/lib/staff-home";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -45,17 +46,21 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const from =
-    (location.state as { from?: string } | null)?.from ?? "/";
-
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
     setIsSubmitting(true);
 
     try {
-      await login({ email, password });
-      navigate(from, { replace: true });
+      const permissions = await login({ email, password });
+      const requested =
+        (location.state as { from?: string } | null)?.from ?? "/";
+      const home = resolvePostLoginPath(
+        requested,
+        permissions.permissions,
+        permissions.roleSlug ?? permissions.role,
+      );
+      navigate(home, { replace: true });
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message);

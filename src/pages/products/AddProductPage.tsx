@@ -12,6 +12,7 @@ import { ApiError } from "@/lib/api";
 import { formValuesToCreatePayload } from "@/lib/product-utils";
 import { createProduct } from "@/services/products.service";
 import type { ProductFormValues } from "@/types/product";
+import { PERMISSIONS } from "@/lib/roles";
 
 export function AddProductPage() {
   const navigate = useNavigate();
@@ -19,7 +20,7 @@ export function AddProductPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const canCreate = hasPermission("create-products");
+  const canCreate = hasPermission(PERMISSIONS.CREATE_PRODUCTS);
 
   const handleSubmit = async (values: ProductFormValues) => {
     setIsSubmitting(true);

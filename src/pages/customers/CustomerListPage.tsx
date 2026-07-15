@@ -12,6 +12,7 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { queryKeys } from "@/lib/query-keys";
 import { listCustomers } from "@/services/customers.service";
 import { usePermission } from "@/hooks/usePermission";
+import { PERMISSIONS } from "@/lib/roles";
 
 export function CustomerListPage() {
   const { hasPermission } = usePermission();
@@ -29,10 +30,10 @@ export function CustomerListPage() {
   const { data, isLoading, isFetching, refetch, error } = useQuery({
     queryKey: queryKeys.customers.list(params),
     queryFn: () => listCustomers(params),
-    enabled: hasPermission("view-customers"),
+    enabled: hasPermission(PERMISSIONS.VIEW_CUSTOMERS),
   });
 
-  if (!hasPermission("view-customers")) {
+  if (!hasPermission(PERMISSIONS.VIEW_CUSTOMERS)) {
     return (
       <div className="flex flex-col gap-4">
         <PageHeader title="Customers" description="Manage customer accounts." />
@@ -60,7 +61,7 @@ export function CustomerListPage() {
             >
               <RefreshCw className={`size-4 ${isFetching ? "animate-spin" : ""}`} />
             </Button>
-            {hasPermission("update-customers") && (
+            {hasPermission(PERMISSIONS.UPDATE_CUSTOMERS) && (
               <Button render={<Link to="/customers/new"><Plus className="size-4" />Add customer</Link>} />
             )}
           </div>

@@ -1,48 +1,36 @@
+import { Link } from "react-router-dom";
 import { type ColumnDef } from "@tanstack/react-table";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatDate } from "@/lib/format";
+import { formatStaffName, formatRoleLabel, isSuperAdminSlug } from "@/lib/staff-utils";
 import type { StaffListItem } from "@/types/auth";
-
-function formatName(staff: StaffListItem) {
-  const name = [staff.firstName, staff.lastName].filter(Boolean).join(" ");
-  return name || "—";
-}
-
-function formatCreator(staff: StaffListItem) {
-  if (!staff.creator) return "—";
-  const name = [staff.creator.firstName, staff.creator.lastName]
-    .filter(Boolean)
-    .join(" ");
-  return name || staff.creator.email;
-}
-
-const roleLabels: Record<StaffListItem["role"], string> = {
-  SUPER_ADMIN: "Super Admin",
-  ADMIN: "Admin",
-  ORDER_MANAGER: "Order Manager",
-};
 
 export const staffColumns: ColumnDef<StaffListItem>[] = [
   {
     accessorKey: "email",
     header: "Email",
     cell: ({ row }) => (
-      <span className="font-medium">{row.getValue("email")}</span>
+      <Link
+        to={`/staff/${row.original.id}`}
+        className="font-medium hover:underline"
+      >
+        {row.getValue("email")}
+      </Link>
     ),
   },
   {
     id: "name",
     header: "Name",
-    cell: ({ row }) => formatName(row.original),
+    cell: ({ row }) => formatStaffName(row.original),
   },
   {
     accessorKey: "role",
     header: "Role",
     cell: ({ row }) => {
-      const role = row.getValue("role") as StaffListItem["role"];
+      const slug = row.original.roleSlug ?? row.original.role;
       return (
-        <StatusBadge variant={role === "SUPER_ADMIN" ? "brand" : "neutral"}>
-          {roleLabels[role]}
+        <StatusBadge variant={isSuperAdminSlug(slug) ? "brand" : "neutral"}>
+          {formatRoleLabel(row.original)}
         </StatusBadge>
       );
     },
@@ -61,7 +49,7 @@ export const staffColumns: ColumnDef<StaffListItem>[] = [
     header: "Created by",
     cell: ({ row }) => (
       <span className="text-sm text-muted-foreground">
-        {formatCreator(row.original)}
+        {formatStaffName(row.original.creator)}
       </span>
     ),
   },

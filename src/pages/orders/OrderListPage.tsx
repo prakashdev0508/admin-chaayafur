@@ -16,12 +16,14 @@ import {
 import { queryKeys } from "@/lib/query-keys";
 import { listOrders } from "@/services/orders.service";
 import { usePermission } from "@/hooks/usePermission";
+import { PERMISSIONS } from "@/lib/roles";
 import type { OrderStatus } from "@/types/order";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ShoppingCart } from "lucide-react";
 
 export function OrderListPage() {
   const { hasPermission } = usePermission();
+  const canView = hasPermission(PERMISSIONS.VIEW_ORDERS);
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(10);
   const [filters, setFilters] = useState<OrderFilters>(defaultOrderFilters);
@@ -36,6 +38,18 @@ export function OrderListPage() {
       ...(filters.customerId.trim()
         ? { customerId: Number(filters.customerId) }
         : {}),
+      ...(filters.orderNumber.trim()
+        ? { orderNumber: filters.orderNumber.trim() }
+        : {}),
+      ...(filters.customerPhone.trim()
+        ? { customerPhone: filters.customerPhone.trim() }
+        : {}),
+      ...(filters.createdFrom.trim()
+        ? { createdFrom: filters.createdFrom.trim() }
+        : {}),
+      ...(filters.createdTo.trim()
+        ? { createdTo: filters.createdTo.trim() }
+        : {}),
     }),
     [page, pageSize, filters],
   );
@@ -43,12 +57,12 @@ export function OrderListPage() {
   const { data, isLoading, isFetching, refetch, error } = useQuery({
     queryKey: queryKeys.orders.list(params),
     queryFn: () => listOrders(params),
-    enabled: hasPermission("view-orders"),
+    enabled: canView,
   });
 
   const activeFilterCount = countActiveOrderFilters(filters);
 
-  if (!hasPermission("view-orders")) {
+  if (!canView) {
     return (
       <div className="flex flex-col gap-4">
         <PageHeader title="Orders" description="Track and fulfill customer orders." />

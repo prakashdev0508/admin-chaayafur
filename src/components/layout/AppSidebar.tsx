@@ -15,6 +15,7 @@ import {
   ChevronsUpDown,
   UserPlus,
   Globe,
+  Shield,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -39,6 +40,8 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermission } from "@/hooks/usePermission";
+import { PERMISSIONS } from "@/lib/roles";
+import { formatRoleLabel, isSuperAdminSlug } from "@/lib/staff-utils";
 
 function getInitials(firstName: string | null, lastName: string | null, email: string) {
   const first = firstName?.[0] ?? "";
@@ -65,38 +68,104 @@ type NavItem = {
 };
 
 const navMain: NavItem[] = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboard },
-  { title: "Products", url: "/products", icon: Package },
-  { title: "Categories", url: "/categories", icon: FolderTree, permission: "view-categories" },
-  { title: "Website", url: "/website/home", icon: Globe, permission: "view-banners" },
-  { title: "Orders", url: "/orders", icon: ShoppingCart, permission: "view-orders" },
-  { title: "Support", url: "/support-tickets", icon: LifeBuoy, permission: "view-order-support" },
-  { title: "Payments", url: "/payments", icon: CreditCard, permission: "view-payments" },
+  {
+    title: "Dashboard",
+    url: "/",
+    icon: LayoutDashboard,
+    permission: PERMISSIONS.VIEW_DASHBOARD,
+  },
+  {
+    title: "Products",
+    url: "/products",
+    icon: Package,
+    permission: PERMISSIONS.VIEW_PRODUCTS,
+  },
+  {
+    title: "Categories",
+    url: "/categories",
+    icon: FolderTree,
+    permission: PERMISSIONS.VIEW_CATEGORIES,
+  },
+  {
+    title: "Website",
+    url: "/website/home",
+    icon: Globe,
+    permission: PERMISSIONS.VIEW_BANNERS,
+  },
+  {
+    title: "Orders",
+    url: "/orders",
+    icon: ShoppingCart,
+    permission: PERMISSIONS.VIEW_ORDERS,
+  },
+  {
+    title: "Support",
+    url: "/support-tickets",
+    icon: LifeBuoy,
+    permission: PERMISSIONS.VIEW_ORDER_SUPPORT,
+  },
+  {
+    title: "Payments",
+    url: "/payments",
+    icon: CreditCard,
+    permission: PERMISSIONS.VIEW_PAYMENTS,
+  },
 ];
 
 const navMore: NavItem[] = [
-  { title: "Coupons", url: "/coupons", icon: Ticket, permission: "view-coupons" },
-  { title: "Customers", url: "/customers", icon: Users, permission: "view-customers" },
-  { title: "Reviews", url: "/reviews", icon: MessageSquareQuote, permission: "view-reviews" },
-  { title: "Audit Logs", url: "/audit-logs", icon: ScrollText, permission: "view-orders" },
-  { title: "Staff", url: "/staff", icon: UserPlus, superAdminOnly: true },
+  {
+    title: "Coupons",
+    url: "/coupons",
+    icon: Ticket,
+    permission: PERMISSIONS.VIEW_COUPONS,
+  },
+  {
+    title: "Customers",
+    url: "/customers",
+    icon: Users,
+    permission: PERMISSIONS.VIEW_CUSTOMERS,
+  },
+  {
+    title: "Reviews",
+    url: "/reviews",
+    icon: MessageSquareQuote,
+    permission: PERMISSIONS.VIEW_REVIEWS,
+  },
+  {
+    title: "Audit Logs",
+    url: "/audit-logs",
+    icon: ScrollText,
+    permission: PERMISSIONS.VIEW_ORDERS,
+  },
+  {
+    title: "Staff",
+    url: "/staff",
+    icon: UserPlus,
+    permission: PERMISSIONS.VIEW_STAFF,
+  },
+  {
+    title: "Roles",
+    url: "/roles",
+    icon: Shield,
+    superAdminOnly: true,
+  },
 ];
 
 export function AppSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
-  const { hasPermission } = usePermission();
-  const isSuperAdmin = user?.role === "SUPER_ADMIN";
+  const { user, logout, myPermissions } = useAuth();
+  const { hasPermission, defaultHomePath } = usePermission();
+  const isSuperAdmin = isSuperAdminSlug(
+    myPermissions?.roleSlug ?? myPermissions?.role,
+  );
 
   const isActive = (url: string) =>
     url === "/" ? location.pathname === "/" : location.pathname.startsWith(url);
 
   const filterNav = (items: NavItem[]) =>
     items.filter((item) => {
-      if (item.superAdminOnly) {
-        return isSuperAdmin;
-      }
+      if (item.superAdminOnly) return isSuperAdmin;
       return !item.permission || hasPermission(item.permission);
     });
 
@@ -108,7 +177,7 @@ export function AppSidebar() {
             <SidebarMenuButton
               size="lg"
               render={
-                <Link to="/">
+                <Link to={defaultHomePath}>
                   <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
                     <span className="text-sm font-semibold">CF</span>
                   </div>
@@ -175,7 +244,7 @@ export function AppSidebar() {
 
       <SidebarFooter>
         <SidebarMenu>
-          {hasPermission("view-settings") && (
+          {hasPermission(PERMISSIONS.VIEW_SETTINGS) && (
             <SidebarMenuItem>
               <SidebarMenuButton
                 isActive={isActive("/settings")}
@@ -225,13 +294,19 @@ export function AppSidebar() {
                       : "Staff user"}
                   </span>
                   <span className="truncate text-xs text-muted-foreground">
-                    {user?.role.replaceAll("_", " ") ?? "Admin"}
+                    {formatRoleLabel(
+                      myPermissions?.roleSlug ??
+                        myPermissions?.role ??
+                        user?.role,
+                    )}
                   </span>
                 </div>
                 <ChevronsUpDown className="ml-auto size-4" />
               </DropdownMenuTrigger>
               <DropdownMenuContent side="top" align="end" sideOffset={4}>
-                <DropdownMenuItem>Account</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/account")}>
+                  Account
+                </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => {
                     logout();

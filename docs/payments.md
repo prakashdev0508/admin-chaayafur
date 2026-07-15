@@ -2,7 +2,7 @@
 
 Razorpay Payment Links integration. Payments are created at checkout and updated automatically via webhooks.
 
-[← Back to index](./README.md) · [Orders](./orders.md) · [Invoices](./invoices.md)
+[← Back to index](./README.md) · [Orders](./orders.md) · [Refunds](./refund.md) · [Invoices](./invoices.md)
 
 ---
 
@@ -13,8 +13,8 @@ Razorpay Payment Links integration. Payments are created at checkout and updated
 - Payment status is updated by **Razorpay webhooks** (`payment_link.paid`, failure/expiry events)
 - On successful payment: order → `CONFIRMED`, invoice generated
 - On failed/expired payment: order → `CANCELLED`, stock restored
-- Staff can issue a **two-phase full refund** via order refund APIs (`update-payments`) — initiate with required reason, then **Complete refund** calls Razorpay; payment becomes `REFUNDED` only when refund is `PROCESSED`
-- Webhooks handle `refund.processed` / `refund.failed` idempotently
+- Staff can issue a **two-phase full refund** — see [refund.md](./refund.md) (initiate → complete → PROCESSED/FAILED)
+- Webhooks also handle `refund.processed` / `refund.failed` (documented in [refund.md](./refund.md))
 - Staff can **poll** payment status via `GET /payments/:id` — no manual status updates
 - Staff can **list** all payments via `GET /payments`; customers see only their own order payments
 
@@ -25,7 +25,7 @@ Razorpay Payment Links integration. Payments are created at checkout and updated
 | `PENDING` | Awaiting Razorpay payment (default for new orders) |
 | `COMPLETED` | Payment received via Razorpay |
 | `FAILED` | Payment failed, link expired, or checkout could not create a link |
-| `REFUNDED` | Full refund completed via admin refund or `refund.processed` webhook |
+| `REFUNDED` | Full refund completed (refund flow reached `PROCESSED`) |
 
 ### Payment method
 
@@ -37,111 +37,8 @@ All payments use `RAZORPAY` (Payment Links).
 |----------|:--------:|:-----------:|:-----:|:-------------:|
 | `GET /payments` | Own payments | All | All | All |
 | `GET /payments/:id` | Own order | All | All | All |
-| `POST /orders/:id/refund` | No | Yes (`update-payments`) | Yes | No |
-| `POST /orders/:id/refund/:refundId/complete` | No | Yes (`update-payments`) | Yes | No |
-| `POST /orders/:id/refund/:refundId/cancel` | No | Yes (`update-payments`) | Yes | No |
-| `GET /orders/:id/refund` | No | Yes (`view-payments` or `view-orders`) | Yes | No |
+| Refund APIs | — | See [refund.md](./refund.md) | See [refund.md](./refund.md) | No |
 | `POST /payments/webhooks/razorpay` | Public (Razorpay) | — | — | — |
-
----
-
-## Two-phase refund flow
-
-```text
-1. POST /orders/:id/refund          → INITIATED (who, when, required reason) — no Razorpay call
-2. POST /orders/:id/refund/:id/complete → PROCESSING → Razorpay refund API
-3. Gateway result                   → PROCESSED or FAILED
-4. On PROCESSED only                → payment REFUNDED, order CANCELLED, stock/coupon restored
-```
-
-### Refund statuses
-
-| Status | Meaning |
-|--------|---------|
-| `INITIATED` | Staff created refund request with reason |
-| `PROCESSING` | Complete clicked; Razorpay refund submitted |
-| `PROCESSED` | Money refunded; order side-effects applied |
-| `FAILED` | Razorpay API or webhook reported failure |
-| `CANCELLED` | Staff cancelled before completing |
-
-### Step 1 — POST /api/v1/orders/:id/refund
-
-Initiate a full refund for a **COMPLETED** payment.
-
-| | |
-|---|---|
-| **Auth** | Staff Bearer (`update-payments`) |
-| **Status** | `201` |
-| **Body** | `{ "reason": "…" }` **required** (min 3 chars) |
-
-Does **not** call Razorpay. Blocks a second active refund (`INITIATED` or `PROCESSING`) on the same payment.
-
-```bash
-curl -X POST http://localhost:5000/api/v1/orders/1/refund \
-  -H "Authorization: Bearer $STAFF_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"reason":"Customer requested cancellation after delivery delay"}'
-```
-
-### Step 2 — POST /api/v1/orders/:id/refund/:refundId/complete
-
-Staff clicks **Complete refund** — calls Razorpay `payments.refund` for the full amount.
-
-| | |
-|---|---|
-| **Auth** | Staff Bearer (`update-payments`) |
-| **Status** | `200` |
-| **Precondition** | Refund status must be `INITIATED` |
-
-If Razorpay returns `processed` immediately → refund `PROCESSED` in one response. If `pending` → stays `PROCESSING` until `refund.processed` webhook.
-
-On Razorpay API error → refund `FAILED` with `failureReason`.
-
-```bash
-curl -X POST http://localhost:5000/api/v1/orders/1/refund/3/complete \
-  -H "Authorization: Bearer $STAFF_TOKEN"
-```
-
-### Cancel — POST /api/v1/orders/:id/refund/:refundId/cancel
-
-Only when status is `INITIATED`. Status → `CANCELLED`.
-
-### GET /api/v1/orders/:id/refund
-
-Returns the latest refund with full **event timeline** (`INITIATED`, `COMPLETE_REQUESTED`, `GATEWAY_ACCEPTED`, `PROCESSED`, `FAILED`, `CANCELLED`).
-
-```json
-{
-  "success": true,
-  "data": {
-    "id": 3,
-    "orderId": 1,
-    "paymentId": 1,
-    "status": "INITIATED",
-    "reason": "Customer requested cancellation",
-    "amount": "14999.00",
-    "initiatedByStaffId": 2,
-    "initiatedAt": "2026-07-14T09:00:00.000Z",
-    "completedByStaffId": null,
-    "completedAt": null,
-    "processedAt": null,
-    "failedAt": null,
-    "failureReason": null,
-    "razorpayRefundId": null,
-    "events": [
-      {
-        "type": "INITIATED",
-        "actorType": "STAFF",
-        "actorId": 2,
-        "message": "Customer requested cancellation",
-        "createdAt": "2026-07-14T09:00:00.000Z"
-      }
-    ]
-  }
-}
-```
-
-**Does not** auto-refund when staff only `PATCH`es status to `CANCELLED` — refund is always explicit.
 
 ## Razorpay setup
 
@@ -201,6 +98,10 @@ Paginated payment list. Customers receive only payments for their own orders. St
 | `status` | string | — | `PENDING` \| `COMPLETED` \| `FAILED` \| `REFUNDED` |
 | `orderId` | integer | — | Filter by order ID |
 | `customerId` | integer | — | Staff only — filter by customer ID |
+| `orderNumber` | string | — | Partial match on order number (e.g. `ORD-20260714-0011`) |
+| `customerPhone` | string | — | Partial match on customer phone |
+| `createdFrom` | string | — | ISO date/datetime — payments on/after this date |
+| `createdTo` | string | — | ISO date/datetime — payments on/before this date |
 | `page` | number | `1` | Page number |
 | `limit` | number | `10` | Items per page (max 100) |
 
@@ -211,6 +112,8 @@ GET /api/v1/payments?page=1&limit=10
 GET /api/v1/payments?status=PENDING
 GET /api/v1/payments?orderId=7
 GET /api/v1/payments?customerId=1
+GET /api/v1/payments?orderNumber=ORD-20260714-0011
+GET /api/v1/payments?customerPhone=98765&createdFrom=2026-07-01&createdTo=2026-07-14
 ```
 
 ### Success response `200`

@@ -59,6 +59,7 @@ export function HomeBannerSection({
   const [editing, setEditing] = useState<AdminBanner | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [loadingEdit, setLoadingEdit] = useState(false);
+  const [reorderingIds, setReorderingIds] = useState<number[] | null>(null);
 
   const listParams = useMemo(
     () => ({ type, page: 1, limit: 50 }),
@@ -129,17 +130,22 @@ export function HomeBannerSection({
         updateBanner(current.id, { sortOrder: neighbor.sortOrder }),
         updateBanner(neighbor.id, { sortOrder: current.sortOrder }),
       ]);
-    },
-    onSuccess: async () => {
       await invalidateHomeQueries(queryClient);
+    },
+    onMutate: ({ current, neighbor }) => {
+      setReorderingIds([current.id, neighbor.id]);
     },
     onError: (err) => {
       toast.error(
         err instanceof ApiError ? err.message : "Failed to reorder banners",
       );
     },
+    onSettled: () => {
+      setReorderingIds(null);
+    },
   });
 
+  const reorderBusy = reorderMutation.isPending;
   async function openEdit(banner: AdminBanner) {
     setLoadingEdit(true);
     setEditingId(banner.id);
@@ -204,115 +210,147 @@ export function HomeBannerSection({
             )}
           </div>
         ) : (
-          <div className="flex gap-4 overflow-x-auto pb-2">
-            {banners.map((banner, index) => (
-              <div
-                key={banner.id}
-                className="w-[260px] shrink-0 overflow-hidden rounded-xl border bg-card"
-              >
-                <div className="relative aspect-[16/10] bg-muted">
-                  <img
-                    src={banner.imageUrl}
-                    alt={banner.title ?? "Banner"}
-                    className="size-full object-cover"
-                  />
-                  <div className="absolute top-2 left-2">
-                    <StatusBadge
-                      variant={banner.isActive ? "success" : "neutral"}
-                    >
-                      {banner.isActive ? "Active" : "Inactive"}
-                    </StatusBadge>
-                  </div>
-                </div>
-                <div className="space-y-3 p-3">
-                  <div>
-                    <p className="truncate font-medium">
-                      {banner.title || "Untitled banner"}
-                    </p>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {banner.redirectUrl}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    {canUpdate && (
-                      <>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="icon-sm"
-                          disabled={
-                            index === 0 || reorderMutation.isPending
-                          }
-                          aria-label="Move left"
-                          onClick={() =>
-                            reorderMutation.mutate({
-                              current: banner,
-                              neighbor: banners[index - 1],
-                            })
-                          }
+          <div className="relative">
+            <div
+              className={cn(
+                "flex gap-4 overflow-x-auto pb-2",
+                reorderBusy && "pointer-events-none opacity-70",
+              )}
+            >
+              {banners.map((banner, index) => {
+                const isMoving = reorderingIds?.includes(banner.id) ?? false;
+                return (
+                  <div
+                    key={banner.id}
+                    className="relative w-[260px] shrink-0 overflow-hidden rounded-xl border bg-card"
+                  >
+                    <div className="relative aspect-[16/10] bg-muted">
+                      <img
+                        src={banner.imageUrl}
+                        alt={banner.title ?? "Banner"}
+                        className="size-full object-cover"
+                      />
+                      <div className="absolute top-2 left-2">
+                        <StatusBadge
+                          variant={banner.isActive ? "success" : "neutral"}
                         >
-                          <ChevronLeft className="size-3.5" />
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="icon-sm"
-                          disabled={
-                            index === banners.length - 1 ||
-                            reorderMutation.isPending
-                          }
-                          aria-label="Move right"
-                          onClick={() =>
-                            reorderMutation.mutate({
-                              current: banner,
-                              neighbor: banners[index + 1],
-                            })
-                          }
-                        >
-                          <ChevronRight className="size-3.5" />
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="icon-sm"
-                          aria-label="Edit banner"
-                          onClick={() => void openEdit(banner)}
-                        >
-                          <Pencil className="size-3.5" />
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className={cn(
-                            "ml-auto h-7 px-2 text-xs",
-                            banner.isActive && "text-destructive",
-                          )}
-                          disabled={toggleActiveMutation.isPending}
-                          onClick={() => {
-                            if (banner.isActive) {
-                              if (
-                                !window.confirm(
-                                  `Deactivate "${banner.title || `banner #${banner.id}`}"?`,
-                                )
-                              ) {
-                                return;
+                          {banner.isActive ? "Active" : "Inactive"}
+                        </StatusBadge>
+                      </div>
+                      {isMoving && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-background/50">
+                          <Loader2 className="size-6 animate-spin text-foreground" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="space-y-3 p-3">
+                      <div>
+                        <p className="truncate font-medium">
+                          {banner.title || "Untitled banner"}
+                        </p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {banner.redirectUrl}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {canUpdate && (
+                          <>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon-sm"
+                              disabled={index === 0 || reorderBusy}
+                              aria-label="Move left"
+                              onClick={() =>
+                                reorderMutation.mutate({
+                                  current: banner,
+                                  neighbor: banners[index - 1],
+                                })
                               }
-                            }
-                            toggleActiveMutation.mutate({
-                              id: banner.id,
-                              isActive: !banner.isActive,
-                            });
-                          }}
-                        >
-                          {banner.isActive ? "Deactivate" : "Activate"}
-                        </Button>
-                      </>
-                    )}
+                            >
+                              {isMoving ? (
+                                <Loader2 className="size-3.5 animate-spin" />
+                              ) : (
+                                <ChevronLeft className="size-3.5" />
+                              )}
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon-sm"
+                              disabled={
+                                index === banners.length - 1 || reorderBusy
+                              }
+                              aria-label="Move right"
+                              onClick={() =>
+                                reorderMutation.mutate({
+                                  current: banner,
+                                  neighbor: banners[index + 1],
+                                })
+                              }
+                            >
+                              {isMoving ? (
+                                <Loader2 className="size-3.5 animate-spin" />
+                              ) : (
+                                <ChevronRight className="size-3.5" />
+                              )}
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon-sm"
+                              aria-label="Edit banner"
+                              disabled={reorderBusy}
+                              onClick={() => void openEdit(banner)}
+                            >
+                              <Pencil className="size-3.5" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className={cn(
+                                "ml-auto h-7 px-2 text-xs",
+                                banner.isActive && "text-destructive",
+                              )}
+                              disabled={
+                                toggleActiveMutation.isPending || reorderBusy
+                              }
+                              onClick={() => {
+                                if (banner.isActive) {
+                                  if (
+                                    !window.confirm(
+                                      `Deactivate "${banner.title || `banner #${banner.id}`}"?`,
+                                    )
+                                  ) {
+                                    return;
+                                  }
+                                }
+                                toggleActiveMutation.mutate({
+                                  id: banner.id,
+                                  isActive: !banner.isActive,
+                                });
+                              }}
+                            >
+                              {banner.isActive ? "Deactivate" : "Activate"}
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </div>
                   </div>
+                );
+              })}
+            </div>
+
+            {reorderBusy && (
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                <div className="flex items-center gap-2 rounded-full border bg-background px-3 py-1.5 text-sm shadow-sm">
+                  <Loader2 className="size-4 animate-spin" />
+                  Updating order…
                 </div>
               </div>
-            ))}
+            )}
           </div>
         )}
       </CardContent>

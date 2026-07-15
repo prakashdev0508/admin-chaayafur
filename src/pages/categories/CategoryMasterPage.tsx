@@ -49,13 +49,14 @@ import type {
   UpdateCategoryPayload,
   UpdateSubCategoryPayload,
 } from "@/types/category";
+import { PERMISSIONS } from "@/lib/roles";
 
 export function CategoryMasterPage() {
   const queryClient = useQueryClient();
   const { hasPermission } = usePermission();
-  const canView = hasPermission("view-categories");
-  const canCreate = hasPermission("create-categories");
-  const canUpdate = hasPermission("update-categories");
+  const canView = hasPermission(PERMISSIONS.VIEW_CATEGORIES);
+  const canCreate = hasPermission(PERMISSIONS.CREATE_CATEGORIES);
+  const canUpdate = hasPermission(PERMISSIONS.UPDATE_CATEGORIES);
 
   const [expanded, setExpanded] = useState<Record<number, boolean>>({});
   const [categoryDialog, setCategoryDialog] = useState<{

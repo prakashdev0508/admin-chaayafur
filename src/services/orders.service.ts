@@ -10,7 +10,11 @@ import type {
   UpdateOrderPayload,
 } from "@/types/order";
 import type { AuditLog, ListAuditLogsParams } from "@/types/audit-log";
-import type { InitiateRefundPayload, OrderRefund } from "@/types/refund";
+import type {
+  InitiateRefundPayload,
+  OrderRefund,
+  OrderRefundsResponse,
+} from "@/types/refund";
 
 export function listOrders(params: ListOrdersParams = {}) {
   return apiRequest<PaginatedResponse<OrderListItem>>(
@@ -53,7 +57,7 @@ export function generateOrderInvoice(orderId: number) {
 }
 
 export function getOrderRefund(orderId: number) {
-  return apiRequest<OrderRefund>(`/orders/${orderId}/refund`);
+  return apiRequest<OrderRefundsResponse>(`/orders/${orderId}/refund`);
 }
 
 export function initiateOrderRefund(
