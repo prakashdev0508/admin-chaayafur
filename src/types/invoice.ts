@@ -20,6 +20,7 @@ export type Invoice = {
   taxAmount: string;
   totalAmount: string;
   pdfUrl?: string | null;
+  pdfStorageKey?: string | null;
   lineItems: InvoiceLineItem[];
   createdAt: string;
   updatedAt: string;
@@ -33,4 +34,14 @@ export type Invoice = {
       phone: string;
     };
   };
+};
+
+/** POST /orders/:id/invoice/email */
+export type InvoiceEmailResult = {
+  sent: boolean;
+  orderId: number;
+  orderNumber: string;
+  invoiceNumber: string;
+  to: string;
+  pdfUrl?: string | null;
 };

@@ -1,7 +1,7 @@
 import { buildQueryString } from "@/lib/build-query";
 import { apiRequest } from "@/lib/api";
 import type { PaginatedResponse } from "@/types/api";
-import type { Invoice } from "@/types/invoice";
+import type { Invoice, InvoiceEmailResult } from "@/types/invoice";
 import type {
   Order,
   OrderListItem,
@@ -52,6 +52,12 @@ export function getOrderInvoice(orderId: number) {
 
 export function generateOrderInvoice(orderId: number) {
   return apiRequest<Invoice>(`/orders/${orderId}/invoice/generate`, {
+    method: "POST",
+  });
+}
+
+export function emailOrderInvoice(orderId: number) {
+  return apiRequest<InvoiceEmailResult>(`/orders/${orderId}/invoice/email`, {
     method: "POST",
   });
 }

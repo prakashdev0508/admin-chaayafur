@@ -77,7 +77,7 @@ export type {
   ListAuditLogsParams,
 } from "@/types/audit-log";
 
-export type { InvoiceLineItem, Invoice } from "@/types/invoice";
+export type { InvoiceLineItem, Invoice, InvoiceEmailResult } from "@/types/invoice";
 
 export type {
   SocialLinks,

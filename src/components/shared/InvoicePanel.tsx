@@ -12,7 +12,8 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { Button } from "@/components/ui/button";
-import { Download, FileText, RefreshCw } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Download, FileText, Mail, RefreshCw } from "lucide-react";
 
 type InvoicePanelProps = {
   invoice?: Invoice;
@@ -20,7 +21,9 @@ type InvoicePanelProps = {
   notFound?: boolean;
   canGenerate?: boolean;
   generating?: boolean;
+  emailing?: boolean;
   onGenerate?: () => void;
+  onEmail?: () => void;
 };
 
 export function InvoicePanel({
@@ -29,8 +32,12 @@ export function InvoicePanel({
   notFound,
   canGenerate,
   generating,
+  emailing,
   onGenerate,
+  onEmail,
 }: InvoicePanelProps) {
+  const busy = Boolean(generating || emailing);
+
   if (loading) {
     return (
       <div className="space-y-4">
@@ -47,21 +54,40 @@ export function InvoicePanel({
         title="Invoice not available"
         description={
           canGenerate
-            ? "No invoice exists yet. Generate a snapshot and PDF for this order."
-            : "Invoice is generated when the order is confirmed."
+            ? "No invoice exists yet. Generate a PDF snapshot, or email one to the customer (creates the invoice if needed)."
+            : "No invoice exists for this order yet."
         }
         action={
-          canGenerate && onGenerate ? (
-            <Button onClick={onGenerate} disabled={generating}>
-              {generating ? (
-                <>
-                  <RefreshCw className="size-4 animate-spin" />
-                  Generating...
-                </>
-              ) : (
-                "Generate invoice"
+          canGenerate ? (
+            <div className="flex flex-wrap justify-center gap-2">
+              {onGenerate && (
+                <Button onClick={onGenerate} disabled={busy}>
+                  {generating ? (
+                    <>
+                      <RefreshCw className="size-4 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    "Generate invoice"
+                  )}
+                </Button>
               )}
-            </Button>
+              {onEmail && (
+                <Button variant="outline" onClick={onEmail} disabled={busy}>
+                  {emailing ? (
+                    <>
+                      <RefreshCw className="size-4 animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <Mail className="size-4" />
+                      Email invoice
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
           ) : undefined
         }
       />
@@ -72,67 +98,112 @@ export function InvoicePanel({
     return null;
   }
 
+  const hasPdf = Boolean(invoice.pdfUrl);
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <p className="text-sm text-muted-foreground">Invoice number</p>
-          <p className="text-lg font-semibold">{invoice.invoiceNumber}</p>
+      <div className="grid gap-3 md:grid-cols-[1.35fr_1fr]">
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Card>
+            <CardContent className="p-4">
+              <p className="text-xs text-muted-foreground">Invoice number</p>
+              <p className="mt-1 font-mono text-sm font-semibold">
+                {invoice.invoiceNumber}
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <p className="text-xs text-muted-foreground">Issued</p>
+              <p className="mt-1 text-sm font-medium">
+                {formatDate(invoice.issuedAt)}
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <p className="text-xs text-muted-foreground">Total</p>
+              <p className="mt-1 text-sm font-semibold">
+                {formatCurrency(invoice.totalAmount)}
+              </p>
+            </CardContent>
+          </Card>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="text-right">
-            <p className="text-sm text-muted-foreground">Issued</p>
-            <p className="text-sm">{formatDate(invoice.issuedAt)}</p>
-          </div>
-          {invoice.pdfUrl ? (
-            <Button
-              variant="outline"
-              size="sm"
-              render={
-                <a href={invoice.pdfUrl} target="_blank" rel="noreferrer">
-                  <Download className="size-4" />
-                  Download PDF
-                </a>
-              }
-            />
-          ) : canGenerate && onGenerate ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onGenerate}
-              disabled={generating}
-            >
-              {generating ? (
-                <>
-                  <RefreshCw className="size-4 animate-spin" />
-                  Generating PDF...
-                </>
-              ) : (
-                "Generate PDF"
+
+        <Card>
+          <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
+            <div>
+              <p className="text-xs text-muted-foreground">PDF</p>
+              <p className="mt-1 text-sm font-medium">
+                {hasPdf ? "Available" : "Not generated"}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              {hasPdf ? (
+                <Button
+                  variant="outline"
+                  size="icon"
+                  title="Download PDF"
+                  render={
+                    <a
+                      href={invoice.pdfUrl ?? undefined}
+                      target="_blank"
+                      rel="noreferrer"
+                      aria-label="Download invoice PDF"
+                    >
+                      <Download className="size-4" />
+                    </a>
+                  }
+                />
+              ) : canGenerate && onGenerate ? (
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={onGenerate}
+                  disabled={busy}
+                  title={generating ? "Generating PDF…" : "Generate PDF"}
+                  aria-label={generating ? "Generating PDF" : "Generate PDF"}
+                >
+                  <RefreshCw
+                    className={`size-4 ${generating ? "animate-spin" : ""}`}
+                  />
+                </Button>
+              ) : null}
+
+              {canGenerate && onGenerate && hasPdf && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={onGenerate}
+                  disabled={busy}
+                  title={generating ? "Regenerating…" : "Regenerate PDF"}
+                  aria-label={generating ? "Regenerating PDF" : "Regenerate PDF"}
+                >
+                  <RefreshCw
+                    className={`size-4 ${generating ? "animate-spin" : ""}`}
+                  />
+                </Button>
               )}
-            </Button>
-          ) : null}
-          {canGenerate && onGenerate && invoice.pdfUrl && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onGenerate}
-              disabled={generating}
-            >
-              {generating ? (
-                <>
-                  <RefreshCw className="size-4 animate-spin" />
-                  Regenerating...
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="size-4" />
-                  Regenerate
-                </>
+
+              {canGenerate && onEmail && (
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={onEmail}
+                  disabled={busy}
+                  title={emailing ? "Sending…" : "Email invoice PDF"}
+                  aria-label={emailing ? "Emailing invoice" : "Email invoice"}
+                >
+                  {emailing ? (
+                    <RefreshCw className="size-4 animate-spin" />
+                  ) : (
+                    <Mail className="size-4" />
+                  )}
+                </Button>
               )}
-            </Button>
-          )}
-        </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <div className="rounded-lg border p-4">
