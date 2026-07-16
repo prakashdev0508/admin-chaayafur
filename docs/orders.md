@@ -15,6 +15,39 @@ Checkout from frontend cart, Razorpay payment links, order tracking, and staff o
 - Each order gets a human-readable `orderNumber` (e.g. `ORD-20260710-0001`)
 - A `Payment` record and **Razorpay Payment Link** are created at checkout
 - **Order tracking timeline** — each status change is stored in `order_status_events` and exposed via `GET /orders/:id/tracking`
+- **Customer emails (Resend)** — transactional emails on confirm / ship / deliver (see below)
+
+### Customer emails (Resend)
+
+When `RESEND_API_KEY` is set (and `RESEND_ENABLED` is not `false`), the API sends HTML emails to the shipping address email (billing email as fallback; also parses email from the address snapshot if the live address field is empty). Missing email → skipped (logged). Failures never block the order API. Invoice PDF generation failures no longer block the order-received email.
+
+| Event | When |
+|-------|------|
+| Order received / placed | Order becomes `CONFIRMED` (payment webhook or staff PATCH) |
+| Order shipped | Staff sets status `SHIPPED` |
+| Order delivered | Staff sets status `DELIVERED` |
+| Order cancelled | Order becomes `CANCELLED` (payment failed/expired webhook, checkout link failure, or staff PATCH) |
+
+Env: `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `RESEND_ENABLED`, optional `EMAIL_STORE_URL` for the “View order” CTA. Templates live in `src/modules/email/templates/`.
+
+### Manual send (staff)
+
+`POST /api/v1/orders/:id/emails` — requires `update-orders`.
+
+```json
+{ "type": "ORDER_PLACED" }
+```
+
+| `type` | Template |
+|--------|----------|
+| `ORDER_PLACED` | Order received / confirmed |
+| `ORDER_SHIPPED` | Shipped |
+| `ORDER_DELIVERED` | Delivered |
+| `ORDER_CANCELLED` | Cancelled |
+| `REFUND_INITIATED` | Refund started (uses latest refund amount, or body `refundAmount`) |
+| `REFUND_COMPLETED` | Refund completed |
+
+Recipient must exist on the order shipping/billing address or the API returns `400`.
 
 ### Order lifecycle
 
@@ -55,12 +88,12 @@ Razorpay webhook → Order CONFIRMED + invoice (or CANCELLED + stock restored)
 | Status | Description |
 |--------|-------------|
 | `PENDING` | New order, awaiting Razorpay payment |
-| `CONFIRMED` | Payment received; invoice generated |
+| `CONFIRMED` | Payment received; invoice generated on payment webhook (not on staff confirm) |
 | `SHIPPED` | Order shipped |
 | `DELIVERED` | Order delivered |
 | `REFUND_INITIATED` | Staff started a refund request (see [refund.md](./refund.md)) |
-| `PARTIALLY_REFUNDED` | One or more partial refunds processed; remaining balance > 0 |
-| `REFUNDED` | Refund completed; stock and coupon restored |
+| `PARTIALLY_REFUNDED` | One or more partial refunds completed; remaining balance may still be refunded |
+| `REFUNDED` | Fully refunded; stock and coupon restored |
 | `CANCELLED` | Order cancelled (payment failed / staff cancel); stock restored |
 
 ### Payment method
@@ -80,6 +113,9 @@ All orders use `RAZORPAY`. Payment method is set server-side — not sent in the
 | `POST /orders/:id/refund/:refundId/complete` | No | Yes (`update-payments`) | Yes | No |
 | `POST /orders/:id/refund/:refundId/cancel` | No | Yes (`update-payments`) | Yes | No |
 | `GET /orders/:id/refund` | No | Yes | Yes | No |
+| `POST /orders/:id/emails` | No | Yes (`update-orders`) | Yes | Yes |
+| `POST /orders/:id/invoice/generate` | No | Yes (`update-orders`) | Yes | Yes |
+| `POST /orders/:id/invoice/email` | No | Yes (`update-orders`) | Yes | Yes |
 
 Staff `PATCH` requires `update-orders`. Refunds are two-phase: initiate → complete (see [refund.md](./refund.md)).
 
@@ -98,9 +134,11 @@ Staff `PATCH` requires `update-orders`. Refunds are two-phase: initiate → comp
 | `POST` | `/api/v1/orders/:id/refund/:refundId/complete` | Staff (`update-payments`) | `200` |
 | `POST` | `/api/v1/orders/:id/refund/:refundId/cancel` | Staff (`update-payments`) | `200` |
 | `GET` | `/api/v1/orders/:id/refund` | Staff (`view-payments` or `view-orders`) | `200` |
+| `POST` | `/api/v1/orders/:id/emails` | Staff (`update-orders`) | `200` |
 | `GET` | `/api/v1/orders/:id/audit-logs` | Staff (`view-orders`) | `200` |
 | `GET` | `/api/v1/orders/:id/invoice` | Customer or staff | `200` |
 | `POST` | `/api/v1/orders/:id/invoice/generate` | Staff (`update-orders`) | `200` |
+| `POST` | `/api/v1/orders/:id/invoice/email` | Staff (`update-orders`) | `200` |
 | `GET` | `/api/v1/orders/:id/invoice/pdf` | Customer or staff | `302` |
 | `POST` | `/api/v1/orders/:id/support-tickets` | Customer | `201` |
 | `GET` | `/api/v1/orders/:id/support-tickets` | Customer or staff | `200` |
@@ -321,7 +359,16 @@ List orders with pagination.
 
 ### Success response `200`
 
-Each item in `items` uses the same shape as [Order detail response](#order-detail-response).
+List items are slim (use `GET /orders/:id` for full detail).
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | integer | Internal order ID (for detail/tracking links) |
+| `orderNumber` | string | Human-readable ID, e.g. `ORD-20260714-0021` |
+| `totalAmount` | string | Order total |
+| `customerPhone` | string | Customer phone number |
+| `status` | string | Current order status |
+| `createdAt` | string | ISO timestamp |
 
 ```json
 {
@@ -329,61 +376,12 @@ Each item in `items` uses the same shape as [Order detail response](#order-detai
   "data": {
     "items": [
       {
-        "id": 1,
-        "orderNumber": "ORD-20260710-0001",
-        "customerId": 1,
-        "addressId": 1,
-        "billingAddressId": 1,
-        "status": "CONFIRMED",
-        "subtotalAmount": "5000.00",
-        "discountAmount": "0.00",
+        "id": 21,
+        "orderNumber": "ORD-20260714-0021",
         "totalAmount": "5000.00",
-        "coupon": null,
-        "paymentMethod": "RAZORPAY",
-        "shippingAddress": "123 Main Street, Mumbai, Maharashtra, 400001, IN",
-        "billingAddress": "123 Main Street, Mumbai, Maharashtra, 400001, IN",
-        "createdAt": "2026-07-10T12:00:00.000Z",
-        "updatedAt": "2026-07-10T12:08:00.000Z",
-        "customer": {
-          "id": 1,
-          "phone": "9876543210",
-          "isActive": true,
-          "lastLogin": "2026-07-10T11:00:00.000Z"
-        },
-        "shippingAddressRef": { "id": 1, "type": "SHIPPING", "name": "John Doe", "line1": "123 Main Street", "city": "Mumbai", "state": "Maharashtra", "zipCode": "400001", "country": "IN", "isDefault": true },
-        "billingAddressRef": { "id": 1, "type": "SHIPPING", "name": "John Doe", "line1": "123 Main Street", "city": "Mumbai", "state": "Maharashtra", "zipCode": "400001", "country": "IN", "isDefault": true },
-        "items": [
-          {
-            "id": 1,
-            "productId": 1,
-            "quantity": 2,
-            "price": "2500.00",
-            "product": { "id": 1, "name": "Oak Dining Table", "slug": "oak-dining-table" }
-          }
-        ],
-        "payment": {
-          "id": 1,
-          "amount": "5000.00",
-          "status": "COMPLETED",
-          "paymentMethod": "RAZORPAY",
-          "transactionId": "pay_xxxxxxxx",
-          "notes": null,
-          "paymentLinkUrl": "https://rzp.io/i/xxxx",
-          "razorpayPaymentLinkId": "plink_xxxxxxxx",
-          "razorpayPaymentId": "pay_xxxxxxxx",
-          "keyId": "rzp_test_xxxxxxxx",
-          "razorpayOrderId": "order_xxxxxxxx",
-          "amountPaise": 500000,
-          "currency": "INR",
-          "createdAt": "2026-07-10T12:00:00.000Z",
-          "updatedAt": "2026-07-10T12:08:00.000Z"
-        },
-        "invoice": {
-          "id": 1,
-          "invoiceNumber": "INV-20260710-0001",
-          "issuedAt": "2026-07-10T12:08:00.000Z",
-          "totalAmount": "5000.00"
-        }
+        "customerPhone": "9876543210",
+        "status": "CONFIRMED",
+        "createdAt": "2026-07-14T12:00:00.000Z"
       }
     ],
     "meta": {
@@ -394,6 +392,12 @@ Each item in `items` uses the same shape as [Order detail response](#order-detai
     }
   }
 }
+```
+
+```bash
+# Example
+curl "http://localhost:5000/api/v1/orders?page=1&limit=10" \
+  -H "Authorization: Bearer <token>"
 ```
 
 ### cURL
@@ -622,8 +626,8 @@ All fields optional; at least one required.
 
 | Change | Effect |
 |--------|--------|
-| → `CONFIRMED` | Invoice generated (idempotent) |
-| → `CANCELLED` | Stock restored for all line items |
+| → `CONFIRMED` | Order-received email sent; invoice is **not** auto-generated (use generate/email APIs) |
+| → `CANCELLED` | Stock restored for all line items; cancelled email sent |
 | `items` changed on confirmed order with invoice | Invoice regenerated |
 | `items` changed | `totalAmount` and `payment.amount` recalculated; stock delta applied |
 
@@ -738,13 +742,14 @@ JSON invoice snapshot for a confirmed order. Returns `404` if no invoice exists 
 }
 ```
 
-See [invoices.md](./invoices.md) for full invoice documentation.
+See [invoices.md](./invoices.md) for full invoice documentation, including
+`POST /orders/:id/invoice/generate` and `POST /orders/:id/invoice/email`.
 
 ---
 
 ## Order detail response
 
-All of `POST /orders`, `GET /orders/:id`, and each item in `GET /orders` return this shape (wrapped in `{ success, data }`).
+All of `POST /orders` and `GET /orders/:id` return this shape (wrapped in `{ success, data }`). `GET /orders` returns the slim list shape above.
 
 ### Top-level fields
 
@@ -844,7 +849,7 @@ For the full invoice JSON (line items, tax, billing name), use `GET /orders/:id/
 
 ### Staff-only fields
 
-Staff `GET /orders/:id` and `GET /orders` include everything above plus:
+Staff `GET /orders/:id` includes everything above plus:
 
 | Field | Description |
 |-------|-------------|

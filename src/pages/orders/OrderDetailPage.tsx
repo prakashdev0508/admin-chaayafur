@@ -61,6 +61,7 @@ import { ApiError } from "@/lib/api";
 import {
   cancelOrderRefund,
   completeOrderRefund,
+  emailOrderInvoice,
   generateOrderInvoice,
   getOrder,
   getOrderAuditLogs,
@@ -232,6 +233,28 @@ export function OrderDetailPage() {
     onError: (error) => {
       toast.error(
         error instanceof Error ? error.message : "Failed to generate invoice",
+      );
+    },
+  });
+
+  const emailInvoiceMutation = useMutation({
+    mutationFn: () => emailOrderInvoice(orderId),
+    onSuccess: (result) => {
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.orders.invoice(orderId),
+      });
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.orders.detail(orderId),
+      });
+      toast.success(
+        result.sent
+          ? `Invoice emailed to ${result.to}`
+          : "Invoice email requested",
+      );
+    },
+    onError: (error) => {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to email invoice",
       );
     },
   });
@@ -675,7 +698,9 @@ export function OrderDetailPage() {
                 notFound={invoiceNotFound}
                 canGenerate={canGenerateInvoice}
                 generating={generateInvoiceMutation.isPending}
+                emailing={emailInvoiceMutation.isPending}
                 onGenerate={() => generateInvoiceMutation.mutate()}
+                onEmail={() => emailInvoiceMutation.mutate()}
               />
             </CardContent>
           </Card>
