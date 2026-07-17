@@ -1,7 +1,15 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
-import { Area, AreaChart, CartesianGrid, XAxis } from "recharts";
+import {
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { PageHeader } from "@/components/layout/PageHeader";
 import {
   Card,
@@ -10,127 +18,69 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
-import { DataTable } from "@/components/data-table/data-table";
-import { recentOrdersColumns } from "@/components/data-table/recent-orders-columns";
 import { formatCurrency } from "@/lib/format";
+import { getDefaultReportDateRange } from "@/lib/report-dates";
 import { queryKeys } from "@/lib/query-keys";
-import { listOrders } from "@/services/orders.service";
-import { listPayments } from "@/services/payments.service";
-import { listProducts } from "@/services/products.service";
-import type { RecentOrderRow } from "@/types";
+import { getDashboard } from "@/services/dashboard.service";
+import type { ReportGranularity } from "@/types/dashboard";
 
-const chartConfig = {
-  revenue: {
-    label: "Revenue",
-    color: "var(--chart-1)",
-  },
+const revenueChartConfig = {
+  value: { label: "Revenue", color: "var(--chart-1)" },
 } satisfies ChartConfig;
 
-function isToday(dateStr: string) {
-  const d = new Date(dateStr);
-  const now = new Date();
-  return (
-    d.getDate() === now.getDate() &&
-    d.getMonth() === now.getMonth() &&
-    d.getFullYear() === now.getFullYear()
-  );
-}
+const ordersChartConfig = {
+  value: { label: "Orders", color: "var(--chart-2)" },
+} satisfies ChartConfig;
 
-function aggregateRevenue(
-  payments: { amount: string; status: string; createdAt: string }[],
-  days: number,
-) {
-  const buckets = new Map<string, number>();
-  const now = new Date();
+const barChartConfig = {
+  value: { label: "Value", color: "var(--chart-3)" },
+} satisfies ChartConfig;
 
-  for (let i = days - 1; i >= 0; i--) {
-    const d = new Date(now);
-    d.setDate(d.getDate() - i);
-    const key = d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
-    buckets.set(key, 0);
+function formatTrendLabel(period: string, granularity: ReportGranularity) {
+  const date = new Date(period);
+  if (granularity === "monthly") {
+    return date.toLocaleDateString("en-IN", { month: "short", year: "numeric" });
   }
-
-  payments
-    .filter((p) => p.status === "COMPLETED")
-    .forEach((p) => {
-      const key = new Date(p.createdAt).toLocaleDateString("en-IN", {
-        day: "numeric",
-        month: "short",
-      });
-      if (buckets.has(key)) {
-        buckets.set(key, (buckets.get(key) ?? 0) + parseFloat(p.amount));
-      }
-    });
-
-  return Array.from(buckets.entries()).map(([label, revenue]) => ({
-    label,
-    revenue,
-  }));
+  if (granularity === "weekly") {
+    return date.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+  }
+  return date.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
 }
+
+const dashboardParams = {
+  ...getDefaultReportDateRange(30),
+  granularity: "daily" as ReportGranularity,
+};
 
 export function DashboardPage() {
-  const [range, setRange] = useState<"months" | "weeks" | "days">("days");
+  const params = useMemo(() => dashboardParams, []);
 
-  const ordersQuery = useQuery({
-    queryKey: queryKeys.orders.list({ page: 1, limit: 100 }),
-    queryFn: () => listOrders({ page: 1, limit: 100 }),
+  const { data, isLoading, error } = useQuery({
+    queryKey: queryKeys.dashboard(params),
+    queryFn: () => getDashboard(params),
   });
 
-  const paymentsQuery = useQuery({
-    queryKey: queryKeys.payments.list({ page: 1, limit: 100 }),
-    queryFn: () => listPayments({ page: 1, limit: 100 }),
-  });
-
-  const productsQuery = useQuery({
-    queryKey: queryKeys.products.list({ page: 1, limit: 100, isActive: true }),
-    queryFn: () => listProducts({ page: 1, limit: 100, isActive: true }),
-  });
-
-  const isLoading =
-    ordersQuery.isLoading || paymentsQuery.isLoading || productsQuery.isLoading;
-
-  const stats = useMemo(() => {
-    const orders = ordersQuery.data?.items ?? [];
-    const payments = paymentsQuery.data?.items ?? [];
-    const products = productsQuery.data?.items ?? [];
-
-    const completedPayments = payments.filter((p) => p.status === "COMPLETED");
-    const totalRevenue = completedPayments.reduce(
-      (sum, p) => sum + parseFloat(p.amount),
-      0,
-    );
-    const ordersToday = orders.filter((o) => isToday(o.createdAt)).length;
-    const activeProducts = products.length;
-    const pendingShipments = orders.filter(
-      (o) => o.status === "CONFIRMED" || o.status === "SHIPPED",
-    ).length;
-
-    return { totalRevenue, ordersToday, activeProducts, pendingShipments };
-  }, [ordersQuery.data, paymentsQuery.data, productsQuery.data]);
-
-  const chartData = useMemo(() => {
-    const payments = paymentsQuery.data?.items ?? [];
-    const days = range === "days" ? 7 : range === "weeks" ? 28 : 180;
-    return aggregateRevenue(payments, days);
-  }, [paymentsQuery.data, range]);
-
-  const recentOrders: RecentOrderRow[] = useMemo(() => {
-    return (ordersQuery.data?.items ?? []).slice(0, 5).map((order) => ({
-      id: String(order.id),
-      orderNumber: order.orderNumber,
-      customer: order.customer?.phone ?? `Customer #${order.customerId}`,
-      item: "—",
-      amount: parseFloat(order.totalAmount),
-      status: order.status,
+  const revenueChartData = useMemo(() => {
+    if (!data) return [];
+    return data.charts.revenueTrend.map((point) => ({
+      label: formatTrendLabel(point.period, data.range.granularity),
+      value: point.value,
     }));
-  }, [ordersQuery.data]);
+  }, [data]);
+
+  const ordersChartData = useMemo(() => {
+    if (!data) return [];
+    return data.charts.ordersTrend.map((point) => ({
+      label: formatTrendLabel(point.period, data.range.granularity),
+      value: point.value,
+    }));
+  }, [data]);
 
   if (isLoading) {
     return (
@@ -140,26 +90,66 @@ export function DashboardPage() {
     );
   }
 
-  const statCards = [
+  if (error || !data) {
+    return (
+      <div className="flex flex-col gap-4">
+        <PageHeader
+          title="Dashboard"
+          description="Store KPIs and trends from completed sales."
+        />
+        <p className="text-sm text-destructive">
+          {error instanceof Error ? error.message : "Failed to load dashboard"}
+        </p>
+      </div>
+    );
+  }
+
+  const { kpis, charts } = data;
+
+  const kpiCards = [
     {
-      label: "Total Revenue",
-      value: formatCurrency(stats.totalRevenue),
-      description: "From completed payments",
+      label: "Today's revenue",
+      value: formatCurrency(kpis.todaysRevenue),
+      description: `${kpis.todaysOrders} orders today`,
     },
     {
-      label: "Orders Today",
-      value: stats.ordersToday.toString(),
-      description: "Placed today",
+      label: "Pending orders",
+      value: String(kpis.pendingOrders),
+      description: "Awaiting confirmation",
     },
     {
-      label: "Active Products",
-      value: stats.activeProducts.toString(),
-      description: "Currently listed",
+      label: "Delivered today",
+      value: String(kpis.deliveredOrdersToday),
+      description: `${kpis.cancelledOrdersToday} cancelled today`,
     },
     {
-      label: "Pending Shipments",
-      value: stats.pendingShipments.toString(),
-      description: "Confirmed or shipped",
+      label: "New customers today",
+      value: String(kpis.newCustomersToday),
+      description: "Registered today",
+    },
+    {
+      label: "Inventory value",
+      value: formatCurrency(kpis.inventoryValue),
+      description: `${kpis.lowStockItems} low-stock SKUs`,
+    },
+    {
+      label: "Average order value",
+      value: formatCurrency(kpis.averageOrderValue),
+      description: "In selected trend range",
+    },
+    {
+      label: "Top product",
+      value: kpis.topSellingProduct?.name ?? "—",
+      description: kpis.topSellingProduct
+        ? `${kpis.topSellingProduct.units} units in range`
+        : "No sales in range",
+    },
+    {
+      label: "Top category",
+      value: kpis.topCategory?.name ?? "—",
+      description: kpis.topCategory
+        ? formatCurrency(kpis.topCategory.revenue)
+        : "No sales in range",
     },
   ];
 
@@ -167,17 +157,15 @@ export function DashboardPage() {
     <div className="flex flex-col gap-4">
       <PageHeader
         title="Dashboard"
-        description="Overview of your store performance and recent activity."
+        description="KPIs and charts from countable orders (completed payment, not pending/cancelled)."
       />
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {statCards.map((stat) => (
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {kpiCards.map((stat) => (
           <Card key={stat.label}>
             <CardHeader className="pb-2">
               <CardDescription>{stat.label}</CardDescription>
-              <CardTitle className="text-2xl font-semibold tabular-nums">
-                {stat.value}
-              </CardTitle>
+              <CardTitle className="text-xl font-semibold">{stat.value}</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-xs text-muted-foreground">{stat.description}</p>
@@ -186,68 +174,168 @@ export function DashboardPage() {
         ))}
       </div>
 
-      <Card>
-        <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <CardTitle>Revenue</CardTitle>
-            <CardDescription>Completed payment revenue</CardDescription>
-          </div>
-          <Tabs
-            value={range}
-            onValueChange={(v) => setRange(v as typeof range)}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Revenue trend</CardTitle>
+            <CardDescription>Gross revenue by period</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ChartContainer
+              config={revenueChartConfig}
+              className="aspect-auto h-[260px] w-full"
+            >
+              <AreaChart data={revenueChartData}>
+                <CartesianGrid vertical={false} />
+                <XAxis dataKey="label" tickLine={false} axisLine={false} />
+                <ChartTooltip
+                  content={
+                    <ChartTooltipContent
+                      formatter={(value) => formatCurrency(Number(value))}
+                    />
+                  }
+                />
+                <Area
+                  type="monotone"
+                  dataKey="value"
+                  stroke="var(--color-value)"
+                  fill="var(--color-value)"
+                  fillOpacity={0.15}
+                />
+              </AreaChart>
+            </ChartContainer>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Orders trend</CardTitle>
+            <CardDescription>Countable orders by period</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ChartContainer
+              config={ordersChartConfig}
+              className="aspect-auto h-[260px] w-full"
+            >
+              <AreaChart data={ordersChartData}>
+                <CartesianGrid vertical={false} />
+                <XAxis dataKey="label" tickLine={false} axisLine={false} />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Area
+                  type="monotone"
+                  dataKey="value"
+                  stroke="var(--color-value)"
+                  fill="var(--color-value)"
+                  fillOpacity={0.15}
+                />
+              </AreaChart>
+            </ChartContainer>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <RankedBarChart
+          title="Top products"
+          description="Units sold in range"
+          rows={charts.topProducts.map((row) => ({
+            name: row.name,
+            value: row.value,
+            hint: row.amount ? formatCurrency(row.amount) : undefined,
+          }))}
+        />
+        <RankedBarChart
+          title="Sales by category"
+          description="Revenue in range"
+          valueFormatter={(v) => formatCurrency(v)}
+          rows={charts.salesByCategory.map((row) => ({
+            name: row.name,
+            value: row.value,
+          }))}
+        />
+        <RankedBarChart
+          title="Sales by city"
+          description="Revenue in range"
+          valueFormatter={(v) => formatCurrency(v)}
+          rows={charts.salesByCity.map((row) => ({
+            name: row.name,
+            value: row.value,
+          }))}
+        />
+        <RankedBarChart
+          title="Order status"
+          description="Orders created in range"
+          rows={charts.orderStatusDistribution.map((row) => ({
+            name: row.name,
+            value: row.value,
+          }))}
+        />
+        <RankedBarChart
+          title="Payment methods"
+          description="Orders in range"
+          rows={charts.paymentMethodDistribution.map((row) => ({
+            name: row.name,
+            value: row.value,
+          }))}
+        />
+      </div>
+    </div>
+  );
+}
+
+function RankedBarChart({
+  title,
+  description,
+  rows,
+  valueFormatter = (v) => String(v),
+}: {
+  title: string;
+  description: string;
+  rows: { name: string; value: number; hint?: string }[];
+  valueFormatter?: (value: number) => string;
+}) {
+  const chartData = rows.slice(0, 8);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{title}</CardTitle>
+        <CardDescription>{description}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {chartData.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No data for this range.</p>
+        ) : (
+          <ChartContainer
+            config={barChartConfig}
+            className="aspect-auto h-[240px] w-full"
           >
-            <TabsList>
-              <TabsTrigger value="months">Last 6 months</TabsTrigger>
-              <TabsTrigger value="weeks">Last 4 weeks</TabsTrigger>
-              <TabsTrigger value="days">Last 7 days</TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </CardHeader>
-        <CardContent>
-          <ChartContainer config={chartConfig} className="aspect-auto h-[250px] w-full">
-            <AreaChart data={chartData}>
-              <defs>
-                <linearGradient id="fillRevenue" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="var(--color-revenue)" stopOpacity={0.8} />
-                  <stop offset="95%" stopColor="var(--color-revenue)" stopOpacity={0.1} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid vertical={false} />
-              <XAxis
-                dataKey="label"
+            <BarChart data={chartData} layout="vertical" margin={{ left: 8 }}>
+              <CartesianGrid horizontal={false} />
+              <YAxis
+                type="category"
+                dataKey="name"
+                width={100}
                 tickLine={false}
                 axisLine={false}
-                tickMargin={8}
+                fontSize={12}
               />
+              <XAxis type="number" hide />
               <ChartTooltip
-                cursor={false}
                 content={
                   <ChartTooltipContent
-                    formatter={(value) => formatCurrency(Number(value))}
+                    formatter={(value, _name, item) => {
+                      const hint = item.payload?.hint as string | undefined;
+                      return hint ?? valueFormatter(Number(value));
+                    }}
                   />
                 }
               />
-              <Area
-                dataKey="revenue"
-                type="natural"
-                fill="url(#fillRevenue)"
-                stroke="var(--color-revenue)"
-                stackId="a"
-              />
-            </AreaChart>
+              <Bar dataKey="value" fill="var(--color-value)" radius={4} />
+            </BarChart>
           </ChartContainer>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent Orders</CardTitle>
-          <CardDescription>Latest transactions from your store</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <DataTable columns={recentOrdersColumns} data={recentOrders} pageSize={5} />
-        </CardContent>
-      </Card>
-    </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

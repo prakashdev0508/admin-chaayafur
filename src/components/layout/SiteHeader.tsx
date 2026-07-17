@@ -10,11 +10,13 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
+import { reportSegmentLabel } from "@/components/layout/ReportsSidebarNav";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
 const routeLabels: Record<string, string> = {
   "": "Dashboard",
+  reports: "Reports",
   products: "Products",
   categories: "Categories",
   orders: "Orders",
@@ -42,7 +44,10 @@ export function SiteHeader() {
             {segments.map((segment, index) => {
               const isLast = index === segments.length - 1;
               const path = `/${segments.slice(0, index + 1).join("/")}`;
-              const label = routeLabels[segment] ?? segment;
+              const label =
+                segments[0] === "reports" && index === 1
+                  ? reportSegmentLabel(segment)
+                  : routeLabels[segment] ?? segment;
 
               return (
                 <span key={path} className="contents">
