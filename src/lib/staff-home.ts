@@ -14,6 +14,7 @@ export type StaffHomeCandidate = {
  */
 export const STAFF_HOME_CANDIDATES: StaffHomeCandidate[] = [
   { path: "/", permission: PERMISSIONS.VIEW_DASHBOARD },
+  { path: "/reports/products", permission: PERMISSIONS.VIEW_REPORTS },
   { path: "/products", permission: PERMISSIONS.VIEW_PRODUCTS },
   { path: "/categories", permission: PERMISSIONS.VIEW_CATEGORIES },
   { path: "/website/home", permission: PERMISSIONS.VIEW_BANNERS },
@@ -32,6 +33,7 @@ export const STAFF_HOME_CANDIDATES: StaffHomeCandidate[] = [
 
 const ROUTE_PERMISSIONS: Record<string, Permission | null> = {
   "/": PERMISSIONS.VIEW_DASHBOARD,
+  "/reports": PERMISSIONS.VIEW_REPORTS,
   "/products": PERMISSIONS.VIEW_PRODUCTS,
   "/categories": PERMISSIONS.VIEW_CATEGORIES,
   "/website": PERMISSIONS.VIEW_BANNERS,

@@ -105,3 +105,65 @@ export async function apiRequest<T>(
 
   return payload.data;
 }
+
+function parseContentDispositionFilename(header: string | null): string | null {
+  if (!header) return null;
+  const match = /filename="([^"]+)"/i.exec(header);
+  return match?.[1] ?? null;
+}
+
+/** Binary download (e.g. report Excel). Errors may still be JSON from the API envelope. */
+export async function apiBlobRequest(
+  path: string,
+  options: RequestInit = {},
+  auth: AuthMode | boolean = "staff",
+): Promise<{ blob: Blob; filename: string }> {
+  const headers = new Headers(options.headers);
+  const authMode = resolveAuthMode(auth);
+  if (authMode) {
+    const token = getTokenForAuthMode(authMode);
+    if (token) {
+      headers.set("Authorization", `Bearer ${token}`);
+    }
+  }
+
+  const response = await fetch(`${getBaseUrl()}${path}`, {
+    ...options,
+    headers,
+  });
+
+  const contentType = response.headers.get("Content-Type") ?? "";
+
+  if (!response.ok) {
+    if (contentType.includes("application/json")) {
+      const payload = (await response.json()) as ApiErrorResponse;
+      throw new ApiError(
+        payload.message ?? "Something went wrong",
+        payload.statusCode ?? response.status,
+      );
+    }
+    throw new ApiError(response.statusText || "Download failed", response.status);
+  }
+
+  if (contentType.includes("application/json")) {
+    const payload = (await response.json()) as
+      | ApiSuccessResponse<unknown>
+      | ApiErrorResponse;
+    if (!payload.success) {
+      const message =
+        "message" in payload ? payload.message : "Something went wrong";
+      const statusCode =
+        "statusCode" in payload ? payload.statusCode : response.status;
+      throw new ApiError(message, statusCode);
+    }
+    throw new ApiError("Expected a file download", response.status);
+  }
+
+  const blob = await response.blob();
+  const filename =
+    parseContentDispositionFilename(
+      response.headers.get("Content-Disposition"),
+    ) ?? "report.xlsx";
+
+  return { blob, filename };
+}

@@ -49,7 +49,22 @@ export const queryKeys = {
       ["sub-categories", "list", params] as const,
     subCategoryDetail: (id: number) => ["sub-categories", "detail", id] as const,
   },
-  dashboard: ["dashboard"] as const,
+  dashboard: (params: Record<string, unknown>) =>
+    ["dashboard", params] as const,
+  reports: {
+    products: (params: Record<string, unknown>) =>
+      ["reports", "products", params] as const,
+    sales: (params: Record<string, unknown>) =>
+      ["reports", "sales", params] as const,
+    orders: (params: Record<string, unknown>) =>
+      ["reports", "orders", params] as const,
+    inventory: (params: Record<string, unknown>) =>
+      ["reports", "inventory", params] as const,
+    customers: (params: Record<string, unknown>) =>
+      ["reports", "customers", params] as const,
+    payments: (params: Record<string, unknown>) =>
+      ["reports", "payments", params] as const,
+  },
   staff: {
     all: ["staff"] as const,
     list: (params: Record<string, unknown>) => ["staff", "list", params] as const,

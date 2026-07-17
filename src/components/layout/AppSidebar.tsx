@@ -42,6 +42,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { usePermission } from "@/hooks/usePermission";
 import { PERMISSIONS } from "@/lib/roles";
 import { formatRoleLabel, isSuperAdminSlug } from "@/lib/staff-utils";
+import { ReportsSidebarNav } from "@/components/layout/ReportsSidebarNav";
 
 function getInitials(firstName: string | null, lastName: string | null, email: string) {
   const first = firstName?.[0] ?? "";
@@ -213,6 +214,7 @@ export function AppSidebar() {
                   />
                 </SidebarMenuItem>
               ))}
+              <ReportsSidebarNav />
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

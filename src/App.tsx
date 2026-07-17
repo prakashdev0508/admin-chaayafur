@@ -7,6 +7,7 @@ import { AdminLayout } from "@/components/layout/AdminLayout";
 import { ShopLayout } from "@/components/layout/ShopLayout";
 import { LoginPage } from "@/pages/auth/LoginPage";
 import { DashboardPage } from "@/pages/dashboard/DashboardPage";
+import { ReportsPage } from "@/pages/reports/ReportsPage";
 import { CategoryMasterPage } from "@/pages/categories/CategoryMasterPage";
 import { ProductListPage } from "@/pages/products/ProductListPage";
 import { AddProductPage } from "@/pages/products/AddProductPage";
@@ -76,6 +77,14 @@ const App = () => {
             }
           >
             <Route index element={<DashboardPage />} />
+          </Route>
+          <Route
+            element={
+              <PermissionRoute permission={PERMISSIONS.VIEW_REPORTS} />
+            }
+          >
+            <Route path="reports" element={<Navigate to="/reports/products" replace />} />
+            <Route path="reports/:reportKind" element={<ReportsPage />} />
           </Route>
           <Route
             element={
