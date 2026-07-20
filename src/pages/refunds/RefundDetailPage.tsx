@@ -346,6 +346,7 @@ export function RefundDetailPage() {
           if (!open) setCompleteResult(null);
         }}
         refund={completeResult}
+        orderNumber={refund.order.orderNumber}
       />
     </div>
   );
