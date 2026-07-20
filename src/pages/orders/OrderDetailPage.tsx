@@ -115,6 +115,7 @@ export function OrderDetailPage() {
     });
     void queryClient.invalidateQueries({ queryKey: queryKeys.orders.all });
     void queryClient.invalidateQueries({ queryKey: queryKeys.payments.all });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.refunds.all });
   };
 
   const orderQuery = useQuery({

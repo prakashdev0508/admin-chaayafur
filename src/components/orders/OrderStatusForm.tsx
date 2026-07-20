@@ -18,10 +18,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { usePermission } from "@/hooks/usePermission";
-import {
-  getOrderStatusLabel,
-  isRefundOrderStatus,
-} from "@/lib/order-status";
+import { isRefundOrderStatus } from "@/lib/order-status";
 import { PERMISSIONS } from "@/lib/roles";
 import { toOrderStatusSelectItems } from "@/lib/select-items";
 import type { Order, OrderStatus, UpdateOrderPayload } from "@/types/order";
@@ -39,7 +36,6 @@ export function OrderStatusForm({
 }: OrderStatusFormProps) {
   const { hasPermission } = usePermission();
   const canUpdate = hasPermission(PERMISSIONS.UPDATE_ORDERS);
-  const refundManaged = isRefundOrderStatus(order.status);
   const statusItems = useMemo(
     () => toOrderStatusSelectItems(order.status),
     [order.status],
@@ -68,7 +64,13 @@ export function OrderStatusForm({
 
   const handleSubmit = async () => {
     const payload: UpdateOrderPayload = {};
-    if (!refundManaged && status !== order.status) {
+    if (status !== order.status) {
+      if (isRefundOrderStatus(status)) {
+        toast.error(
+          "This is a legacy refund order status. Choose a fulfillment status instead — refunds are managed separately.",
+        );
+        return;
+      }
       payload.status = status;
     }
     if (notes !== (order.payment.notes ?? "")) {
@@ -95,33 +97,32 @@ export function OrderStatusForm({
       <CardHeader>
         <CardTitle>Update order</CardTitle>
         <CardDescription>
-          {refundManaged
-            ? `This order is ${getOrderStatusLabel(order.status).toLowerCase()}. Refund-related statuses are updated only through the refund flow.`
-            : "Set any fulfillment status directly — you do not need to move through each step. Cancelling does not issue a refund — use Initiate refund when needed."}
+          Set any fulfillment status directly — you do not need to move through
+          each step. Cancelling does not issue a refund — use Initiate refund
+          when needed. Refunds update payment/refund status only, not this
+          fulfillment status.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {!refundManaged && (
-          <div className="space-y-2">
-            <Label>Status</Label>
-            <Select
-              value={status}
-              onValueChange={(v) => v && setStatus(v as OrderStatus)}
-              items={statusItems}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {statusItems.map((item) => (
-                  <SelectItem key={item.value} value={item.value}>
-                    {item.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
+        <div className="space-y-2">
+          <Label>Status</Label>
+          <Select
+            value={status}
+            onValueChange={(v) => v && setStatus(v as OrderStatus)}
+            items={statusItems}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {statusItems.map((item) => (
+                <SelectItem key={item.value} value={item.value}>
+                  {item.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
         <div className="space-y-2">
           <Label htmlFor="payment-notes">Payment notes</Label>
           <Textarea

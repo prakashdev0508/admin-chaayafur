@@ -154,6 +154,8 @@ export type ListOrdersParams = {
   page?: number;
   limit?: number;
   status?: OrderStatus;
+  /** Filter orders that have at least one refund with this status */
+  refundStatus?: import("@/types/refund").RefundStatus;
   customerId?: number;
   orderNumber?: string;
   customerPhone?: string;
