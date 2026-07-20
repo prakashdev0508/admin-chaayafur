@@ -34,6 +34,8 @@ type TrackingTimelineProps = {
 const statusIcons: Record<OrderStatus, typeof Clock3> = {
   PENDING: Clock3,
   CONFIRMED: Package,
+  UNDER_PRODUCTION: Warehouse,
+  PACKING: Package,
   SHIPPED: Truck,
   DELIVERED: PackageCheck,
   REFUND_INITIATED: RotateCcw,

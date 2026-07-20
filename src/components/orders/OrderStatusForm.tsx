@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -19,9 +19,8 @@ import {
 } from "@/components/ui/card";
 import { usePermission } from "@/hooks/usePermission";
 import {
-  getAllowedStatusTransitions,
   getOrderStatusLabel,
-  isOrderEditable,
+  isRefundOrderStatus,
 } from "@/lib/order-status";
 import { PERMISSIONS } from "@/lib/roles";
 import { toOrderStatusSelectItems } from "@/lib/select-items";
@@ -40,15 +39,19 @@ export function OrderStatusForm({
 }: OrderStatusFormProps) {
   const { hasPermission } = usePermission();
   const canUpdate = hasPermission(PERMISSIONS.UPDATE_ORDERS);
-  const editable = isOrderEditable(order.status);
-  const transitions = getAllowedStatusTransitions(order.status);
+  const refundManaged = isRefundOrderStatus(order.status);
   const statusItems = useMemo(
-    () => toOrderStatusSelectItems(order.status, transitions),
-    [order.status, transitions],
+    () => toOrderStatusSelectItems(order.status),
+    [order.status],
   );
 
   const [status, setStatus] = useState<OrderStatus>(order.status);
   const [notes, setNotes] = useState(order.payment.notes ?? "");
+
+  useEffect(() => {
+    setStatus(order.status);
+    setNotes(order.payment.notes ?? "");
+  }, [order.id, order.status, order.payment.notes]);
 
   if (!canUpdate) {
     return (
@@ -63,23 +66,11 @@ export function OrderStatusForm({
     );
   }
 
-  if (!editable) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Order status</CardTitle>
-          <CardDescription>
-            This order is {getOrderStatusLabel(order.status).toLowerCase()} and
-            cannot be edited.
-          </CardDescription>
-        </CardHeader>
-      </Card>
-    );
-  }
-
   const handleSubmit = async () => {
     const payload: UpdateOrderPayload = {};
-    if (status !== order.status) payload.status = status;
+    if (!refundManaged && status !== order.status) {
+      payload.status = status;
+    }
     if (notes !== (order.payment.notes ?? "")) {
       payload.payment = { notes };
     }
@@ -104,33 +95,33 @@ export function OrderStatusForm({
       <CardHeader>
         <CardTitle>Update order</CardTitle>
         <CardDescription>
-          Change status or add payment notes. Cancelling does not issue a
-          refund — use Initiate refund when needed.
+          {refundManaged
+            ? `This order is ${getOrderStatusLabel(order.status).toLowerCase()}. Refund-related statuses are updated only through the refund flow.`
+            : "Set any fulfillment status directly — you do not need to move through each step. Cancelling does not issue a refund — use Initiate refund when needed."}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <Label>Status</Label>
-          <Select
-            value={status}
-            onValueChange={(v) => v && setStatus(v as OrderStatus)}
-            items={statusItems}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={order.status}>
-                {getOrderStatusLabel(order.status)} (current)
-              </SelectItem>
-              {transitions.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {getOrderStatusLabel(s)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        {!refundManaged && (
+          <div className="space-y-2">
+            <Label>Status</Label>
+            <Select
+              value={status}
+              onValueChange={(v) => v && setStatus(v as OrderStatus)}
+              items={statusItems}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {statusItems.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
         <div className="space-y-2">
           <Label htmlFor="payment-notes">Payment notes</Label>
           <Textarea

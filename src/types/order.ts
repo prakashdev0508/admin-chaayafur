@@ -4,6 +4,8 @@ import type { OrderAddressRef } from "@/lib/order-utils";
 export type OrderStatus =
   | "PENDING"
   | "CONFIRMED"
+  | "UNDER_PRODUCTION"
+  | "PACKING"
   | "SHIPPED"
   | "DELIVERED"
   | "REFUND_INITIATED"

@@ -1,5 +1,9 @@
 import type { ReactNode } from "react";
-import { getOrderStatusLabel, orderStatusLabels } from "@/lib/order-status";
+import {
+  getOrderStatusLabel,
+  orderStatusLabels,
+  STAFF_SELECTABLE_ORDER_STATUSES,
+} from "@/lib/order-status";
 import type { OrderStatus } from "@/types/order";
 
 export type SelectOption = {
@@ -84,18 +88,15 @@ export const SORT_ORDER_ITEMS: SelectOption[] = [
   { value: "asc", label: "Ascending" },
 ];
 
+/** Staff-selectable statuses for Update order (excludes refund-driven statuses). */
 export function toOrderStatusSelectItems(
   currentStatus: OrderStatus,
-  transitions: OrderStatus[],
 ): SelectOption[] {
-  return [
-    {
-      value: currentStatus,
-      label: `${getOrderStatusLabel(currentStatus)} (current)`,
-    },
-    ...transitions.map((status) => ({
-      value: status,
-      label: getOrderStatusLabel(status),
-    })),
-  ];
+  return STAFF_SELECTABLE_ORDER_STATUSES.map((status) => ({
+    value: status,
+    label:
+      status === currentStatus
+        ? `${getOrderStatusLabel(status)} (current)`
+        : getOrderStatusLabel(status),
+  }));
 }

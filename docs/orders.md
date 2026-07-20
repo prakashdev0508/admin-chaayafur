@@ -24,6 +24,8 @@ When `RESEND_API_KEY` is set (and `RESEND_ENABLED` is not `false`), the API send
 | Event | When |
 |-------|------|
 | Order received / placed | Order becomes `CONFIRMED` (payment webhook or staff PATCH) |
+| Under production | Staff sets status `UNDER_PRODUCTION` |
+| Product packing | Staff sets status `PACKING` |
 | Order shipped | Staff sets status `SHIPPED` |
 | Order delivered | Staff sets status `DELIVERED` |
 | Order cancelled | Order becomes `CANCELLED` (payment failed/expired webhook, checkout link failure, or staff PATCH) |
@@ -56,8 +58,12 @@ stateDiagram-v2
     [*] --> PENDING: POST /orders
     PENDING --> CONFIRMED: Razorpay paid webhook
     PENDING --> CANCELLED: Payment failed/expired
-    CONFIRMED --> SHIPPED: Staff PATCH
+    CONFIRMED --> UNDER_PRODUCTION: Staff PATCH
     CONFIRMED --> CANCELLED: Staff PATCH
+    UNDER_PRODUCTION --> PACKING: Staff PATCH
+    UNDER_PRODUCTION --> CANCELLED: Staff PATCH
+    PACKING --> SHIPPED: Staff PATCH
+    PACKING --> CANCELLED: Staff PATCH
     SHIPPED --> DELIVERED: Staff PATCH
     DELIVERED --> [*]
     CANCELLED --> [*]
@@ -89,6 +95,8 @@ Razorpay webhook → Order CONFIRMED + invoice (or CANCELLED + stock restored)
 |--------|-------------|
 | `PENDING` | New order, awaiting Razorpay payment |
 | `CONFIRMED` | Payment received; invoice generated on payment webhook (not on staff confirm) |
+| `UNDER_PRODUCTION` | Product is under production / manufacturing |
+| `PACKING` | Product packing in progress |
 | `SHIPPED` | Order shipped |
 | `DELIVERED` | Order delivered |
 | `REFUND_INITIATED` | Staff started a refund request (see [refund.md](./refund.md)) |
@@ -525,6 +533,22 @@ Customers can only access their own orders. Staff require `view-orders`.
         "occurredAt": "2026-07-11T12:08:00.000Z"
       },
       {
+        "status": "UNDER_PRODUCTION",
+        "label": "Under production",
+        "description": "Product is being manufactured",
+        "isCompleted": true,
+        "isCurrent": false,
+        "occurredAt": "2026-07-11T12:30:00.000Z"
+      },
+      {
+        "status": "PACKING",
+        "label": "Product packing",
+        "description": "Items are being packed",
+        "isCompleted": true,
+        "isCurrent": false,
+        "occurredAt": "2026-07-11T13:00:00.000Z"
+      },
+      {
         "status": "SHIPPED",
         "label": "Shipped",
         "description": "Order is on the way",
@@ -549,7 +573,7 @@ Customers can only access their own orders. Staff require `view-orders`.
 
 | Field | Description |
 |-------|-------------|
-| `status` | `PENDING`, `CONFIRMED`, `SHIPPED`, `DELIVERED`, or `CANCELLED` |
+| `status` | `PENDING`, `CONFIRMED`, `UNDER_PRODUCTION`, `PACKING`, `SHIPPED`, `DELIVERED`, or `CANCELLED` |
 | `label` | Customer-friendly step title |
 | `description` | Short explanation for the storefront UI |
 | `isCompleted` | Step has been reached |
@@ -610,7 +634,7 @@ All fields optional; at least one required.
 
 | Field | Type | Rules |
 |-------|------|-------|
-| `status` | string | Valid transitions enforced (e.g. `PENDING` → `CONFIRMED` → `SHIPPED` → `DELIVERED`) |
+| `status` | string | Valid transitions enforced (e.g. `PENDING` → `CONFIRMED` → `UNDER_PRODUCTION` → `PACKING` → `SHIPPED` → `DELIVERED`) |
 | `shippingAddressId` | integer | Must belong to order customer; refreshes address snapshot |
 | `billingAddressId` | integer | Must belong to order customer |
 | `items` | array | Min 1 item; prices from DB; stock adjusted by delta |
@@ -760,7 +784,7 @@ All of `POST /orders` and `GET /orders/:id` return this shape (wrapped in `{ suc
 | `customerId` | integer | Customer who placed the order |
 | `addressId` | integer | Shipping address ID |
 | `billingAddressId` | integer \| null | Billing address ID (`null` if same as shipping) |
-| `status` | string | `PENDING` \| `CONFIRMED` \| `SHIPPED` \| `DELIVERED` \| `REFUND_INITIATED` \| `PARTIALLY_REFUNDED` \| `REFUNDED` \| `CANCELLED` |
+| `status` | string | `PENDING` \| `CONFIRMED` \| `UNDER_PRODUCTION` \| `PACKING` \| `SHIPPED` \| `DELIVERED` \| `REFUND_INITIATED` \| `PARTIALLY_REFUNDED` \| `REFUNDED` \| `CANCELLED` |
 | `subtotalAmount` | string | Sum of line items before discount |
 | `discountAmount` | string | Coupon discount ( `0.00` if none) |
 | `shippingAmount` | string | Shipping fee applied at checkout |
