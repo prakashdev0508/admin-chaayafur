@@ -1,4 +1,5 @@
 import { Loader2 } from "lucide-react";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatCurrency, formatDate } from "@/lib/format";
@@ -63,7 +64,12 @@ function RefundItemCard({
     <div className="space-y-4 rounded-lg border p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-medium">Refund #{refund.id}</p>
+          <Link
+            to={`/refunds/${refund.id}`}
+            className="text-sm font-medium hover:underline"
+          >
+            Refund #{refund.id}
+          </Link>
           <p className="mt-1 text-sm text-muted-foreground">
             {formatCurrency(refund.amount)}
           </p>

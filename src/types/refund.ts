@@ -65,6 +65,46 @@ export type OrderRefundsResponse = OrderRefund & {
   items: OrderRefund[];
 };
 
+export type RefundOrderSummary = {
+  id: number;
+  orderNumber: string;
+  status: import("@/types/order").OrderStatus;
+};
+
+/** Slim row from GET /refunds */
+export type RefundListItem = {
+  id: number;
+  orderId: number;
+  paymentId: number;
+  status: RefundStatus;
+  reason: string;
+  amount: string;
+  initiatedAt: string;
+  processedAt: string | null;
+  failedAt: string | null;
+  razorpayRefundId: string | null;
+  createdAt: string;
+  order: RefundOrderSummary | null;
+};
+
+export type ListRefundsParams = {
+  page?: number;
+  limit?: number;
+  status?: RefundStatus;
+  orderId?: number;
+  orderNumber?: string;
+  createdFrom?: string;
+  createdTo?: string;
+};
+
+/** GET /refunds/:id */
+export type RefundDetail = OrderRefund & {
+  paymentAmount: string;
+  refundedAmount: string;
+  remainingAmount: string;
+  order: RefundOrderSummary;
+};
+
 export type InitiateRefundPayload = {
   reason: string;
   /** Omit to refund the full remaining balance */

@@ -4,6 +4,8 @@ import type { OrderAddressRef } from "@/lib/order-utils";
 export type OrderStatus =
   | "PENDING"
   | "CONFIRMED"
+  | "UNDER_PRODUCTION"
+  | "PACKING"
   | "SHIPPED"
   | "DELIVERED"
   | "REFUND_INITIATED"
@@ -152,6 +154,8 @@ export type ListOrdersParams = {
   page?: number;
   limit?: number;
   status?: OrderStatus;
+  /** Filter orders that have at least one refund with this status */
+  refundStatus?: import("@/types/refund").RefundStatus;
   customerId?: number;
   orderNumber?: string;
   customerPhone?: string;

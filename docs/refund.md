@@ -9,22 +9,23 @@ Two-phase staff refund flow for completed Razorpay payments: initiate with reaso
 ## Overview
 
 ```text
-1. POST /orders/:id/refund                    → refund INITIATED + order status REFUND_INITIATED
-2. POST /orders/:id/refund/:refundId/complete → PROCESSING → Razorpay refund API
-3. Gateway result                             → PROCESSED or FAILED
-4. On PROCESSED                               → if fully refunded: payment REFUNDED, order REFUNDED, stock/coupon restored
-                                              → if partial: payment stays COMPLETED, order stays REFUND_INITIATED
+1. POST /orders/:id/refund                    → Refund row INITIATED (Order.status unchanged)
+2. POST /orders/:id/refund/:refundId/complete → Refund PROCESSING → Razorpay refund API
+3. Gateway result                             → Refund PROCESSED or FAILED
+4. On PROCESSED                               → if fully refunded: payment REFUNDED + stock/coupon restored
+                                              → if partial: payment stays COMPLETED
 ```
 
+- **Order.status and Refund.status are separate** — fulfillment stays on the order; refund lifecycle lives on `refunds`
 - **Partial or full refunds** — optional `amount` on initiate; omit to refund the full remaining balance
 - Multiple sequential refunds allowed until remaining balance is `0`
 - Payment stays `COMPLETED` until the payment is **fully** refunded, then → `REFUNDED`
-- On initiate, order status becomes **`REFUND_INITIATED`**
-- On full processed, order status becomes **`REFUNDED`**; partial processed keeps **`REFUND_INITIATED`**
-- Cancelling an initiated refund reverts the order only when there are no prior processed refunds
-- Side effects (mark order refunded, restore stock/coupon) run **only** when the payment becomes fully refunded
+- Side effects (restore stock/coupon) run **only** when the payment becomes fully refunded
 - Cancelling an order via `PATCH /orders/:id` does **not** auto-refund — refund is always explicit
 - At most **one active** refund (`INITIATED` or `PROCESSING`) per payment
+- Staff order list supports `?refundStatus=INITIATED` to find orders with an open refund
+- Global refund inbox: `GET /refunds` and `GET /refunds/:id`
+- **Customer emails (Resend)** — refund initiated (includes amount) and refund completed; see [orders.md](./orders.md) for env vars. Recipient = shipping/billing address email; skipped if missing
 
 ### Refund statuses
 
@@ -32,7 +33,7 @@ Two-phase staff refund flow for completed Razorpay payments: initiate with reaso
 |--------|---------|
 | `INITIATED` | Staff created refund request with reason — Razorpay not called yet |
 | `PROCESSING` | Complete clicked; Razorpay refund submitted |
-| `PROCESSED` | Money refunded for this request; payment/order become `REFUNDED` only when remaining balance is 0 |
+| `PROCESSED` | Money refunded for this request; payment becomes `REFUNDED` only when remaining balance is 0 |
 | `FAILED` | Razorpay API or `refund.failed` webhook reported failure |
 | `CANCELLED` | Staff cancelled before clicking Complete |
 
@@ -51,6 +52,8 @@ Two-phase staff refund flow for completed Razorpay payments: initiate with reaso
 
 | Endpoint | Permission | SUPER_ADMIN | ADMIN | ORDER_MANAGER |
 |----------|------------|:-----------:|:-----:|:-------------:|
+| `GET /refunds` | `view-payments` **or** `view-orders` | Yes | Yes | No |
+| `GET /refunds/:id` | `view-payments` **or** `view-orders` | Yes | Yes | No |
 | `POST /orders/:id/refund` | `update-payments` | Yes | Yes | No |
 | `POST /orders/:id/refund/:refundId/complete` | `update-payments` | Yes | Yes | No |
 | `POST /orders/:id/refund/:refundId/cancel` | `update-payments` | Yes | Yes | No |
@@ -62,10 +65,42 @@ Two-phase staff refund flow for completed Razorpay payments: initiate with reaso
 
 | Method | Endpoint | Auth | Status |
 |--------|----------|------|--------|
+| `GET` | `/api/v1/refunds` | Staff (`view-payments` or `view-orders`) | `200` |
+| `GET` | `/api/v1/refunds/:id` | Staff (`view-payments` or `view-orders`) | `200` |
 | `POST` | `/api/v1/orders/:id/refund` | Staff (`update-payments`) | `201` |
 | `POST` | `/api/v1/orders/:id/refund/:refundId/complete` | Staff (`update-payments`) | `200` |
 | `POST` | `/api/v1/orders/:id/refund/:refundId/cancel` | Staff (`update-payments`) | `200` |
 | `GET` | `/api/v1/orders/:id/refund` | Staff (`view-payments` or `view-orders`) | `200` |
+
+---
+
+## GET /api/v1/refunds
+
+Paginated staff refund inbox.
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `page` / `limit` | integer | Pagination |
+| `status` | string | `INITIATED` \| `PROCESSING` \| `PROCESSED` \| `FAILED` \| `CANCELLED` |
+| `orderId` | integer | Exact order id |
+| `orderNumber` | string | Partial order number match |
+| `createdFrom` / `createdTo` | string | Date range on refund `createdAt` |
+
+```bash
+curl "http://localhost:5000/api/v1/refunds?status=INITIATED" \
+  -H "Authorization: Bearer $STAFF_TOKEN"
+```
+
+---
+
+## GET /api/v1/refunds/:id
+
+Single refund with events, balances, and order summary.
+
+```bash
+curl "http://localhost:5000/api/v1/refunds/12" \
+  -H "Authorization: Bearer $STAFF_TOKEN"
+```
 
 ---
 
@@ -285,12 +320,21 @@ Resolve by `razorpayRefundId`. If refund is already `PROCESSED` / `FAILED`, webh
 
 ## Side effects on PROCESSED
 
+**Partial refund** (remaining balance &gt; 0):
+
+1. Payment stays `COMPLETED`
+2. **Order.status is unchanged**
+3. Mirror latest `razorpayRefundId` / notes onto `Payment` for audit
+4. Stock and coupon are **not** restored
+
+**Full refund** (remaining balance = 0):
+
 1. `Payment.status` → `REFUNDED`
 2. Mirror `razorpayRefundId`, `refundedAt`, `refundNotes` (= reason) onto `Payment`
-3. If order is not already `REFUNDED` / `CANCELLED` → order `REFUNDED` + status event (from `REFUND_INITIATED`)
-4. Restore product stock and coupon redemption
+3. **Order.status is unchanged**
+4. Restore product stock and coupon redemption (unless order is `CANCELLED`)
 
-When refund is **initiated**, order status also becomes `REFUND_INITIATED` (tracking label: “Refund initiated”). Cancelling the refund request reverts the order to the previous status. When the refund is **processed**, order status becomes `REFUNDED`.
+Initiating or cancelling a refund only updates `Refund.status` — never `Order.status`.
 
 ---
 
@@ -298,7 +342,9 @@ When refund is **initiated**, order status also becomes `REFUND_INITIATED` (trac
 
 | Button / screen | API |
 |-----------------|-----|
+| Refund list / inbox | `GET /refunds` |
+| Refund detail | `GET /refunds/:id` |
 | Initiate refund (reason form) | `POST /orders/:id/refund` |
 | Complete refund | `POST /orders/:id/refund/:refundId/complete` |
 | Cancel request | `POST /orders/:id/refund/:refundId/cancel` |
-| Refund history / timeline | `GET /orders/:id/refund` |
+| Order-scoped refund history | `GET /orders/:id/refund` |

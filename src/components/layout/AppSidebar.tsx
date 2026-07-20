@@ -5,6 +5,7 @@ import {
   FolderTree,
   ShoppingCart,
   CreditCard,
+  RotateCcw,
   LifeBuoy,
   Ticket,
   Users,
@@ -65,6 +66,8 @@ type NavItem = {
   url: string;
   icon: LucideIcon;
   permission?: string | null;
+  /** Any of these permissions grants access (OR). */
+  permissions?: string[];
   superAdminOnly?: boolean;
 };
 
@@ -111,6 +114,12 @@ const navMain: NavItem[] = [
     icon: CreditCard,
     permission: PERMISSIONS.VIEW_PAYMENTS,
   },
+  {
+    title: "Refunds",
+    url: "/refunds",
+    icon: RotateCcw,
+    permissions: [PERMISSIONS.VIEW_PAYMENTS, PERMISSIONS.VIEW_ORDERS],
+  },
 ];
 
 const navMore: NavItem[] = [
@@ -156,7 +165,7 @@ export function AppSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout, myPermissions } = useAuth();
-  const { hasPermission, defaultHomePath } = usePermission();
+  const { hasPermission, hasAnyPermission, defaultHomePath } = usePermission();
   const isSuperAdmin = isSuperAdminSlug(
     myPermissions?.roleSlug ?? myPermissions?.role,
   );
@@ -167,6 +176,9 @@ export function AppSidebar() {
   const filterNav = (items: NavItem[]) =>
     items.filter((item) => {
       if (item.superAdminOnly) return isSuperAdmin;
+      if (item.permissions?.length) {
+        return hasAnyPermission(item.permissions);
+      }
       return !item.permission || hasPermission(item.permission);
     });
 

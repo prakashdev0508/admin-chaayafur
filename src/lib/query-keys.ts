@@ -9,6 +9,12 @@ export const queryKeys = {
     invoice: (id: number) => ["orders", "invoice", id] as const,
     refund: (id: number) => ["orders", "refund", id] as const,
   },
+  refunds: {
+    all: ["refunds"] as const,
+    list: (params: Record<string, unknown>) =>
+      ["refunds", "list", params] as const,
+    detail: (id: number) => ["refunds", "detail", id] as const,
+  },
   payments: {
     all: ["payments"] as const,
     list: (params: Record<string, unknown>) =>

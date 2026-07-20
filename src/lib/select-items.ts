@@ -1,5 +1,10 @@
 import type { ReactNode } from "react";
-import { getOrderStatusLabel, orderStatusLabels } from "@/lib/order-status";
+import {
+  getOrderStatusLabel,
+  isRefundOrderStatus,
+  orderStatusLabels,
+  STAFF_SELECTABLE_ORDER_STATUSES,
+} from "@/lib/order-status";
 import type { OrderStatus } from "@/types/order";
 
 export type SelectOption = {
@@ -30,9 +35,19 @@ export const ACTIVE_FILTER_ITEMS: SelectOption[] = [
 
 export const ORDER_STATUS_FILTER_ITEMS: SelectOption[] = [
   { value: "all", label: "All statuses" },
-  ...(
-    Object.entries(orderStatusLabels) as [OrderStatus, string][]
-  ).map(([value, label]) => ({ value, label })),
+  ...STAFF_SELECTABLE_ORDER_STATUSES.map((value) => ({
+    value,
+    label: orderStatusLabels[value],
+  })),
+];
+
+export const REFUND_STATUS_FILTER_ITEMS: SelectOption[] = [
+  { value: "all", label: "All refund statuses" },
+  { value: "INITIATED", label: "Initiated" },
+  { value: "PROCESSING", label: "Processing" },
+  { value: "PROCESSED", label: "Processed" },
+  { value: "FAILED", label: "Failed" },
+  { value: "CANCELLED", label: "Cancelled" },
 ];
 
 export const PAYMENT_STATUS_FILTER_ITEMS: SelectOption[] = [
@@ -84,18 +99,28 @@ export const SORT_ORDER_ITEMS: SelectOption[] = [
   { value: "asc", label: "Ascending" },
 ];
 
+/**
+ * Staff-selectable fulfillment statuses for Update order.
+ * Legacy refund-driven order statuses are not choosable, but if an order
+ * still has one, it is included as the current value so the control stays enabled.
+ */
 export function toOrderStatusSelectItems(
   currentStatus: OrderStatus,
-  transitions: OrderStatus[],
 ): SelectOption[] {
-  return [
-    {
+  const items = STAFF_SELECTABLE_ORDER_STATUSES.map((status) => ({
+    value: status,
+    label:
+      status === currentStatus
+        ? `${getOrderStatusLabel(status)} (current)`
+        : getOrderStatusLabel(status),
+  }));
+
+  if (isRefundOrderStatus(currentStatus)) {
+    items.unshift({
       value: currentStatus,
       label: `${getOrderStatusLabel(currentStatus)} (current)`,
-    },
-    ...transitions.map((status) => ({
-      value: status,
-      label: getOrderStatusLabel(status),
-    })),
-  ];
+    });
+  }
+
+  return items;
 }

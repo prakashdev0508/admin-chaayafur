@@ -2,19 +2,23 @@ import type { OrderStatus } from "@/types/order";
 import type { StatusVariant } from "@/lib/status-variants";
 
 export const orderStatusLabels: Record<OrderStatus, string> = {
-  PENDING: "Awaiting Razorpay payment",
+  PENDING: "Awaiting payment",
   CONFIRMED: "Payment received",
-  SHIPPED: "Order shipped",
-  DELIVERED: "Order delivered",
-  REFUND_INITIATED: "Staff started a refund",
+  UNDER_PRODUCTION: "Under production",
+  PACKING: "Packing",
+  SHIPPED: "Shipped",
+  DELIVERED: "Delivered",
+  REFUND_INITIATED: "Refund initiated",
   PARTIALLY_REFUNDED: "Partially refunded",
-  REFUNDED: "Refund completed",
+  REFUNDED: "Refunded",
   CANCELLED: "Cancelled",
 };
 
 export const orderStatusVariants: Record<OrderStatus, StatusVariant> = {
   PENDING: "warning",
   CONFIRMED: "brand",
+  UNDER_PRODUCTION: "brand",
+  PACKING: "default",
   SHIPPED: "default",
   DELIVERED: "success",
   REFUND_INITIATED: "warning",
@@ -23,10 +27,13 @@ export const orderStatusVariants: Record<OrderStatus, StatusVariant> = {
   CANCELLED: "danger",
 };
 
+/** Staff PATCH transitions from docs/orders.md lifecycle. */
 const allowedTransitions: Record<OrderStatus, OrderStatus[]> = {
   PENDING: ["CONFIRMED", "CANCELLED"],
-  CONFIRMED: ["SHIPPED", "CANCELLED"],
-  SHIPPED: ["DELIVERED", "CANCELLED"],
+  CONFIRMED: ["UNDER_PRODUCTION", "CANCELLED"],
+  UNDER_PRODUCTION: ["PACKING", "CANCELLED"],
+  PACKING: ["SHIPPED", "CANCELLED"],
+  SHIPPED: ["DELIVERED"],
   DELIVERED: [],
   REFUND_INITIATED: [],
   PARTIALLY_REFUNDED: [],
@@ -48,12 +55,26 @@ export function getAllowedStatusTransitions(
   return allowedTransitions[current] ?? [];
 }
 
+/** Statuses set only by the refund flow — not via PATCH order status. */
+export const REFUND_ORDER_STATUSES: readonly OrderStatus[] = [
+  "REFUND_INITIATED",
+  "PARTIALLY_REFUNDED",
+  "REFUNDED",
+] as const;
+
+export function isRefundOrderStatus(status: OrderStatus) {
+  return (REFUND_ORDER_STATUSES as readonly string[]).includes(status);
+}
+
+/** Statuses staff can choose in Update order (excludes refund-driven ones). */
+export const STAFF_SELECTABLE_ORDER_STATUSES: OrderStatus[] = (
+  Object.keys(orderStatusLabels) as OrderStatus[]
+).filter((status) => !isRefundOrderStatus(status));
+
 export function isOrderEditable(status: OrderStatus) {
   return (
     status !== "CANCELLED" &&
     status !== "DELIVERED" &&
-    status !== "REFUND_INITIATED" &&
-    status !== "PARTIALLY_REFUNDED" &&
-    status !== "REFUNDED"
+    !isRefundOrderStatus(status)
   );
 }

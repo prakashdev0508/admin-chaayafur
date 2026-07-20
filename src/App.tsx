@@ -17,6 +17,8 @@ import { OrderListPage } from "@/pages/orders/OrderListPage";
 import { OrderDetailPage } from "@/pages/orders/OrderDetailPage";
 import { PaymentListPage } from "@/pages/payments/PaymentListPage";
 import { PaymentDetailPage } from "@/pages/payments/PaymentDetailPage";
+import { RefundListPage } from "@/pages/refunds/RefundListPage";
+import { RefundDetailPage } from "@/pages/refunds/RefundDetailPage";
 import { CouponListPage } from "@/pages/coupons/CouponListPage";
 import { AddCouponPage } from "@/pages/coupons/AddCouponPage";
 import {
@@ -145,6 +147,19 @@ const App = () => {
           >
             <Route path="payments" element={<PaymentListPage />} />
             <Route path="payments/:id" element={<PaymentDetailPage />} />
+          </Route>
+          <Route
+            element={
+              <PermissionRoute
+                permissions={[
+                  PERMISSIONS.VIEW_PAYMENTS,
+                  PERMISSIONS.VIEW_ORDERS,
+                ]}
+              />
+            }
+          >
+            <Route path="refunds" element={<RefundListPage />} />
+            <Route path="refunds/:id" element={<RefundDetailPage />} />
           </Route>
           <Route
             element={<PermissionRoute permission={PERMISSIONS.VIEW_COUPONS} />}

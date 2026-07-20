@@ -21,6 +21,7 @@ export const STAFF_HOME_CANDIDATES: StaffHomeCandidate[] = [
   { path: "/orders", permission: PERMISSIONS.VIEW_ORDERS },
   { path: "/support-tickets", permission: PERMISSIONS.VIEW_ORDER_SUPPORT },
   { path: "/payments", permission: PERMISSIONS.VIEW_PAYMENTS },
+  { path: "/refunds", permission: PERMISSIONS.VIEW_PAYMENTS },
   { path: "/coupons", permission: PERMISSIONS.VIEW_COUPONS },
   { path: "/customers", permission: PERMISSIONS.VIEW_CUSTOMERS },
   { path: "/reviews", permission: PERMISSIONS.VIEW_REVIEWS },
@@ -41,6 +42,7 @@ const ROUTE_PERMISSIONS: Record<string, Permission | null> = {
   "/orders": PERMISSIONS.VIEW_ORDERS,
   "/support-tickets": PERMISSIONS.VIEW_ORDER_SUPPORT,
   "/payments": PERMISSIONS.VIEW_PAYMENTS,
+  "/refunds": PERMISSIONS.VIEW_PAYMENTS,
   "/coupons": PERMISSIONS.VIEW_COUPONS,
   "/customers": PERMISSIONS.VIEW_CUSTOMERS,
   "/reviews": PERMISSIONS.VIEW_REVIEWS,
@@ -92,6 +94,14 @@ function canAccessPath(
   if (normalized === "/roles" || base === "/roles") {
     return (
       roleSlug === SUPER_ADMIN_SLUG || hasPerm(permissions, PERMISSIONS.ALL)
+    );
+  }
+
+  // Refunds inbox: view-payments OR view-orders
+  if (normalized === "/refunds" || base === "/refunds") {
+    return (
+      hasPerm(permissions, PERMISSIONS.VIEW_PAYMENTS) ||
+      hasPerm(permissions, PERMISSIONS.VIEW_ORDERS)
     );
   }
 

@@ -18,23 +18,21 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import type { OrderFilters } from "@/lib/order-filters";
-import {
-  ORDER_STATUS_FILTER_ITEMS,
-  REFUND_STATUS_FILTER_ITEMS,
-} from "@/lib/select-items";
+import type { RefundFilters } from "@/lib/refund-filters";
+import { REFUND_STATUS_FILTER_ITEMS } from "@/lib/select-items";
+import type { RefundStatus } from "@/types/refund";
 
-type OrderFilterSheetProps = {
-  filters: OrderFilters;
-  onApply: (filters: OrderFilters) => void;
+type RefundFilterSheetProps = {
+  filters: RefundFilters;
+  onApply: (filters: RefundFilters) => void;
   activeCount: number;
 };
 
-export function OrderFilterSheet({
+export function RefundFilterSheet({
   filters,
   onApply,
   activeCount,
-}: OrderFilterSheetProps) {
+}: RefundFilterSheetProps) {
   return (
     <Sheet>
       <SheetTrigger
@@ -52,55 +50,35 @@ export function OrderFilterSheet({
       />
       <SheetContent>
         <SheetHeader>
-          <SheetTitle>Filter orders</SheetTitle>
+          <SheetTitle>Filter refunds</SheetTitle>
           <SheetDescription>
-            Narrow down by order status, refund status, order number, customer, or date.
+            Narrow by refund status, order, or created date.
           </SheetDescription>
         </SheetHeader>
         <form
           className="flex flex-1 flex-col gap-4 px-4"
           onSubmit={(e) => {
             e.preventDefault();
-            const form = e.currentTarget;
-            const data = new FormData(form);
+            const data = new FormData(e.currentTarget);
             onApply({
-              status: String(data.get("status") ?? "all"),
-              refundStatus: String(data.get("refundStatus") ?? "all"),
-              customerId: String(data.get("customerId") ?? ""),
+              status: String(data.get("status") ?? "all") as
+                | RefundStatus
+                | "all",
+              orderId: String(data.get("orderId") ?? ""),
               orderNumber: String(data.get("orderNumber") ?? ""),
-              customerPhone: String(data.get("customerPhone") ?? ""),
               createdFrom: String(data.get("createdFrom") ?? ""),
               createdTo: String(data.get("createdTo") ?? ""),
             });
           }}
         >
           <div className="space-y-2">
-            <Label htmlFor="order-status">Order status</Label>
+            <Label htmlFor="refund-status">Status</Label>
             <Select
               name="status"
               defaultValue={filters.status}
-              items={ORDER_STATUS_FILTER_ITEMS}
-            >
-              <SelectTrigger id="order-status" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {ORDER_STATUS_FILTER_ITEMS.map((item) => (
-                  <SelectItem key={item.value} value={item.value}>
-                    {item.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="order-refund-status">Refund status</Label>
-            <Select
-              name="refundStatus"
-              defaultValue={filters.refundStatus}
               items={REFUND_STATUS_FILTER_ITEMS}
             >
-              <SelectTrigger id="order-refund-status" className="w-full">
+              <SelectTrigger id="refund-status" className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -113,46 +91,37 @@ export function OrderFilterSheet({
             </Select>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="order-number">Order number</Label>
+            <Label htmlFor="refund-order-number">Order number</Label>
             <Input
-              id="order-number"
+              id="refund-order-number"
               name="orderNumber"
               placeholder="e.g. ORD-20260714-0011"
               defaultValue={filters.orderNumber}
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="customer-phone">Customer phone</Label>
+            <Label htmlFor="refund-order-id">Order ID</Label>
             <Input
-              id="customer-phone"
-              name="customerPhone"
-              placeholder="e.g. 98765"
-              defaultValue={filters.customerPhone}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="customer-id">Customer ID</Label>
-            <Input
-              id="customer-id"
-              name="customerId"
-              placeholder="e.g. 1"
-              defaultValue={filters.customerId}
+              id="refund-order-id"
+              name="orderId"
+              placeholder="e.g. 12"
+              defaultValue={filters.orderId}
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label htmlFor="created-from">Created from</Label>
+              <Label htmlFor="refund-from">Created from</Label>
               <Input
-                id="created-from"
+                id="refund-from"
                 name="createdFrom"
                 type="date"
                 defaultValue={filters.createdFrom}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="created-to">Created to</Label>
+              <Label htmlFor="refund-to">Created to</Label>
               <Input
-                id="created-to"
+                id="refund-to"
                 name="createdTo"
                 type="date"
                 defaultValue={filters.createdTo}

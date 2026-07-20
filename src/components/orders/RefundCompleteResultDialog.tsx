@@ -44,7 +44,7 @@ function resultCopy(refund: OrderRefund) {
       icon: CheckCircle2,
       iconClass: "text-emerald-600",
       title: "Refund processed",
-      description: `The refund for ${formatCurrency(refund.amount)} has been processed. The payment is fully refunded and the order status is Refunded.`,
+      description: `The refund for ${formatCurrency(refund.amount)} has been processed. The payment is fully refunded. Order fulfillment status is unchanged.`,
     };
   }
 

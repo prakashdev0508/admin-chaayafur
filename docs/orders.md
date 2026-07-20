@@ -56,9 +56,10 @@ stateDiagram-v2
     [*] --> PENDING: POST /orders
     PENDING --> CONFIRMED: Razorpay paid webhook
     PENDING --> CANCELLED: Payment failed/expired
-    CONFIRMED --> SHIPPED: Staff PATCH
-    CONFIRMED --> CANCELLED: Staff PATCH
-    SHIPPED --> DELIVERED: Staff PATCH
+    note right of CONFIRMED
+      Staff PATCH accepts any OrderStatus
+      (no transition graph).
+    end note
     DELIVERED --> [*]
     CANCELLED --> [*]
 ```
@@ -89,6 +90,8 @@ Razorpay webhook → Order CONFIRMED + invoice (or CANCELLED + stock restored)
 |--------|-------------|
 | `PENDING` | New order, awaiting Razorpay payment |
 | `CONFIRMED` | Payment received; invoice generated on payment webhook (not on staff confirm) |
+| `UNDER_PRODUCTION` | Product is under production / manufacturing |
+| `PACKING` | Product packing in progress |
 | `SHIPPED` | Order shipped |
 | `DELIVERED` | Order delivered |
 | `REFUND_INITIATED` | Staff started a refund request (see [refund.md](./refund.md)) |
@@ -610,7 +613,7 @@ All fields optional; at least one required.
 
 | Field | Type | Rules |
 |-------|------|-------|
-| `status` | string | Valid transitions enforced (e.g. `PENDING` → `CONFIRMED` → `SHIPPED` → `DELIVERED`) |
+| `status` | string | Any `OrderStatus` value from the client (no transition rules). Examples: `PENDING` \| `CONFIRMED` \| `UNDER_PRODUCTION` \| `PACKING` \| `SHIPPED` \| `DELIVERED` \| `REFUND_INITIATED` \| `PARTIALLY_REFUNDED` \| `REFUNDED` \| `CANCELLED` |
 | `shippingAddressId` | integer | Must belong to order customer; refreshes address snapshot |
 | `billingAddressId` | integer | Must belong to order customer |
 | `items` | array | Min 1 item; prices from DB; stock adjusted by delta |
