@@ -2,7 +2,7 @@
 
 Staff endpoints to list, view, edit, and manage customer addresses with field-level audit logging. There is **no delete** for customers — use block instead.
 
-[← Back to index](./README.md) · [Storefront customers](./customers.md) · [Admin audit logs](./admin-audit-logs.md) · [Auth](./auth.md)
+[← Back to index](./README.md) · [Storefront customers](./customers.md) · [Cart (staff)](./cart.md) · [Admin audit logs](./admin-audit-logs.md) · [Auth](./auth.md)
 
 ---
 
@@ -59,7 +59,7 @@ Authorization: Bearer <staffAccessToken>
 
 ## GET /api/v1/customers/:id
 
-Customer detail including addresses and **recent orders** (last 10).
+Customer detail including addresses, **current cart** (if any), and **recent orders** (last 10).
 
 ### Success response
 
@@ -74,6 +74,28 @@ Customer detail including addresses and **recent orders** (last 10).
     "orderCount": 2,
     "reviewCount": 0,
     "addresses": [],
+    "cart": {
+      "id": 3,
+      "customerId": 1,
+      "customer": { "id": 1, "phone": "9876543210" },
+      "items": [
+        {
+          "productId": 1,
+          "quantity": 2,
+          "unitPrice": "24999.99",
+          "lineTotal": "49999.98",
+          "name": "Oak Dining Table",
+          "slug": "oak-dining-table",
+          "stock": 5,
+          "imageUrl": "https://cdn.example.com/products/1.jpg",
+          "isAvailable": true
+        }
+      ],
+      "itemCount": 2,
+      "subtotalAmount": "49999.98",
+      "createdAt": "2026-07-20T10:00:00.000Z",
+      "updatedAt": "2026-07-21T12:00:00.000Z"
+    },
     "recentOrders": [
       {
         "id": 10,
@@ -86,6 +108,8 @@ Customer detail including addresses and **recent orders** (last 10).
   }
 }
 ```
+
+`cart` is `null` when the customer has never created a server cart. Prices are computed live from products (same shape as [cart.md](./cart.md) staff detail).
 
 ---
 

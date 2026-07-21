@@ -2,13 +2,14 @@
 
 Checkout from frontend cart, Razorpay payment links, order tracking, and staff order management.
 
-[← Back to index](./README.md) · [Customers](./customers.md) · [Addresses](./addresses.md) · [Payments](./payments.md) · [Refunds](./refund.md) · [Invoices](./invoices.md) · [Order Support](./order-support.md)
+[← Back to index](./README.md) · [Customers](./customers.md) · [Addresses](./addresses.md) · [Cart](./cart.md) · [Payments](./payments.md) · [Refunds](./refund.md) · [Invoices](./invoices.md) · [Order Support](./order-support.md)
 
 ---
 
 ## Overview
 
-- **No backend cart** — the frontend stores cart items in `localStorage` and sends them at checkout
+- **Backend cart** — see [cart.md](./cart.md); `GET/PATCH /cart` for logged-in customers
+- **Checkout** — send `items` in the body (legacy) or `useCart: true` to charge the saved server cart
 - **Server-side pricing** — totals are computed from database product prices; frontend prices are never trusted
 - **Stock is decremented** atomically when the order is created
 - **Stock is restored** when payment fails/expires (webhook) or staff cancels an order
@@ -94,10 +95,12 @@ Razorpay webhook → Order CONFIRMED + invoice (or CANCELLED + stock restored)
 | `PACKING` | Product packing in progress |
 | `SHIPPED` | Order shipped |
 | `DELIVERED` | Order delivered |
-| `REFUND_INITIATED` | Staff started a refund request (see [refund.md](./refund.md)) |
-| `PARTIALLY_REFUNDED` | One or more partial refunds completed; remaining balance may still be refunded |
-| `REFUNDED` | Fully refunded; stock and coupon restored |
+| `REFUND_INITIATED` | Legacy enum value — refunds no longer set this; use `Refund.status` / `?refundStatus=` |
+| `PARTIALLY_REFUNDED` | Legacy enum value — refunds no longer set this |
+| `REFUNDED` | Legacy enum value — full refund sets `Payment.status = REFUNDED` only; order status stays operational |
 | `CANCELLED` | Order cancelled (payment failed / staff cancel); stock restored |
+
+Refund lifecycle is tracked on `Refund.status` (`INITIATED` → `PROCESSING` → `PROCESSED` / `FAILED` / `CANCELLED`), not on `Order.status`. See [refund.md](./refund.md).
 
 ### Payment method
 
@@ -351,7 +354,8 @@ List orders with pagination.
 |-------|------|---------|-------------|
 | `page` | integer | `1` | Page number |
 | `limit` | integer | `10` | Items per page (max 100) |
-| `status` | string | — | Filter by order status |
+| `status` | string | — | Filter by **operational** order status |
+| `refundStatus` | string | — | Filter orders with at least one refund in this status (`INITIATED` \| `PROCESSING` \| `PROCESSED` \| `FAILED` \| `CANCELLED`) |
 | `customerId` | integer | — | Staff only — filter by customer |
 | `orderNumber` | string | — | Partial match on order number (e.g. `ORD-20260714-0011`) |
 | `customerPhone` | string | — | Partial match on customer phone |
@@ -359,6 +363,8 @@ List orders with pagination.
 | `createdTo` | string | — | ISO date/datetime — orders on/before this date |
 
 > Customers always see only their own orders. `customerId` is ignored for customer tokens.
+>
+> Example: open refunds → `GET /orders?refundStatus=INITIATED`
 
 ### Success response `200`
 
@@ -370,7 +376,11 @@ List items are slim (use `GET /orders/:id` for full detail).
 | `orderNumber` | string | Human-readable ID, e.g. `ORD-20260714-0021` |
 | `totalAmount` | string | Order total |
 | `customerPhone` | string | Customer phone number |
-| `status` | string | Current order status |
+| `status` | string | Operational order status |
+| `paymentStatus` | string \| null | Payment status |
+| `activeRefundStatus` | string \| null | `INITIATED` or `PROCESSING` if an open refund exists |
+| `latestRefundStatus` | string \| null | Status of the most recent refund row |
+| `refundCount` | integer | Number of refund records |
 | `createdAt` | string | ISO timestamp |
 
 ```json
@@ -383,7 +393,11 @@ List items are slim (use `GET /orders/:id` for full detail).
         "orderNumber": "ORD-20260714-0021",
         "totalAmount": "5000.00",
         "customerPhone": "9876543210",
-        "status": "CONFIRMED",
+        "status": "SHIPPED",
+        "paymentStatus": "COMPLETED",
+        "activeRefundStatus": "INITIATED",
+        "latestRefundStatus": "INITIATED",
+        "refundCount": 1,
         "createdAt": "2026-07-14T12:00:00.000Z"
       }
     ],
@@ -400,6 +414,8 @@ List items are slim (use `GET /orders/:id` for full detail).
 ```bash
 # Example
 curl "http://localhost:5000/api/v1/orders?page=1&limit=10" \
+  -H "Authorization: Bearer <token>"
+curl "http://localhost:5000/api/v1/orders?refundStatus=INITIATED" \
   -H "Authorization: Bearer <token>"
 ```
 
@@ -422,14 +438,14 @@ curl "http://localhost:5000/api/v1/orders?orderNumber=ORD-20260714-0011&customer
 
 ## GET /api/v1/orders/:id
 
-Get a single order with items, payment, address refs, and invoice summary.
+Get a single order with items, payment, address refs, invoice summary, and compact `refunds[]`.
 
 | | |
 |---|---|
 | **Auth** | Bearer (customer or staff JWT) |
 | **Status** | `200` |
 
-Customers can only access their own orders.
+Customers can only access their own orders. Detail also includes refund summary fields (`paymentStatus`, `activeRefundStatus`, `latestRefundStatus`, `refundCount`) and a compact `refunds` array for staff UI without a separate call.
 
 ### Success response `200`
 
@@ -862,7 +878,7 @@ Staff `GET /orders/:id` includes everything above plus:
 
 ## Frontend integration notes
 
-### localStorage cart shape (suggested)
+### localStorage cart shape (guest / legacy checkout)
 
 ```json
 [
@@ -871,6 +887,30 @@ Staff `GET /orders/:id` includes everything above plus:
 ```
 
 Only `productId` and `quantity` are sent to the API. Name and price in localStorage are for display only.
+
+### Backend cart API (logged-in customers)
+
+Full reference: [cart.md](./cart.md).
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/v1/cart` | Cart lines + `subtotalAmount` (live product prices) |
+| `POST` | `/api/v1/cart/items` | Body `{ productId, quantity }` — upsert line |
+| `PATCH` | `/api/v1/cart/items/:productId` | Body `{ quantity }` |
+| `DELETE` | `/api/v1/cart/items/:productId` | Remove line |
+
+Checkout with saved cart:
+
+```json
+{
+  "useCart": true,
+  "shippingAddressId": 1,
+  "billingAddressId": 2,
+  "couponCode": "SAVE500"
+}
+```
+
+When `useCart` is `true`, `items` in the body are ignored. The cart is cleared after the order and payment link are created successfully. Coupon codes are applied only at checkout (not stored on the cart).
 
 ### Minimal checkout sequence
 

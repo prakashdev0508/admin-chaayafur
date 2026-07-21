@@ -3,7 +3,8 @@ export type AuditEntityType =
   | "ADDRESS"
   | "ORDER"
   | "ORDER_ITEM"
-  | "PAYMENT";
+  | "PAYMENT"
+  | "CART_ITEM";
 
 export type AuditLogStaff = {
   id: number;

@@ -12,9 +12,9 @@ Every staff update to customer, address, or order data writes one audit row **pe
 
 | Field | Value |
 |-------|-------|
-| `entityType` | `CUSTOMER`, `ADDRESS`, `ORDER`, `ORDER_ITEM`, `PAYMENT` |
-| `entityId` | ID of the changed record |
-| `parentEntityId` | Customer ID (for addresses) or order ID (for line items / payment notes) |
+| `entityType` | `CUSTOMER`, `ADDRESS`, `ORDER`, `ORDER_ITEM`, `PAYMENT`, `CART_ITEM` |
+| `entityId` | ID of the changed record (`productId` for `CART_ITEM` / `ORDER_ITEM`) |
+| `parentEntityId` | Customer ID (addresses, cart items) or order ID (line items / payment notes) |
 | `fieldName` | Name of the field that changed |
 | `oldValue` | Previous value (JSON-stringified when needed) |
 | `newValue` | New value |
@@ -28,7 +28,7 @@ Every staff update to customer, address, or order data writes one audit row **pe
 | Method | Endpoint | Permission | Description |
 |--------|----------|------------|-------------|
 | `GET` | `/api/v1/audit-logs` | `view-orders` | Global filtered list |
-| `GET` | `/api/v1/customers/:id/audit-logs` | `view-customers` | Customer + address history |
+| `GET` | `/api/v1/customers/:id/audit-logs` | `view-customers` | Customer + address + cart item history |
 | `GET` | `/api/v1/orders/:id/audit-logs` | `view-orders` | Order, items, payment history |
 
 ---
@@ -39,7 +39,7 @@ Every staff update to customer, address, or order data writes one audit row **pe
 
 | Param | Type | Description |
 |-------|------|-------------|
-| `entityType` | string | `CUSTOMER`, `ADDRESS`, `ORDER`, `ORDER_ITEM`, `PAYMENT` |
+| `entityType` | string | `CUSTOMER`, `ADDRESS`, `ORDER`, `ORDER_ITEM`, `PAYMENT`, `CART_ITEM` |
 | `entityId` | integer | Filter by entity ID |
 | `parentEntityId` | integer | Filter by parent (e.g. customer ID) |
 | `changedById` | integer | Filter by staff user |
@@ -91,5 +91,6 @@ Every staff update to customer, address, or order data writes one audit row **pe
 | Order status, addresses, totals | `ORDER` |
 | Line item quantity changes | `ORDER_ITEM` (`quantity` per product) |
 | Payment notes update | `PAYMENT` |
+| Staff cart add / set quantity / remove | `CART_ITEM` (`quantity`; `parentEntityId` = customer id) |
 
 Customer login **phone** is not editable and therefore never appears in audit logs as a changed field.

@@ -14,7 +14,8 @@ Admin coupon management, public promo listing, validation at checkout, and order
 - Customers can **preview** a coupon via `POST /coupons/validate` before checkout
 - Coupons are applied at checkout via optional `couponCode` on `POST /orders`
 - One coupon per order; discounts are computed server-side from live product prices
-- Coupon usage is counted at order creation and **restored** if payment fails or staff cancels
+- Coupon usage is counted at order creation and **restored** if payment fails or staff cancels (global `usedCount` only)
+- **Per-customer limit** (`perPersonAllowed`) uses `coupon_redemption_history`, which is written at order creation and **never removed** — cancelled/refunded orders still count toward the customer's limit
 
 ### Coupon types
 
@@ -104,12 +105,86 @@ Create a coupon.
 | `discountValue` | number | Yes | Flat: `> 0`; Percentage: `1–100` |
 | `minCartAmount` | number | Yes | `>= 0` |
 | `maxUses` | integer | No | Min 1; omit for unlimited |
+| `perPersonAllowed` | integer | No | Min 1; max uses **per customer** (all-time; not freed when order is cancelled or refunded). Omit for unlimited |
 | `startsAt` | ISO date | Yes | Must be before `expiresAt` |
 | `expiresAt` | ISO date | Yes | Must be after `startsAt` |
 | `isActive` | boolean | No | Default `true` |
 | `description` | string | No | Optional promo text |
 
 `code` cannot be changed after creation.
+
+---
+
+## GET /api/v1/coupons/:id
+
+Coupon detail for staff, including **all-time** redemption history (from `coupon_redemption_history` — cancelled/refunded orders still appear).
+
+| | |
+|---|---|
+| **Auth** | Staff (`view-coupons`) |
+| **Status** | `200` |
+
+### Query parameters
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `page` | integer | `1` | Redemptions page |
+| `limit` | integer | `20` | Redemptions per page (max 100) |
+
+### Success response
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "code": "SAVE500",
+    "type": "FLAT_CART",
+    "visibility": "PUBLIC",
+    "discountValue": "500.00",
+    "minCartAmount": "2000.00",
+    "maxUses": 100,
+    "perPersonAllowed": 1,
+    "usedCount": 3,
+    "startsAt": "2026-07-01T00:00:00.000Z",
+    "expiresAt": "2026-12-31T23:59:59.000Z",
+    "isActive": true,
+    "description": "Flat ₹500 off on orders above ₹2000",
+    "createdAt": "2026-07-01T00:00:00.000Z",
+    "updatedAt": "2026-07-10T12:00:00.000Z",
+    "redemptions": {
+      "items": [
+        {
+          "id": 10,
+          "orderId": 21,
+          "customerId": 5,
+          "discountAmount": "500.00",
+          "createdAt": "2026-07-10T12:00:00.000Z",
+          "customer": { "id": 5, "phone": "9876543210" },
+          "order": {
+            "id": 21,
+            "orderNumber": "ORD-20260710-0021",
+            "status": "CONFIRMED",
+            "totalAmount": "4500.00",
+            "createdAt": "2026-07-10T12:00:00.000Z"
+          }
+        }
+      ],
+      "meta": {
+        "page": 1,
+        "limit": 20,
+        "total": 1,
+        "totalPages": 1
+      }
+    }
+  }
+}
+```
+
+```bash
+curl "http://localhost:5000/api/v1/coupons/1?page=1&limit=20" \
+  -H "Authorization: Bearer $STAFF_TOKEN"
+```
 
 ---
 
@@ -218,6 +293,7 @@ Razorpay payment amount uses the discounted `totalAmount`.
 | Not yet started | `400` | Coupon is not yet valid |
 | Expired | `400` | Coupon has expired |
 | Usage limit reached | `400` | Coupon usage limit has been reached |
+| Per-person limit reached | `400` | Your Limit exceed |
 | Below minimum cart | `400` | Minimum cart amount of ₹X required for this coupon |
 | Duplicate code | `409` | Coupon code already exists |
 
@@ -225,10 +301,11 @@ Razorpay payment amount uses the discounted `totalAmount`.
 
 ## Usage counting
 
-- `usedCount` increments when an order is created with a coupon
+- Global `usedCount` increments when an order is created with a coupon
 - Restored when:
   - Razorpay payment fails or expires (webhook compensation)
   - Staff cancels the order (`PATCH /orders/:id` with `CANCELLED`)
+- `perPersonAllowed` is enforced using **all-time** history per `(couponId, customerId)`; restoring `usedCount` on cancel does **not** remove history rows
 
 ---
 

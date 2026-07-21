@@ -51,6 +51,14 @@ export const couponColumns: ColumnDef<Coupon>[] = [
     },
   },
   {
+    id: "perPerson",
+    header: "Per customer",
+    cell: ({ row }) => {
+      const limit = row.original.perPersonAllowed;
+      return limit !== null ? limit : "∞";
+    },
+  },
+  {
     id: "status",
     header: "Status",
     cell: ({ row }) => {

@@ -3,7 +3,9 @@ import { apiRequest } from "@/lib/api";
 import type { PaginatedResponse } from "@/types/api";
 import type {
   Coupon,
+  CouponDetail,
   CreateCouponPayload,
+  GetCouponParams,
   ListCouponsParams,
   UpdateCouponPayload,
 } from "@/types/coupon";
@@ -14,8 +16,10 @@ export function listCoupons(params: ListCouponsParams = {}) {
   );
 }
 
-export function getCoupon(id: number) {
-  return apiRequest<Coupon>(`/coupons/${id}`);
+export function getCoupon(id: number, params: GetCouponParams = {}) {
+  return apiRequest<CouponDetail>(
+    `/coupons/${id}${buildQueryString(params)}`,
+  );
 }
 
 export function createCoupon(payload: CreateCouponPayload) {

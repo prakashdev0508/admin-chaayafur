@@ -24,6 +24,7 @@ const routeLabels: Record<string, string> = {
   refunds: "Refunds",
   coupons: "Coupons",
   customers: "Customers",
+  carts: "Carts",
   "audit-logs": "Audit Logs",
   new: "Add product",
 };

@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { Minus, Plus, Trash2 } from "lucide-react";
+import { Loader2, Minus, Plus, Trash2 } from "lucide-react";
 import { OTPLoginDialog } from "@/components/shop/OTPLoginDialog";
 import { Button } from "@/components/ui/button";
 import { buttonVariants } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useCart } from "@/contexts/CartContext";
 import { useCustomerAuth } from "@/contexts/CustomerAuthContext";
 import { formatCurrency } from "@/lib/format";
@@ -13,9 +14,22 @@ export function CartPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
-  const { items, itemCount, subtotal, updateQuantity, removeItem } = useCart();
+  const {
+    items,
+    itemCount,
+    subtotal,
+    updateQuantity,
+    removeItem,
+    isLoading,
+    isSyncing,
+  } = useCart();
   const { isAuthenticated } = useCustomerAuth();
   const [loginOpen, setLoginOpen] = useState(false);
+
+  const hasUnavailable = useMemo(
+    () => items.some((item) => item.isAvailable === false),
+    [items],
+  );
 
   useEffect(() => {
     if (searchParams.get("login") === "1" && !isAuthenticated) {
@@ -36,6 +50,16 @@ export function CartPage() {
       return;
     }
     navigate("/shop/checkout");
+  }
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-9 w-48" />
+        <Skeleton className="h-32 w-full rounded-2xl" />
+        <Skeleton className="h-32 w-full rounded-2xl" />
+      </div>
+    );
   }
 
   if (items.length === 0) {
@@ -60,57 +84,83 @@ export function CartPage() {
       <div className="space-y-4">
         <h1 className="text-3xl font-medium text-[#3D2B1F]">Cart ({itemCount})</h1>
 
-        {items.map((item) => (
-          <div
-            key={item.productId}
-            className="flex gap-4 rounded-2xl border border-[#E8DFD3] bg-white p-4"
-          >
-            <div className="size-24 shrink-0 overflow-hidden rounded-xl bg-[#F3EBE0]">
-              {item.imageUrl ? (
-                <img src={item.imageUrl} alt={item.name} className="size-full object-cover" />
-              ) : null}
-            </div>
+        {items.map((item) => {
+          const maxQty = item.stock ?? item.quantity + 999;
+          const atMaxStock = item.quantity >= maxQty;
 
-            <div className="flex flex-1 flex-col justify-between gap-3">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <Link
-                    to={`/shop/products/${item.productId}`}
-                    className="font-medium text-[#3D2B1F] hover:underline"
+          return (
+            <div
+              key={item.productId}
+              className="flex gap-4 rounded-2xl border border-[#E8DFD3] bg-white p-4"
+            >
+              <div className="size-24 shrink-0 overflow-hidden rounded-xl bg-[#F3EBE0]">
+                {item.imageUrl ? (
+                  <img
+                    src={item.imageUrl}
+                    alt={item.name}
+                    className="size-full object-cover"
+                  />
+                ) : null}
+              </div>
+
+              <div className="flex flex-1 flex-col justify-between gap-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <Link
+                      to={`/shop/products/${item.productId}`}
+                      className="font-medium text-[#3D2B1F] hover:underline"
+                    >
+                      {item.name}
+                    </Link>
+                    <p className="text-sm text-[#8B5E3C]">
+                      {formatCurrency(item.price)}
+                    </p>
+                    {item.isAvailable === false && (
+                      <p className="mt-1 text-xs text-destructive">
+                        Unavailable — update quantity or remove this item.
+                      </p>
+                    )}
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    disabled={isSyncing}
+                    onClick={() => void removeItem(item.productId)}
                   >
-                    {item.name}
-                  </Link>
-                  <p className="text-sm text-[#8B5E3C]">{formatCurrency(item.price)}</p>
+                    <Trash2 className="size-4" />
+                  </Button>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={() => removeItem(item.productId)}
-                >
-                  <Trash2 className="size-4" />
-                </Button>
-              </div>
 
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="icon-sm"
-                  onClick={() => updateQuantity(item.productId, item.quantity - 1)}
-                >
-                  <Minus className="size-4" />
-                </Button>
-                <span className="min-w-8 text-center text-sm">{item.quantity}</span>
-                <Button
-                  variant="outline"
-                  size="icon-sm"
-                  onClick={() => updateQuantity(item.productId, item.quantity + 1)}
-                >
-                  <Plus className="size-4" />
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="icon-sm"
+                    disabled={isSyncing}
+                    onClick={() =>
+                      void updateQuantity(item.productId, item.quantity - 1)
+                    }
+                  >
+                    <Minus className="size-4" />
+                  </Button>
+                  <span className="min-w-8 text-center text-sm">{item.quantity}</span>
+                  <Button
+                    variant="outline"
+                    size="icon-sm"
+                    disabled={isSyncing || atMaxStock}
+                    onClick={() =>
+                      void updateQuantity(item.productId, item.quantity + 1)
+                    }
+                  >
+                    <Plus className="size-4" />
+                  </Button>
+                  {isSyncing && (
+                    <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       <aside className="h-fit rounded-2xl border border-[#E8DFD3] bg-white p-5">
@@ -122,8 +172,14 @@ export function CartPage() {
         <p className="mt-2 text-xs text-muted-foreground">
           Shipping and final total are confirmed at checkout.
         </p>
+        {hasUnavailable && (
+          <p className="mt-2 text-xs text-destructive">
+            Fix unavailable items before checkout.
+          </p>
+        )}
         <Button
           className="mt-5 w-full bg-[#8B5E3C] hover:bg-[#744C31]"
+          disabled={hasUnavailable || isSyncing}
           onClick={handleCheckout}
         >
           {isAuthenticated ? "Proceed to checkout" : "Login & checkout"}

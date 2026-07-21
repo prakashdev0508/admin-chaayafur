@@ -51,6 +51,9 @@ export type {
   CreateCouponPayload,
   UpdateCouponPayload,
   ListCouponsParams,
+  CouponRedemption,
+  CouponDetail,
+  GetCouponParams,
 } from "@/types/coupon";
 
 export type {

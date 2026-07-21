@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AddressPicker } from "@/components/shop/AddressPicker";
 import { CouponInput } from "@/components/shop/CouponInput";
 import { OTPLoginDialog } from "@/components/shop/OTPLoginDialog";
@@ -23,7 +23,8 @@ import { cn } from "@/lib/utils";
 
 export function CheckoutPage() {
   const navigate = useNavigate();
-  const { items, subtotal, getOrderItems, clearCart } = useCart();
+  const queryClient = useQueryClient();
+  const { items, subtotal, clearCart, isLoading: cartLoading } = useCart();
   const { isAuthenticated } = useCustomerAuth();
   const [loginOpen, setLoginOpen] = useState(!isAuthenticated);
   const [selectedAddressId, setSelectedAddressId] = useState<number | null>(null);
@@ -68,9 +69,15 @@ export function CheckoutPage() {
     ? parseFloat(shippingQuote.shippingAmount)
     : 0;
   const estimatedTotal = quoteSubtotal + shippingAmount;
+  const hasUnavailable = useMemo(
+    () => items.some((item) => item.isAvailable === false),
+    [items],
+  );
+
   const canPlaceOrder =
     isAuthenticated &&
     selectedAddressId &&
+    !hasUnavailable &&
     (!shippingQuote || shippingQuote.serviceable);
 
   const placeOrderMutation = useMutation({
@@ -91,12 +98,13 @@ export function CheckoutPage() {
     setPlacingOrder(true);
     try {
       const order = await placeOrderMutation.mutateAsync({
-        items: getOrderItems(),
+        useCart: true,
         shippingAddressId: selectedAddressId,
         ...(coupon ? { couponCode: coupon.code } : {}),
       });
 
       clearCart();
+      void queryClient.invalidateQueries({ queryKey: queryKeys.shop.cart });
 
       const paymentMode = await startOrderPayment({
         order,
@@ -133,6 +141,15 @@ export function CheckoutPage() {
     } finally {
       setPlacingOrder(false);
     }
+  }
+
+  if (cartLoading) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-9 w-40" />
+        <Skeleton className="h-64 w-full rounded-2xl" />
+      </div>
+    );
   }
 
   if (items.length === 0) {

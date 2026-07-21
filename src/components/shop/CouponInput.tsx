@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,10 +14,26 @@ type CouponInputProps = {
 };
 
 export function CouponInput({ onValidated }: CouponInputProps) {
-  const { getOrderItems } = useCart();
+  const { getOrderItems, items } = useCart();
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [applied, setApplied] = useState<ValidateCouponResponse | null>(null);
+
+  const cartFingerprint = useMemo(
+    () =>
+      items
+        .map((item) => `${item.productId}:${item.quantity}`)
+        .sort()
+        .join("|"),
+    [items],
+  );
+
+  useEffect(() => {
+    if (!applied) return;
+    setApplied(null);
+    onValidated(null);
+    toast.message("Cart changed — re-apply your coupon if needed.");
+  }, [cartFingerprint]); // eslint-disable-line react-hooks/exhaustive-deps -- clear when cart lines change only
 
   async function handleApply() {
     const trimmed = code.trim();

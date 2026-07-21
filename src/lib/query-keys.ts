@@ -25,7 +25,14 @@ export const queryKeys = {
     all: ["coupons"] as const,
     list: (params: Record<string, unknown>) =>
       ["coupons", "list", params] as const,
-    detail: (id: number) => ["coupons", "detail", id] as const,
+    detail: (id: number, params?: Record<string, unknown>) =>
+      ["coupons", "detail", id, params] as const,
+  },
+  carts: {
+    all: ["carts"] as const,
+    list: (params: Record<string, unknown>) =>
+      ["carts", "list", params] as const,
+    detail: (id: number) => ["carts", "detail", id] as const,
   },
   customers: {
     all: ["customers"] as const,
@@ -122,6 +129,7 @@ export const queryKeys = {
       detail: (id: number) => ["shop", "orders", "detail", id] as const,
       tracking: (id: number) => ["shop", "orders", "tracking", id] as const,
     },
+    cart: ["shop", "cart"] as const,
     addresses: {
       all: ["shop", "addresses"] as const,
     },

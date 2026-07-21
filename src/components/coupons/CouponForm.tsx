@@ -51,6 +51,7 @@ function getInitialValues(coupon?: Coupon): CouponFormValues {
       discountValue: 100,
       minCartAmount: 0,
       maxUses: "",
+      perPersonAllowed: "",
       startsAt: toDatetimeLocal(now.toISOString()),
       expiresAt: toDatetimeLocal(nextMonth.toISOString()),
       isActive: true,
@@ -64,6 +65,8 @@ function getInitialValues(coupon?: Coupon): CouponFormValues {
     discountValue: parseFloat(coupon.discountValue),
     minCartAmount: parseFloat(coupon.minCartAmount),
     maxUses: coupon.maxUses !== null ? String(coupon.maxUses) : "",
+    perPersonAllowed:
+      coupon.perPersonAllowed !== null ? String(coupon.perPersonAllowed) : "",
     startsAt: toDatetimeLocal(coupon.startsAt),
     expiresAt: toDatetimeLocal(coupon.expiresAt),
     isActive: coupon.isActive,
@@ -89,6 +92,9 @@ export function CouponForm({ initial, onSubmit, loading, mode }: CouponFormProps
       description: values.description.trim() || undefined,
       ...(values.maxUses.trim()
         ? { maxUses: Number(values.maxUses) }
+        : {}),
+      ...(values.perPersonAllowed.trim()
+        ? { perPersonAllowed: Number(values.perPersonAllowed) }
         : {}),
     };
 
@@ -200,16 +206,37 @@ export function CouponForm({ initial, onSubmit, loading, mode }: CouponFormProps
         </div>
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="maxUses">Max uses (optional)</Label>
-        <Input
-          id="maxUses"
-          type="number"
-          min={1}
-          placeholder="Unlimited"
-          value={values.maxUses}
-          onChange={(e) => set("maxUses", e.target.value)}
-        />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="maxUses">Max uses (optional)</Label>
+          <Input
+            id="maxUses"
+            type="number"
+            min={1}
+            placeholder="Unlimited"
+            value={values.maxUses}
+            onChange={(e) => set("maxUses", e.target.value)}
+          />
+          <p className="text-xs text-muted-foreground">
+            Global limit across all customers. Restored if payment fails or staff
+            cancels the order.
+          </p>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="perPersonAllowed">Per customer limit (optional)</Label>
+          <Input
+            id="perPersonAllowed"
+            type="number"
+            min={1}
+            placeholder="Unlimited"
+            value={values.perPersonAllowed}
+            onChange={(e) => set("perPersonAllowed", e.target.value)}
+          />
+          <p className="text-xs text-muted-foreground">
+            All-time uses per customer. Not freed when an order is cancelled or
+            refunded.
+          </p>
+        </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">

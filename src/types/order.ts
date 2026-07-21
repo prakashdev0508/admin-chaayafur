@@ -171,8 +171,10 @@ export type UpdateOrderPayload = {
   payment?: { notes: string };
 };
 
+/** Shop checkout uses `useCart: true`; legacy guest flow may send `items` instead. */
 export type CreateOrderPayload = {
-  items: { productId: number; quantity: number }[];
+  items?: { productId: number; quantity: number }[];
+  useCart?: boolean;
   shippingAddressId: number;
   billingAddressId?: number;
   couponCode?: string;
