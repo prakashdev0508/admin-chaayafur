@@ -65,6 +65,7 @@ export const AUDIT_ENTITY_TYPE_ITEMS: SelectOption[] = [
   { value: "ORDER", label: "Order" },
   { value: "ORDER_ITEM", label: "Order item" },
   { value: "PAYMENT", label: "Payment" },
+  { value: "CART_ITEM", label: "Cart item" },
 ];
 
 export const PRODUCT_VISIBILITY_FILTER_ITEMS: SelectOption[] = [

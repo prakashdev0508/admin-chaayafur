@@ -281,17 +281,27 @@ export function ShopProductPage() {
               className="flex-1 bg-[#8B5E3C] hover:bg-[#744C31]"
               disabled={!canPurchase}
               onClick={() => {
-                addItem(
-                  {
-                    productId: product.id,
-                    name: product.name,
-                    price: product.price,
-                    slug: product.slug,
-                    imageUrl: primaryImage?.url,
-                  },
-                  quantity,
-                );
-                toast.success("Added to cart");
+                void (async () => {
+                  try {
+                    await addItem(
+                      {
+                        productId: product.id,
+                        name: product.name,
+                        price: product.price,
+                        slug: product.slug,
+                        imageUrl: primaryImage?.url,
+                      },
+                      quantity,
+                    );
+                    toast.success("Added to cart");
+                  } catch (error) {
+                    toast.error(
+                      error instanceof Error
+                        ? error.message
+                        : "Could not add to cart",
+                    );
+                  }
+                })();
               }}
             >
               Add to cart

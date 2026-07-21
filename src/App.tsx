@@ -19,6 +19,8 @@ import { PaymentListPage } from "@/pages/payments/PaymentListPage";
 import { PaymentDetailPage } from "@/pages/payments/PaymentDetailPage";
 import { RefundListPage } from "@/pages/refunds/RefundListPage";
 import { RefundDetailPage } from "@/pages/refunds/RefundDetailPage";
+import { CartListPage } from "@/pages/carts/CartListPage";
+import { CartDetailPage } from "@/pages/carts/CartDetailPage";
 import { CouponListPage } from "@/pages/coupons/CouponListPage";
 import { AddCouponPage } from "@/pages/coupons/AddCouponPage";
 import {
@@ -188,6 +190,8 @@ const App = () => {
           >
             <Route path="customers" element={<CustomerListPage />} />
             <Route path="customers/:id" element={<CustomerDetailPage />} />
+            <Route path="carts" element={<CartListPage />} />
+            <Route path="carts/:id" element={<CartDetailPage />} />
           </Route>
           <Route
             element={

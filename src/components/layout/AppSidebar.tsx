@@ -4,6 +4,7 @@ import {
   Package,
   FolderTree,
   ShoppingCart,
+  ShoppingBag,
   CreditCard,
   RotateCcw,
   LifeBuoy,
@@ -133,6 +134,12 @@ const navMore: NavItem[] = [
     title: "Customers",
     url: "/customers",
     icon: Users,
+    permission: PERMISSIONS.VIEW_CUSTOMERS,
+  },
+  {
+    title: "Carts",
+    url: "/carts",
+    icon: ShoppingBag,
     permission: PERMISSIONS.VIEW_CUSTOMERS,
   },
   {

@@ -24,6 +24,8 @@ export type Customer = {
   orderCount: number;
   reviewCount: number;
   addresses: CustomerAddress[];
+  /** Embedded server cart from GET /customers/:id; null if never created */
+  cart: import("@/types/cart").AdminCartDetail | null;
   recentOrders: CustomerOrderSummary[];
 };
 
