@@ -9,6 +9,10 @@ import { DataTable } from "@/components/data-table/data-table";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ProductSearchSelect } from "@/components/shared/ProductSearchSelect";
+import {
+  ProductWoodPicker,
+  useWoodSelection,
+} from "@/components/shared/ProductWoodPicker";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -47,6 +51,11 @@ export function CartListPage() {
     null,
   );
   const [quantity, setQuantity] = useState("1");
+  const {
+    woodId: selectedWoodId,
+    setWoodId: setSelectedWoodId,
+    requiresWood,
+  } = useWoodSelection(selectedProduct?.id ?? null);
 
   const params = useMemo(
     () => ({
@@ -174,6 +183,7 @@ export function CartListPage() {
           if (!open) {
             setCustomerId("");
             setSelectedProduct(null);
+            setSelectedWoodId(null);
             setQuantity("1");
           }
         }}
@@ -203,10 +213,15 @@ export function CartListPage() {
                 toast.error("Quantity must be at least 1");
                 return;
               }
+              if (requiresWood && selectedWoodId == null) {
+                toast.error("Select a wood for this product");
+                return;
+              }
               seedMutation.mutate({
                 customerId: cid,
                 productId: selectedProduct.id,
                 quantity: qty,
+                ...(selectedWoodId != null ? { woodId: selectedWoodId } : {}),
               });
             }}
           >
@@ -222,6 +237,12 @@ export function CartListPage() {
             <ProductSearchSelect
               value={selectedProduct}
               onChange={setSelectedProduct}
+              disabled={seedMutation.isPending}
+            />
+            <ProductWoodPicker
+              productId={selectedProduct?.id ?? null}
+              value={selectedWoodId}
+              onChange={setSelectedWoodId}
               disabled={seedMutation.isPending}
             />
             <div className="space-y-2">

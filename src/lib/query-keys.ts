@@ -1,4 +1,6 @@
 export const queryKeys = {
+  adminSearch: (params: Record<string, unknown>) =>
+    ["admin", "search", params] as const,
   orders: {
     all: ["orders"] as const,
     list: (params: Record<string, unknown>) => ["orders", "list", params] as const,
@@ -51,6 +53,12 @@ export const queryKeys = {
   products: {
     list: (params: Record<string, unknown>) =>
       ["products", "list", params] as const,
+  },
+  woods: {
+    all: ["woods"] as const,
+    list: (params: Record<string, unknown>) =>
+      ["woods", "list", params] as const,
+    detail: (id: number) => ["woods", "detail", id] as const,
   },
   categories: {
     all: ["categories"] as const,
@@ -115,6 +123,8 @@ export const queryKeys = {
     shippingQuote: (params: { pincode: string; subtotal: number }) =>
       ["shop", "shipping-quote", params] as const,
     home: ["shop", "home"] as const,
+    search: (params: Record<string, unknown>) =>
+      ["shop", "search", params] as const,
     products: {
       list: (params: Record<string, unknown>) =>
         ["shop", "products", "list", params] as const,

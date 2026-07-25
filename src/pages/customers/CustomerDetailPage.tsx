@@ -50,6 +50,10 @@ import {
   unblockCustomer,
   updateCustomerAddress,
 } from "@/services/customers.service";
+import {
+  ProductWoodPicker,
+  useWoodSelection,
+} from "@/components/shared/ProductWoodPicker";
 import { seedAdminCart } from "@/services/admin-carts.service";
 import { listCustomerAuditLogs } from "@/services/audit-logs.service";
 import { usePermission } from "@/hooks/usePermission";
@@ -79,6 +83,11 @@ export function CustomerDetailPage() {
     null,
   );
   const [seedQty, setSeedQty] = useState("1");
+  const {
+    woodId: selectedWoodId,
+    setWoodId: setSelectedWoodId,
+    requiresWood,
+  } = useWoodSelection(selectedProduct?.id ?? null);
 
   const customerQuery = useQuery({
     queryKey: queryKeys.customers.detail(customerId),
@@ -442,6 +451,7 @@ export function CustomerDetailPage() {
           setSeedOpen(open);
           if (!open) {
             setSelectedProduct(null);
+            setSelectedWoodId(null);
             setSeedQty("1");
           }
         }}
@@ -466,16 +476,27 @@ export function CustomerDetailPage() {
                 toast.error("Quantity must be at least 1");
                 return;
               }
+              if (requiresWood && selectedWoodId == null) {
+                toast.error("Select a wood for this product");
+                return;
+              }
               seedMutation.mutate({
                 customerId,
                 productId: selectedProduct.id,
                 quantity: qty,
+                ...(selectedWoodId != null ? { woodId: selectedWoodId } : {}),
               });
             }}
           >
             <ProductSearchSelect
               value={selectedProduct}
               onChange={setSelectedProduct}
+              disabled={seedMutation.isPending}
+            />
+            <ProductWoodPicker
+              productId={selectedProduct?.id ?? null}
+              value={selectedWoodId}
+              onChange={setSelectedWoodId}
               disabled={seedMutation.isPending}
             />
             <div className="space-y-2">

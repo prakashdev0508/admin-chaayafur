@@ -1,4 +1,5 @@
 import type { SubCategory } from "@/types/category";
+import type { ProductWood } from "@/types/wood";
 
 export type ProductImage = {
   id?: number;
@@ -27,6 +28,7 @@ export type Product = {
   slug: string;
   description: string | null;
   price: string;
+  priceWithoutDiscount?: string | null;
   stock: number;
   isActive: boolean;
   isBestSeller: boolean;
@@ -34,6 +36,7 @@ export type Product = {
   isMostPopular: boolean;
   isNewArrival: boolean;
   productFeatures: string[];
+  woods?: ProductWood[];
   subCategoryId: number;
   subCategory: SubCategory;
   images: ProductImage[];
@@ -48,6 +51,7 @@ export type ProductListItem = {
   name: string;
   slug: string;
   price: string;
+  priceWithoutDiscount?: string | null;
   stock: number;
   isActive: boolean;
   isBestSeller: boolean;
@@ -55,6 +59,7 @@ export type ProductListItem = {
   isMostPopular: boolean;
   isNewArrival: boolean;
   productFeatures: string[];
+  woods?: ProductWood[];
   subCategoryId: number;
   subCategory: SubCategory;
   primaryImage: { url: string; altText: string } | null;
@@ -86,6 +91,7 @@ export type CreateProductPayload = {
   slug: string;
   description?: string;
   price: number;
+  priceWithoutDiscount?: number | null;
   stock: number;
   subCategoryId: number;
   isActive?: boolean;
@@ -94,6 +100,7 @@ export type CreateProductPayload = {
   isMostPopular?: boolean;
   isNewArrival?: boolean;
   productFeatures?: string[];
+  woods?: { woodId: number; isActive?: boolean }[];
   images?: ProductImageInput[];
 };
 
@@ -106,11 +113,17 @@ export type UpdateProductCmsTagsPayload = {
   isNewArrival?: boolean;
 };
 
+export type ProductWoodFormEntry = {
+  woodId: number;
+  isActive: boolean;
+};
+
 export type ProductFormValues = {
   name: string;
   slug: string;
   description: string;
   price: string;
+  priceWithoutDiscount: string;
   stock: string;
   subCategoryId: string;
   isActive: boolean;
@@ -119,5 +132,6 @@ export type ProductFormValues = {
   isMostPopular: boolean;
   isNewArrival: boolean;
   productFeatures: string[];
+  woods: ProductWoodFormEntry[];
   images: ProductImageInput[];
 };

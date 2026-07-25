@@ -204,9 +204,13 @@ export function CheckoutPage() {
           <h2 className="text-lg font-medium text-[#3D2B1F]">Summary</h2>
           <div className="space-y-2 text-sm">
             {items.map((item) => (
-              <div key={item.productId} className="flex justify-between gap-3">
+              <div
+                key={`${item.productId}:${item.woodId ?? "none"}`}
+                className="flex justify-between gap-3"
+              >
                 <span className="text-muted-foreground">
-                  {item.name} × {item.quantity}
+                  {item.name}
+                  {item.woodName ? ` · ${item.woodName}` : ""} × {item.quantity}
                 </span>
                 <span>{formatCurrency(parseFloat(item.price) * item.quantity)}</span>
               </div>

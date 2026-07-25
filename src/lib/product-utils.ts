@@ -1,4 +1,11 @@
-import type { ProductListItem, ProductMerchandisingTag } from "@/types/product";
+import type {
+  CreateProductPayload,
+  Product,
+  ProductFormValues,
+  ProductImageInput,
+  ProductListItem,
+  ProductMerchandisingTag,
+} from "@/types/product";
 import type { StatusVariant } from "@/lib/status-variants";
 
 export function formatCurrency(amount: number | string) {
@@ -54,28 +61,13 @@ export function getActiveProductTags(
   return tags;
 }
 
-export function productToFormValues(
-  product: {
-    name: string;
-    slug: string;
-    description: string | null;
-    price: string;
-    stock: number;
-    subCategoryId: number;
-    isActive: boolean;
-    isBestSeller?: boolean;
-    isFeaturedProduct?: boolean;
-    isMostPopular?: boolean;
-    isNewArrival?: boolean;
-    productFeatures: string[];
-    images: { url: string; altText: string; sortOrder: number; storageKey?: string }[];
-  },
-): import("@/types/product").ProductFormValues {
+export function productToFormValues(product: Product): ProductFormValues {
   return {
     name: product.name,
     slug: product.slug,
     description: product.description ?? "",
     price: product.price,
+    priceWithoutDiscount: product.priceWithoutDiscount ?? "",
     stock: String(product.stock),
     subCategoryId: String(product.subCategoryId),
     isActive: product.isActive,
@@ -84,6 +76,10 @@ export function productToFormValues(
     isMostPopular: product.isMostPopular ?? false,
     isNewArrival: product.isNewArrival ?? false,
     productFeatures: product.productFeatures,
+    woods: (product.woods ?? []).map((w) => ({
+      woodId: w.id,
+      isActive: w.isActive,
+    })),
     images:
       product.images.length > 0
         ? product.images.map((img) => ({
@@ -97,12 +93,12 @@ export function productToFormValues(
 }
 
 export function formValuesToCreatePayload(
-  values: import("@/types/product").ProductFormValues,
-): import("@/types/product").CreateProductPayload {
+  values: ProductFormValues,
+): CreateProductPayload {
   const images = values.images
     .filter((img) => img.url.trim())
     .map((img, index) => {
-      const payload: import("@/types/product").ProductImageInput = {
+      const payload: ProductImageInput = {
         url: img.url.trim(),
         altText: img.altText.trim(),
         sortOrder: img.sortOrder ?? index,
@@ -113,11 +109,14 @@ export function formValuesToCreatePayload(
       return payload;
     });
 
+  const mrp = values.priceWithoutDiscount.trim();
+
   return {
     name: values.name.trim(),
     slug: values.slug.trim(),
     description: values.description.trim() || undefined,
     price: parseFloat(values.price),
+    priceWithoutDiscount: mrp ? parseFloat(mrp) : null,
     stock: parseInt(values.stock, 10),
     subCategoryId: parseInt(values.subCategoryId, 10),
     isActive: values.isActive,
@@ -126,6 +125,10 @@ export function formValuesToCreatePayload(
     isMostPopular: values.isMostPopular,
     isNewArrival: values.isNewArrival,
     productFeatures: values.productFeatures,
+    woods: values.woods.map((w) => ({
+      woodId: w.woodId,
+      isActive: w.isActive,
+    })),
     images: images.length > 0 ? images : undefined,
   };
 }

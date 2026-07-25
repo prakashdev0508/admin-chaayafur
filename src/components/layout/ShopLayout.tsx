@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ShoppingBag, User } from "lucide-react";
 import { ShopAnnouncementBar } from "@/components/shop/ShopAnnouncementBar";
+import { ShopSearchBar } from "@/components/shop/ShopSearchBar";
 import { useCart } from "@/contexts/CartContext";
 import { useCustomerAuth } from "@/contexts/CustomerAuthContext";
 import { buttonVariants } from "@/components/ui/button";
@@ -66,13 +67,13 @@ export function ShopLayout() {
   return (
     <div className="min-h-[100dvh] bg-[#FAF7F2] text-foreground">
       <header className="sticky top-0 z-40 border-b border-[#E8DFD3] bg-[#FAF7F2]/95 backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
-          <Link to="/shop" className="flex items-center gap-2">
+        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4 sm:gap-4 sm:px-6">
+          <Link to="/shop" className="flex shrink-0 items-center gap-2">
             {settings?.logoUrl ? (
               <img
                 src={settings.logoUrl}
                 alt="Chaaya Furnitures"
-                className="h-8 max-w-[160px] object-contain object-left"
+                className="h-8 max-w-[140px] object-contain object-left sm:max-w-[160px]"
               />
             ) : (
               <span className="font-serif text-xl tracking-tight text-[#3D2B1F]">
@@ -90,7 +91,9 @@ export function ShopLayout() {
             </NavLink>
           </nav>
 
-          <div className="flex items-center gap-2">
+          <ShopSearchBar className="mx-auto hidden min-w-0 flex-1 lg:block" />
+
+          <div className="flex shrink-0 items-center gap-2">
             <Link
               to={isAuthenticated ? "/shop/account" : "/shop/cart?login=1"}
               className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
@@ -117,6 +120,9 @@ export function ShopLayout() {
               )}
             </Link>
           </div>
+        </div>
+        <div className="mx-auto max-w-6xl px-4 pb-3 lg:hidden sm:px-6">
+          <ShopSearchBar />
         </div>
       </header>
 

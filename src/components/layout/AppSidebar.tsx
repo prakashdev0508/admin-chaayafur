@@ -3,6 +3,7 @@ import {
   LayoutDashboard,
   Package,
   FolderTree,
+  Trees,
   ShoppingCart,
   ShoppingBag,
   CreditCard,
@@ -32,6 +33,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
+  SidebarTrigger,
 } from "@/components/ui/sidebar";
 import {
   DropdownMenu,
@@ -83,6 +85,12 @@ const navMain: NavItem[] = [
     title: "Products",
     url: "/products",
     icon: Package,
+    permission: PERMISSIONS.VIEW_PRODUCTS,
+  },
+  {
+    title: "Woods",
+    url: "/woods",
+    icon: Trees,
     permission: PERMISSIONS.VIEW_PRODUCTS,
   },
   {
@@ -192,26 +200,31 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              size="lg"
-              render={
-                <Link to={defaultHomePath}>
-                  <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                    <span className="text-sm font-semibold">CF</span>
-                  </div>
-                  <div className="grid flex-1 text-left text-sm leading-tight">
-                    <span className="truncate font-semibold">Chaya Furnitures</span>
-                    <span className="truncate text-xs text-muted-foreground">
-                      Admin panel
-                    </span>
-                  </div>
-                </Link>
-              }
-            />
-          </SidebarMenuItem>
-        </SidebarMenu>
+        <div className="flex items-center gap-1">
+          <SidebarMenu className="min-w-0 flex-1">
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                size="lg"
+                render={
+                  <Link to={defaultHomePath}>
+                    <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+                      <span className="text-sm font-semibold">CF</span>
+                    </div>
+                    <div className="grid flex-1 text-left text-sm leading-tight">
+                      <span className="truncate font-semibold">
+                        Chaya Furnitures
+                      </span>
+                      <span className="truncate text-xs text-muted-foreground">
+                        Admin panel
+                      </span>
+                    </div>
+                  </Link>
+                }
+              />
+            </SidebarMenuItem>
+          </SidebarMenu>
+          <SidebarTrigger className="shrink-0 group-data-[collapsible=icon]:hidden" />
+        </div>
       </SidebarHeader>
 
       <SidebarContent>

@@ -13,6 +13,9 @@ import { ProductListPage } from "@/pages/products/ProductListPage";
 import { AddProductPage } from "@/pages/products/AddProductPage";
 import { EditProductPage } from "@/pages/products/EditProductPage";
 import { ProductDetailPage } from "@/pages/products/ProductDetailPage";
+import { WoodListPage } from "@/pages/woods/WoodListPage";
+import { AddWoodPage } from "@/pages/woods/AddWoodPage";
+import { EditWoodPage } from "@/pages/woods/EditWoodPage";
 import { OrderListPage } from "@/pages/orders/OrderListPage";
 import { OrderDetailPage } from "@/pages/orders/OrderDetailPage";
 import { PaymentListPage } from "@/pages/payments/PaymentListPage";
@@ -124,6 +127,27 @@ const App = () => {
             }
           >
             <Route path="products/:id/edit" element={<EditProductPage />} />
+          </Route>
+          <Route
+            element={
+              <PermissionRoute permission={PERMISSIONS.VIEW_PRODUCTS} />
+            }
+          >
+            <Route path="woods" element={<WoodListPage />} />
+          </Route>
+          <Route
+            element={
+              <PermissionRoute permission={PERMISSIONS.CREATE_PRODUCTS} />
+            }
+          >
+            <Route path="woods/new" element={<AddWoodPage />} />
+          </Route>
+          <Route
+            element={
+              <PermissionRoute permission={PERMISSIONS.UPDATE_PRODUCTS} />
+            }
+          >
+            <Route path="woods/:id/edit" element={<EditWoodPage />} />
           </Route>
           <Route
             element={<PermissionRoute permission={PERMISSIONS.VIEW_ORDERS} />}

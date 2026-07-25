@@ -7,11 +7,15 @@ export type CartItem = {
   slug?: string;
   stock?: number;
   isAvailable?: boolean;
+  woodId?: number | null;
+  woodName?: string | null;
+  woodColor?: string | null;
 };
 
 export type CartOrderItem = {
   productId: number;
   quantity: number;
+  woodId?: number;
 };
 
 /** Line from GET /cart (server-computed pricing). */
@@ -25,6 +29,9 @@ export type ServerCartLine = {
   stock: number;
   imageUrl: string | null;
   isAvailable: boolean;
+  woodId?: number | null;
+  woodName?: string | null;
+  woodColor?: string | null;
 };
 
 export type CartResponse = {
@@ -32,6 +39,14 @@ export type CartResponse = {
   itemCount: number;
   subtotalAmount: string;
 };
+
+/** Stable key for a cart line: productId or productId:woodId. */
+export function cartLineKey(
+  productId: number,
+  woodId?: number | null,
+): string {
+  return woodId != null ? `${productId}:${woodId}` : String(productId);
+}
 
 export function serverCartLineToCartItem(line: ServerCartLine): CartItem {
   return {
@@ -43,6 +58,9 @@ export function serverCartLineToCartItem(line: ServerCartLine): CartItem {
     imageUrl: line.imageUrl ?? undefined,
     stock: line.stock,
     isAvailable: line.isAvailable,
+    woodId: line.woodId ?? null,
+    woodName: line.woodName ?? null,
+    woodColor: line.woodColor ?? null,
   };
 }
 
@@ -82,9 +100,17 @@ export type SeedAdminCartPayload = {
   customerId: number;
   productId: number;
   quantity: number;
+  woodId?: number;
 };
 
 export type UpsertAdminCartItemPayload = {
   productId: number;
   quantity: number;
+  woodId?: number;
+};
+
+export type UpsertCartItemPayload = {
+  productId: number;
+  quantity: number;
+  woodId?: number;
 };

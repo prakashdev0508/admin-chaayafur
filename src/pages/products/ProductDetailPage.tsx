@@ -208,9 +208,17 @@ export function ProductDetailPage() {
               </div>
               <Separator />
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Price</span>
+                <span className="text-muted-foreground">Selling price</span>
                 <span className="font-semibold">{formatCurrency(product.price)}</span>
               </div>
+              {product.priceWithoutDiscount && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Compare-at / MRP</span>
+                  <span className="text-muted-foreground line-through">
+                    {formatCurrency(product.priceWithoutDiscount)}
+                  </span>
+                </div>
+              )}
               <Separator />
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Rating</span>
@@ -226,6 +234,43 @@ export function ProductDetailPage() {
               </div>
             </CardContent>
           </Card>
+
+          {(product.woods?.length ?? 0) > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Woods</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {product.woods!.map((wood) => (
+                  <div
+                    key={wood.id}
+                    className="flex items-center justify-between gap-2 text-sm"
+                  >
+                    <span className="flex items-center gap-2">
+                      <span
+                        className="size-3.5 rounded-full border border-border"
+                        style={{ backgroundColor: wood.color }}
+                        aria-hidden
+                      />
+                      {wood.name}
+                    </span>
+                    <div className="flex flex-wrap items-center justify-end gap-1">
+                      <StatusBadge
+                        variant={wood.isActive ? "success" : "neutral"}
+                      >
+                        {wood.isActive ? "Assigned active" : "Assigned off"}
+                      </StatusBadge>
+                      <StatusBadge
+                        variant={wood.isAvailable ? "success" : "warning"}
+                      >
+                        {wood.isAvailable ? "Selectable" : "Unavailable"}
+                      </StatusBadge>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
 
           {activeTags.length > 0 && (
             <Card>

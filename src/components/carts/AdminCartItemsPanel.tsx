@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Minus, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
@@ -19,13 +19,21 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatCurrency } from "@/lib/format";
 import { queryKeys } from "@/lib/query-keys";
+import { cn } from "@/lib/utils";
 import {
   removeAdminCartItem,
   setAdminCartItemQuantity,
   upsertAdminCartItem,
 } from "@/services/admin-carts.service";
-import type { AdminCartDetail } from "@/types/cart";
+import { getProduct } from "@/services/products.service";
+import { cartLineKey, type AdminCartDetail } from "@/types/cart";
+import {
+  getSelectableProductWoods,
+  productRequiresWood,
+} from "@/types/wood";
 import type { ProductListItem } from "@/types/product";
+
+type LineRef = { productId: number; woodId?: number | null };
 
 type AdminCartItemsPanelProps = {
   cart: AdminCartDetail;
@@ -54,9 +62,25 @@ export function AdminCartItemsPanel({
   const [selectedProduct, setSelectedProduct] = useState<ProductListItem | null>(
     null,
   );
+  const [selectedWoodId, setSelectedWoodId] = useState<number | null>(null);
   const [quantity, setQuantity] = useState("1");
-  const [removeProductId, setRemoveProductId] = useState<number | null>(null);
-  const [pendingProductId, setPendingProductId] = useState<number | null>(null);
+  const [removeLine, setRemoveLine] = useState<LineRef | null>(null);
+  const [pendingKey, setPendingKey] = useState<string | null>(null);
+
+  const productDetailQuery = useQuery({
+    queryKey: ["admin", "cart-add-product", selectedProduct?.id],
+    queryFn: () => getProduct(selectedProduct!.id),
+    enabled: addOpen && selectedProduct != null,
+  });
+
+  const productWoods = productDetailQuery.data?.woods ?? [];
+  const selectableWoods = getSelectableProductWoods(productWoods);
+  const requiresWood = productRequiresWood(productWoods);
+  const showWoodPicker = productWoods.length > 0;
+
+  useEffect(() => {
+    setSelectedWoodId(null);
+  }, [selectedProduct?.id]);
 
   const invalidate = async () => {
     await queryClient.invalidateQueries({
@@ -69,12 +93,16 @@ export function AdminCartItemsPanel({
   };
 
   const upsertMutation = useMutation({
-    mutationFn: (payload: { productId: number; quantity: number }) =>
-      upsertAdminCartItem(cart.id, payload),
+    mutationFn: (payload: {
+      productId: number;
+      quantity: number;
+      woodId?: number;
+    }) => upsertAdminCartItem(cart.id, payload),
     onSuccess: async () => {
       toast.success("Cart item saved");
       setAddOpen(false);
       setSelectedProduct(null);
+      setSelectedWoodId(null);
       setQuantity("1");
       await invalidate();
     },
@@ -89,12 +117,16 @@ export function AdminCartItemsPanel({
     mutationFn: ({
       productId,
       quantity: qty,
+      woodId,
     }: {
       productId: number;
       quantity: number;
-    }) => setAdminCartItemQuantity(cart.id, productId, { quantity: qty }),
-    onMutate: ({ productId }) => setPendingProductId(productId),
-    onSettled: () => setPendingProductId(null),
+      woodId?: number | null;
+    }) =>
+      setAdminCartItemQuantity(cart.id, productId, { quantity: qty }, woodId),
+    onMutate: ({ productId, woodId }) =>
+      setPendingKey(cartLineKey(productId, woodId)),
+    onSettled: () => setPendingKey(null),
     onSuccess: async () => {
       await invalidate();
     },
@@ -106,10 +138,11 @@ export function AdminCartItemsPanel({
   });
 
   const removeMutation = useMutation({
-    mutationFn: (productId: number) => removeAdminCartItem(cart.id, productId),
+    mutationFn: ({ productId, woodId }: LineRef) =>
+      removeAdminCartItem(cart.id, productId, woodId),
     onSuccess: async () => {
       toast.success("Item removed");
-      setRemoveProductId(null);
+      setRemoveLine(null);
       await invalidate();
     },
     onError: (error) => {
@@ -124,13 +157,18 @@ export function AdminCartItemsPanel({
     setQtyMutation.isPending ||
     removeMutation.isPending;
 
-  async function handleQuantityDelta(productId: number, current: number, delta: number) {
+  async function handleQuantityDelta(
+    productId: number,
+    current: number,
+    delta: number,
+    woodId?: number | null,
+  ) {
     const next = current + delta;
     if (next < 1) {
-      setRemoveProductId(productId);
+      setRemoveLine({ productId, woodId });
       return;
     }
-    setQtyMutation.mutate({ productId, quantity: next });
+    setQtyMutation.mutate({ productId, quantity: next, woodId });
   }
 
   return (
@@ -146,10 +184,11 @@ export function AdminCartItemsPanel({
         <p className="text-sm text-muted-foreground">Cart is empty.</p>
       ) : (
         cart.items.map((item) => {
-          const lineBusy = pendingProductId === item.productId && busy;
+          const key = cartLineKey(item.productId, item.woodId);
+          const lineBusy = pendingKey === key && busy;
           return (
             <div
-              key={item.productId}
+              key={key}
               className="flex flex-wrap items-stretch justify-between gap-3 rounded-lg border p-3 text-sm"
             >
               <div className="flex min-w-0 flex-1 items-stretch gap-3">
@@ -170,6 +209,18 @@ export function AdminCartItemsPanel({
                     >
                       {item.name}
                     </Link>
+                    {item.woodName && (
+                      <p className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+                        {item.woodColor && (
+                          <span
+                            className="size-2.5 rounded-full border border-border"
+                            style={{ backgroundColor: item.woodColor }}
+                            aria-hidden
+                          />
+                        )}
+                        {item.woodName}
+                      </p>
+                    )}
                     <p className="text-muted-foreground">
                       Product #{item.productId} · Stock {item.stock}
                     </p>
@@ -191,6 +242,7 @@ export function AdminCartItemsPanel({
                             item.productId,
                             item.quantity,
                             -1,
+                            item.woodId,
                           )
                         }
                       >
@@ -213,6 +265,7 @@ export function AdminCartItemsPanel({
                             item.productId,
                             item.quantity,
                             1,
+                            item.woodId,
                           )
                         }
                       >
@@ -223,7 +276,12 @@ export function AdminCartItemsPanel({
                         variant="ghost"
                         size="icon-sm"
                         disabled={busy}
-                        onClick={() => setRemoveProductId(item.productId)}
+                        onClick={() =>
+                          setRemoveLine({
+                            productId: item.productId,
+                            woodId: item.woodId,
+                          })
+                        }
                       >
                         <Trash2 className="size-3.5" />
                       </Button>
@@ -255,6 +313,7 @@ export function AdminCartItemsPanel({
           setAddOpen(open);
           if (!open) {
             setSelectedProduct(null);
+            setSelectedWoodId(null);
             setQuantity("1");
           }
         }}
@@ -264,7 +323,7 @@ export function AdminCartItemsPanel({
             <DialogTitle>Add or update item</DialogTitle>
             <DialogDescription>
               Search by product name. Quantity replaces any existing line for
-              that product.
+              that product and wood.
             </DialogDescription>
           </DialogHeader>
           <form
@@ -280,9 +339,14 @@ export function AdminCartItemsPanel({
                 toast.error("Quantity must be at least 1");
                 return;
               }
+              if (requiresWood && selectedWoodId == null) {
+                toast.error("Select a wood for this product");
+                return;
+              }
               upsertMutation.mutate({
                 productId: selectedProduct.id,
                 quantity: qty,
+                ...(selectedWoodId != null ? { woodId: selectedWoodId } : {}),
               });
             }}
           >
@@ -291,6 +355,61 @@ export function AdminCartItemsPanel({
               onChange={setSelectedProduct}
               disabled={upsertMutation.isPending}
             />
+            {selectedProduct && productDetailQuery.isLoading && (
+              <p className="text-sm text-muted-foreground">Loading woods…</p>
+            )}
+            {showWoodPicker && (
+              <div className="space-y-2">
+                <Label>Wood</Label>
+                <div className="flex flex-wrap gap-2">
+                  {productWoods.map((wood) => {
+                    const available = wood.isAvailable;
+                    const selected = selectedWoodId === wood.id;
+                    return (
+                      <button
+                        key={wood.id}
+                        type="button"
+                        disabled={!available}
+                        onClick={() => {
+                          if (available) setSelectedWoodId(wood.id);
+                        }}
+                        title={
+                          available
+                            ? wood.name
+                            : `${wood.name} — not available now`
+                        }
+                        className={cn(
+                          "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm",
+                          !available &&
+                            "cursor-not-allowed opacity-50 border-dashed",
+                          available && selected && "border-primary bg-muted",
+                          available &&
+                            !selected &&
+                            "border-border hover:bg-muted/50",
+                        )}
+                      >
+                        <span
+                          className="size-3 rounded-full border border-border"
+                          style={{ backgroundColor: wood.color }}
+                          aria-hidden
+                        />
+                        {wood.name}
+                        {!available && (
+                          <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                            Unavailable
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+                {selectableWoods.length === 0 && (
+                  <p className="text-xs text-destructive">
+                    No woods are currently available for this product.
+                  </p>
+                )}
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="admin-cart-qty">Quantity</Label>
               <Input
@@ -319,9 +438,9 @@ export function AdminCartItemsPanel({
       </Dialog>
 
       <ConfirmDialog
-        open={removeProductId !== null}
+        open={removeLine !== null}
         onOpenChange={(open) => {
-          if (!open) setRemoveProductId(null);
+          if (!open) setRemoveLine(null);
         }}
         title="Remove item from cart?"
         description="This removes the product line from the customer's cart."
@@ -329,8 +448,8 @@ export function AdminCartItemsPanel({
         variant="destructive"
         loading={removeMutation.isPending}
         onConfirm={() => {
-          if (removeProductId == null) return Promise.resolve();
-          return removeMutation.mutateAsync(removeProductId);
+          if (removeLine == null) return Promise.resolve();
+          return removeMutation.mutateAsync(removeLine);
         }}
       />
     </div>
