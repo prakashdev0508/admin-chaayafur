@@ -2,8 +2,8 @@ import { Outlet } from "react-router-dom";
 import { Toaster } from "sonner";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { AdminSearchBar } from "@/components/layout/AdminSearchBar";
 import { AppSidebar } from "@/components/layout/AppSidebar";
-import { SiteHeader } from "@/components/layout/SiteHeader";
 
 export function AdminLayout() {
   return (
@@ -11,8 +11,8 @@ export function AdminLayout() {
       <SidebarProvider>
         <AppSidebar />
         <SidebarInset>
-          <SiteHeader />
-          <div className="flex flex-1 flex-col gap-4 p-4 pt-0 md:p-6">
+          <AdminSearchBar />
+          <div className="flex flex-1 flex-col gap-4 p-4 md:p-6">
             <Outlet />
           </div>
         </SidebarInset>

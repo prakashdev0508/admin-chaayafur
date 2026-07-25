@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,16 +21,19 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { fetchCategoriesTree } from "@/services/categories.service";
+import { listWoods } from "@/services/woods.service";
 import { ProductImageUploader } from "@/components/products/ProductImageUploader";
+import { queryKeys } from "@/lib/query-keys";
 import { slugify } from "@/lib/product-utils";
 import type { CategoryTreeItem } from "@/types/category";
-import type { ProductFormValues } from "@/types/product";
+import type { ProductFormValues, ProductWoodFormEntry } from "@/types/product";
 
 export const emptyProductFormValues: ProductFormValues = {
   name: "",
   slug: "",
   description: "",
   price: "",
+  priceWithoutDiscount: "",
   stock: "",
   subCategoryId: "",
   isActive: true,
@@ -38,6 +42,7 @@ export const emptyProductFormValues: ProductFormValues = {
   isMostPopular: false,
   isNewArrival: false,
   productFeatures: [],
+  woods: [],
   images: [],
 };
 
@@ -76,6 +81,12 @@ export function ProductForm({
       .then(setCategoriesTree)
       .catch(() => setCategoriesTree([]));
   }, []);
+
+  const woodsQuery = useQuery({
+    queryKey: queryKeys.woods.list({ limit: 100 }),
+    queryFn: () => listWoods({ limit: 100 }),
+  });
+  const catalogWoods = woodsQuery.data?.items ?? [];
 
   useEffect(() => {
     if (!values.subCategoryId || categoriesTree.length === 0) return;
@@ -142,12 +153,44 @@ export function ProductForm({
     );
   };
 
+  const assignedWoodIds = new Set(values.woods.map((w) => w.woodId));
+
+  const toggleWoodAssignment = (woodId: number, assigned: boolean) => {
+    if (assigned) {
+      const next: ProductWoodFormEntry[] = [
+        ...values.woods,
+        { woodId, isActive: true },
+      ];
+      updateField("woods", next);
+      return;
+    }
+    updateField(
+      "woods",
+      values.woods.filter((w) => w.woodId !== woodId),
+    );
+  };
+
+  const setWoodActive = (woodId: number, isActive: boolean) => {
+    updateField(
+      "woods",
+      values.woods.map((w) =>
+        w.woodId === woodId ? { ...w, isActive } : w,
+      ),
+    );
+  };
+
   const validate = () => {
     if (!values.name.trim()) return "Product name is required";
     if (!values.slug.trim()) return "Slug is required";
     if (!categoryId) return "Category is required";
     if (!values.subCategoryId) return "Sub-category is required";
     if (!values.price || parseFloat(values.price) < 0) return "Valid price is required";
+    if (
+      values.priceWithoutDiscount.trim() &&
+      parseFloat(values.priceWithoutDiscount) < 0
+    ) {
+      return "Compare-at price must be ≥ 0";
+    }
     if (!values.stock || parseInt(values.stock, 10) < 0) return "Valid stock is required";
     if (isImageUploading) return "Wait for image uploads to finish";
     if (values.images.length > 10) {
@@ -389,7 +432,7 @@ export function ProductForm({
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="price">Price (INR)</Label>
+              <Label htmlFor="price">Selling price (INR)</Label>
               <Input
                 id="price"
                 type="number"
@@ -400,6 +443,87 @@ export function ProductForm({
                 step="0.01"
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="priceWithoutDiscount">Compare-at / MRP (INR)</Label>
+              <Input
+                id="priceWithoutDiscount"
+                type="number"
+                value={values.priceWithoutDiscount}
+                onChange={(e) =>
+                  updateField("priceWithoutDiscount", e.target.value)
+                }
+                placeholder="Optional"
+                min="0"
+                step="0.01"
+              />
+              <p className="text-xs text-muted-foreground">
+                Display-only strikethrough price. Leave blank if unused.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Woods</CardTitle>
+            <CardDescription>
+              Assign wood options customers can choose at checkout
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {woodsQuery.isLoading && (
+              <p className="text-sm text-muted-foreground">Loading woods…</p>
+            )}
+            {!woodsQuery.isLoading && catalogWoods.length === 0 && (
+              <p className="text-sm text-muted-foreground">
+                No woods in the catalog yet. Create them under Woods.
+              </p>
+            )}
+            {catalogWoods.map((wood) => {
+              const assigned = assignedWoodIds.has(wood.id);
+              const entry = values.woods.find((w) => w.woodId === wood.id);
+              return (
+                <div
+                  key={wood.id}
+                  className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2"
+                >
+                  <label className="flex min-w-0 flex-1 items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={assigned}
+                      onChange={(e) =>
+                        toggleWoodAssignment(wood.id, e.target.checked)
+                      }
+                      className="size-4"
+                    />
+                    <span
+                      className="size-3.5 shrink-0 rounded-full border border-border"
+                      style={{ backgroundColor: wood.color }}
+                      aria-hidden
+                    />
+                    <span className="truncate font-medium">{wood.name}</span>
+                    {!wood.isActive && (
+                      <span className="text-xs text-muted-foreground">
+                        (catalog inactive)
+                      </span>
+                    )}
+                  </label>
+                  {assigned && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">
+                        Active
+                      </span>
+                      <Switch
+                        checked={entry?.isActive ?? true}
+                        onCheckedChange={(checked) =>
+                          setWoodActive(wood.id, checked)
+                        }
+                      />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </CardContent>
         </Card>
 

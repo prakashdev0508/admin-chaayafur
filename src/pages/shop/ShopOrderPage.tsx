@@ -262,6 +262,18 @@ export function ShopOrderPage() {
                 <div key={item.id} className="flex justify-between gap-3 text-sm">
                   <div>
                     <p className="font-medium">{item.product.name}</p>
+                    {item.woodName && (
+                      <p className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+                        {item.woodColor && (
+                          <span
+                            className="size-2.5 rounded-full border border-[#D9CBB8]"
+                            style={{ backgroundColor: item.woodColor }}
+                            aria-hidden
+                          />
+                        )}
+                        {item.woodName}
+                      </p>
+                    )}
                     <p className="text-muted-foreground">
                       Qty {item.quantity} · {formatCurrency(item.price)} each
                     </p>

@@ -1,6 +1,6 @@
 # Cart API
 
-Persistent server-side cart for logged-in customers. Only `productId` and `quantity` are stored; **all prices are computed from live product data** on every read and at checkout.
+Persistent server-side cart for logged-in customers. Line keys are `productId` + optional `woodId`; **all prices are computed from live product data** on every read and at checkout. See [woods.md](./woods.md) for wood selection rules.
 
 [← Back to index](./README.md) · [Customers](./customers.md) · [Orders](./orders.md) · [Coupons](./coupons.md) · [Products](./products.md)
 
@@ -52,9 +52,9 @@ Customer routes require `@CustomerOnly()`. Staff routes use permissions above (O
 | Method | Endpoint | Status | Description |
 |--------|----------|--------|-------------|
 | `GET` | `/api/v1/cart` | `200` | Cart lines + computed totals |
-| `POST` | `/api/v1/cart/items` | `200` | Upsert line by `productId` |
-| `PATCH` | `/api/v1/cart/items/:productId` | `200` | Set quantity for one product |
-| `DELETE` | `/api/v1/cart/items/:productId` | `200` | Remove one product |
+| `POST` | `/api/v1/cart/items` | `200` | Upsert line by `productId` + `woodId` |
+| `PATCH` | `/api/v1/cart/items/:productId?woodId=` | `200` | Set quantity for one line |
+| `DELETE` | `/api/v1/cart/items/:productId?woodId=` | `200` | Remove one line |
 
 ---
 
@@ -71,6 +71,9 @@ Returns the current cart with server-computed pricing.
     "items": [
       {
         "productId": 1,
+        "woodId": 2,
+        "woodName": "Peak",
+        "woodColor": "#8B5E3C",
         "quantity": 2,
         "unitPrice": "24999.99",
         "lineTotal": "49999.98",
@@ -126,7 +129,8 @@ Add a product or replace quantity if the line already exists (upsert).
 ```json
 {
   "productId": 1,
-  "quantity": 2
+  "quantity": 2,
+  "woodId": 2
 }
 ```
 
@@ -134,11 +138,13 @@ Add a product or replace quantity if the line already exists (upsert).
 |-------|-------|
 | `productId` | Integer ≥ 1, must exist |
 | `quantity` | Integer ≥ 1, max per app validation constant |
+| `woodId` | Required when the product has active woods; omit when it has none |
 
 ### Validation
 
 - Product must exist and `isActive: true`
 - `quantity` must not exceed current `stock`
+- Wood selection must satisfy [woods.md](./woods.md) rules
 
 ### Response
 
@@ -148,7 +154,7 @@ Same shape as `GET /cart` (full cart after the change).
 curl -X POST "http://localhost:5000/api/v1/cart/items" \
   -H "Authorization: Bearer $CUSTOMER_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"productId":1,"quantity":2}'
+  -d '{"productId":1,"quantity":2,"woodId":2}'
 ```
 
 ---
@@ -218,7 +224,7 @@ Guests and older clients can still send `items: [{ productId, quantity }]` on `P
 ## Data model (reference)
 
 - One `Cart` row per `customerId` (created on first add).
-- `CartItem` rows: unique `(cartId, productId)`, `quantity` only — no stored price.
+- `CartItem` rows: unique `(cartId, productId, woodId)` (`NULLS NOT DISTINCT`), quantity only — no stored price.
 
 ---
 

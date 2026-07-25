@@ -14,6 +14,9 @@ Create, update, and list furniture products.
 - **CMS tags** — optional booleans `isBestSeller`, `isFeaturedProduct`, `isMostPopular`, `isNewArrival` for storefront sections; filter with `GET /products?tag=isFeaturedProduct`, or assign via `PATCH /admin/cms/products/:id/tags` (see [home.md](./home.md))
 - Aggregated home sections: [home.md](./home.md) (`GET /home`)
 - Default list shows only **active** products (`isActive=true`)
+- **`price`** is the selling price (after discount) — used for cart, checkout, and filters
+- **`priceWithoutDiscount`** is optional compare-at / MRP; display-only, does not affect checkout
+- **`woods`** — product wood options (see [woods.md](./woods.md)); detail includes unavailable woods with `isAvailable: false`
 - Products link to **`subCategoryId`** (not top-level `categoryId`)
 - Public list responses are **cached** in Upstash Redis (60s default) and return `Cache-Control` headers for CDN edge caching
 - Cache is invalidated automatically when products, categories, or sub-categories are created or updated
@@ -38,7 +41,8 @@ Use a sub-category ID from [categories.md](./categories.md). Example after seed:
 | `PATCH /admin/cms/products/:id/tags` | `update-products` | Yes | Yes | No |
 | `POST /uploads/product-images` | `create-products` or `update-products` | Yes | Yes | No |
 | `GET /products` | **Public** | — | — | — |
-| `GET /products/:id` | **Public** | — | — | — |
+| `GET /products/filters` | **Public** | — | — | — |
+| `GET /products/:idOrSlug` | **Public** | — | — | — |
 
 ---
 
@@ -49,7 +53,8 @@ Use a sub-category ID from [categories.md](./categories.md). Example after seed:
 | `POST` | `/api/v1/products` | `create-products` | `201` |
 | `PATCH` | `/api/v1/products/:id` | `update-products` | `200` |
 | `GET` | `/api/v1/products` | **Public** | `200` |
-| `GET` | `/api/v1/products/:id` | **Public** | `200` |
+| `GET` | `/api/v1/products/filters` | **Public** | `200` |
+| `GET` | `/api/v1/products/:idOrSlug` | **Public** | `200` |
 
 `GET /products` is a public, cacheable endpoint. Responses include:
 
@@ -75,6 +80,7 @@ Authorization: Bearer <accessToken>
   "slug": "oak-dining-table",
   "description": "Solid oak dining table for 6 people",
   "price": 24999.99,
+  "priceWithoutDiscount": 29999.99,
   "stock": 10,
   "subCategoryId": 1,
   "isActive": true,
@@ -105,7 +111,8 @@ Authorization: Bearer <accessToken>
 | `name` | string | Yes | — |
 | `slug` | string | Yes | Unique across all products |
 | `description` | string | No | — |
-| `price` | number | Yes | Min `0` |
+| `price` | number | Yes | Min `0`. **Selling price** (after discount). Used for cart, checkout, and filters. |
+| `priceWithoutDiscount` | number | No | Min `0`. Compare-at / MRP before discount. Optional; does not affect checkout. |
 | `stock` | number | Yes | Min `0` |
 | `subCategoryId` | integer | Yes | Must exist in `SubCategory` table |
 | `isActive` | boolean | No | Default `true` |
@@ -114,6 +121,7 @@ Authorization: Bearer <accessToken>
 | `isMostPopular` | boolean | No | Default `false` — CMS merchandising tag |
 | `isNewArrival` | boolean | No | Default `false` — CMS merchandising tag |
 | `productFeatures` | string[] | No | Max 50 items; each string max 200 chars. Default `[]` |
+| `woods` | array | No | `{ woodId, isActive? }[]` — assign woods for this product. Pass `[]` to clear. See [woods.md](./woods.md) |
 | `images` | array | No | Max 10 items. Upload files first via [uploads.md](./uploads.md); include `storageKey` from upload response |
 
 ### Success response `201`
@@ -127,6 +135,7 @@ Authorization: Bearer <accessToken>
     "slug": "oak-dining-table",
     "description": "Solid oak dining table for 6 people",
     "price": "24999.99",
+    "priceWithoutDiscount": "29999.99",
     "stock": 10,
     "isActive": true,
     "isBestSeller": false,
@@ -210,7 +219,8 @@ Partial update. All body fields are optional.
 | `name` | string | — |
 | `slug` | string | Unique across all products |
 | `description` | string | — |
-| `price` | number | Min `0` |
+| `price` | number | Min `0`. Selling price (after discount). |
+| `priceWithoutDiscount` | number | Min `0`. Compare-at / MRP before discount. |
 | `stock` | number | Min `0` |
 | `subCategoryId` | integer | Must exist in `SubCategory` table |
 | `isActive` | boolean | Set `false` to hide product |
@@ -247,19 +257,25 @@ curl -X PATCH http://localhost:5000/api/v1/products/1 \
 
 ---
 
-## GET /api/v1/products/:id
+## GET /api/v1/products/:idOrSlug
 
 | | |
 |---|---|
 | **Auth** | Public — no Bearer token required |
 | **Status** | `200` |
 
-Returns full product details for the storefront product page. Only **active** products (`isActive=true`) are returned; hidden products respond with `404`.
+Returns full product details for the storefront product page. Accepts either a **numeric product ID** or a **slug**. Only **active** products (`isActive=true`) are returned; hidden products respond with `404`.
 
-### Example
+| Path value | Lookup |
+|------------|--------|
+| Digits only (`7`) | By product ID |
+| Slug (`oak-dining-table`) | By product slug |
+
+### Examples
 
 ```http
 GET /api/v1/products/7
+GET /api/v1/products/oak-dining-table
 ```
 
 ### Success response `200`
@@ -275,6 +291,7 @@ Same shape as the create/update response: `description`, full `images` array, `p
     "slug": "oak-dining-table",
     "description": "Solid oak dining table for 6 people",
     "price": "24999.99",
+    "priceWithoutDiscount": "29999.99",
     "stock": 10,
     "isActive": true,
     "isBestSeller": false,
@@ -320,13 +337,78 @@ Same shape as the create/update response: `description`, full `images` array, `p
 
 | Status | When |
 |--------|------|
-| `400` | Invalid product ID |
 | `404` | Product not found or inactive |
 
 ### cURL
 
 ```bash
 curl "http://localhost:5000/api/v1/products/7"
+curl "http://localhost:5000/api/v1/products/oak-dining-table"
+```
+
+---
+
+## GET /api/v1/products/filters
+
+| | |
+|---|---|
+| **Auth** | Public — no Bearer token required |
+| **Status** | `200` |
+
+Returns filter metadata for the storefront product listing page: active categories with nested sub-categories (and product counts), active-product price range, CMS tag options, and sort options.
+
+Responses are cached in Redis (60s default) and invalidated when products or categories change.
+
+### Example
+
+```http
+GET /api/v1/products/filters
+```
+
+### Success response `200`
+
+```json
+{
+  "success": true,
+  "data": {
+    "categories": [
+      {
+        "id": 1,
+        "name": "Bedroom",
+        "slug": "bedroom",
+        "productCount": 12,
+        "subCategories": [
+          {
+            "id": 1,
+            "name": "Beds",
+            "slug": "beds",
+            "productCount": 5
+          }
+        ]
+      }
+    ],
+    "priceRange": {
+      "min": 999,
+      "max": 99999
+    },
+    "tags": [
+      { "value": "isBestSeller", "label": "Best Seller", "productCount": 3 },
+      { "value": "isFeaturedProduct", "label": "Featured", "productCount": 8 },
+      { "value": "isMostPopular", "label": "Most Popular", "productCount": 4 },
+      { "value": "isNewArrival", "label": "New Arrival", "productCount": 6 }
+    ],
+    "sortOptions": [
+      { "value": "createdAt", "label": "Newest", "order": "desc" },
+      { "value": "price", "label": "Price: Low to High", "order": "asc" }
+    ]
+  }
+}
+```
+
+### cURL
+
+```bash
+curl "http://localhost:5000/api/v1/products/filters"
 ```
 
 ---
@@ -349,7 +431,9 @@ Paginated product catalogue for the storefront. Defaults to **active** products 
 | `minPrice` | number | — | `price >= minPrice` |
 | `maxPrice` | number | — | `price <= maxPrice` |
 | `subCategoryId` | integer | — | Filter by sub-category |
+| `subCategorySlug` | string | — | Filter by sub-category slug (e.g. `beds`) |
 | `categoryId` | integer | — | Filter by parent category |
+| `categorySlug` | string | — | Filter by parent category slug (e.g. `bedroom`) |
 | `isActive` | boolean | `true` | Use `false` for hidden products |
 | `tag` | string | — | CMS tag filter: `isBestSeller` \| `isFeaturedProduct` \| `isMostPopular` \| `isNewArrival` |
 | `page` | number | `1` | Page number |
@@ -362,9 +446,11 @@ Paginated product catalogue for the storefront. Defaults to **active** products 
 ```http
 GET /api/v1/products?subCategoryId=1
 GET /api/v1/products?categoryId=1
+GET /api/v1/products?categorySlug=bedroom&subCategorySlug=beds
 GET /api/v1/products?name=oak&page=1&limit=10
 GET /api/v1/products?tag=isFeaturedProduct
 GET /api/v1/products?tag=isBestSeller&limit=8
+GET /api/v1/products?minPrice=1000&maxPrice=50000&sortBy=price&sortOrder=asc
 ```
 
 ### List item fields
@@ -380,7 +466,7 @@ GET /api/v1/products?tag=isBestSeller&limit=8
 ### cURL
 
 ```bash
-curl "http://localhost:5000/api/v1/products?categoryId=1&page=1&limit=10"
+curl "http://localhost:5000/api/v1/products?categorySlug=bedroom&page=1&limit=10"
 curl "http://localhost:5000/api/v1/products?tag=isFeaturedProduct&limit=10"
 ```
 

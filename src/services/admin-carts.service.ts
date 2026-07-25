@@ -41,9 +41,10 @@ export function setAdminCartItemQuantity(
   cartId: number,
   productId: number,
   payload: { quantity: number },
+  woodId?: number | null,
 ) {
   return apiRequest<AdminCartDetail>(
-    `/carts/${cartId}/items/${productId}`,
+    `/carts/${cartId}/items/${productId}${buildQueryString({ woodId: woodId ?? undefined })}`,
     {
       method: "PATCH",
       body: JSON.stringify(payload),
@@ -51,8 +52,15 @@ export function setAdminCartItemQuantity(
   );
 }
 
-export function removeAdminCartItem(cartId: number, productId: number) {
-  return apiRequest<AdminCartDetail>(`/carts/${cartId}/items/${productId}`, {
-    method: "DELETE",
-  });
+export function removeAdminCartItem(
+  cartId: number,
+  productId: number,
+  woodId?: number | null,
+) {
+  return apiRequest<AdminCartDetail>(
+    `/carts/${cartId}/items/${productId}${buildQueryString({ woodId: woodId ?? undefined })}`,
+    {
+      method: "DELETE",
+    },
+  );
 }

@@ -24,7 +24,7 @@ import {
   upsertCartItem,
 } from "@/services/shop-cart.service";
 import type { CartItem, CartOrderItem } from "@/types/cart";
-import { serverCartLineToCartItem } from "@/types/cart";
+import { cartLineKey, serverCartLineToCartItem } from "@/types/cart";
 
 type CartContextValue = {
   items: CartItem[];
@@ -33,13 +33,27 @@ type CartContextValue = {
   isLoading: boolean;
   isSyncing: boolean;
   addItem: (item: Omit<CartItem, "quantity">, quantity?: number) => Promise<void>;
-  updateQuantity: (productId: number, quantity: number) => Promise<void>;
-  removeItem: (productId: number) => Promise<void>;
+  updateQuantity: (
+    productId: number,
+    quantity: number,
+    woodId?: number | null,
+  ) => Promise<void>;
+  removeItem: (productId: number, woodId?: number | null) => Promise<void>;
   clearCart: () => void;
   getOrderItems: () => CartOrderItem[];
 };
 
 const CartContext = createContext<CartContextValue | null>(null);
+
+function sameLine(
+  a: { productId: number; woodId?: number | null },
+  productId: number,
+  woodId?: number | null,
+) {
+  return (
+    cartLineKey(a.productId, a.woodId) === cartLineKey(productId, woodId)
+  );
+}
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
@@ -86,6 +100,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           await upsertCartItem({
             productId: line.productId,
             quantity: line.quantity,
+            ...(line.woodId != null ? { woodId: line.woodId } : {}),
           });
         }
         clearStoredCart();
@@ -109,14 +124,20 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const addItem = useCallback(
     async (item: Omit<CartItem, "quantity">, quantity = 1) => {
+      const woodId = item.woodId ?? null;
+
       if (isAuthenticated) {
         setIsSyncing(true);
         try {
-          const existing = serverItems.find(
-            (entry) => entry.productId === item.productId,
+          const existing = serverItems.find((entry) =>
+            sameLine(entry, item.productId, woodId),
           );
           const nextQty = (existing?.quantity ?? 0) + quantity;
-          await upsertCartItem({ productId: item.productId, quantity: nextQty });
+          await upsertCartItem({
+            productId: item.productId,
+            quantity: nextQty,
+            ...(woodId != null ? { woodId } : {}),
+          });
           await invalidateCart();
         } finally {
           setIsSyncing(false);
@@ -125,12 +146,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
       }
 
       setGuestItems((current) => {
-        const existing = current.find(
-          (entry) => entry.productId === item.productId,
+        const existing = current.find((entry) =>
+          sameLine(entry, item.productId, woodId),
         );
         if (existing) {
           return current.map((entry) =>
-            entry.productId === item.productId
+            sameLine(entry, item.productId, woodId)
               ? { ...entry, ...item, quantity: entry.quantity + quantity }
               : entry,
           );
@@ -142,14 +163,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
   );
 
   const updateQuantity = useCallback(
-    async (productId: number, quantity: number) => {
+    async (
+      productId: number,
+      quantity: number,
+      woodId?: number | null,
+    ) => {
       if (isAuthenticated) {
         setIsSyncing(true);
         try {
           if (quantity <= 0) {
-            await removeCartItem(productId);
+            await removeCartItem(productId, woodId);
           } else {
-            await setCartItemQuantity(productId, { quantity });
+            await setCartItemQuantity(productId, { quantity }, woodId);
           }
           await invalidateCart();
         } finally {
@@ -160,14 +185,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
       if (quantity <= 0) {
         setGuestItems((current) =>
-          current.filter((entry) => entry.productId !== productId),
+          current.filter((entry) => !sameLine(entry, productId, woodId)),
         );
         return;
       }
 
       setGuestItems((current) =>
         current.map((entry) =>
-          entry.productId === productId ? { ...entry, quantity } : entry,
+          sameLine(entry, productId, woodId)
+            ? { ...entry, quantity }
+            : entry,
         ),
       );
     },
@@ -175,8 +202,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
   );
 
   const removeItem = useCallback(
-    async (productId: number) => {
-      await updateQuantity(productId, 0);
+    async (productId: number, woodId?: number | null) => {
+      await updateQuantity(productId, 0, woodId);
     },
     [updateQuantity],
   );
@@ -190,7 +217,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [isAuthenticated, queryClient]);
 
   const getOrderItems = useCallback((): CartOrderItem[] => {
-    return items.map(({ productId, quantity }) => ({ productId, quantity }));
+    return items.map(({ productId, quantity, woodId }) => ({
+      productId,
+      quantity,
+      ...(woodId != null ? { woodId } : {}),
+    }));
   }, [items]);
 
   const itemCount = useMemo(

@@ -26,6 +26,10 @@ import {
   getStockStatus,
   productTagLabels,
 } from "@/lib/product-utils";
+import {
+  getSelectableProductWoods,
+  productRequiresWood,
+} from "@/types/wood";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import type { ProductReview } from "@/types/review";
@@ -69,6 +73,7 @@ export function ShopProductPage() {
   const { addItem } = useCart();
   const { isAuthenticated } = useCustomerAuth();
   const [quantity, setQuantity] = useState(1);
+  const [selectedWoodId, setSelectedWoodId] = useState<number | null>(null);
   const [reviewsPage, setReviewsPage] = useState(1);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
@@ -114,11 +119,20 @@ export function ShopProductPage() {
   const product = productQuery.data;
   const stockStatus = product ? getStockStatus(product) : null;
   const activeTags = product ? getActiveProductTags(product) : [];
+  const productWoods = product?.woods ?? [];
+  const selectableWoods = getSelectableProductWoods(productWoods);
+  const requiresWood = productRequiresWood(productWoods);
+  const showWoodSection = productWoods.length > 0;
   const canPurchase = stockStatus === "in_stock" || stockStatus === "low_stock";
   const sortedImages = [...(product?.images ?? [])].sort(
     (a, b) => a.sortOrder - b.sortOrder,
   );
   const primaryImage = sortedImages[0];
+  const mrp = product?.priceWithoutDiscount
+    ? parseFloat(product.priceWithoutDiscount)
+    : null;
+  const sellingPrice = product ? parseFloat(product.price) : 0;
+  const showMrp = mrp != null && !Number.isNaN(mrp) && mrp > sellingPrice;
   const ratingAverage =
     product?.ratingAverage ?? reviewsQuery.data?.meta.ratingAverage ?? null;
   const reviewCount =
@@ -225,9 +239,16 @@ export function ShopProductPage() {
                 </span>
               )}
             </div>
-            <p className="mt-3 text-2xl font-semibold text-[#8B5E3C]">
-              {formatCurrency(product.price)}
-            </p>
+            <div className="mt-3 flex flex-wrap items-baseline gap-2">
+              <p className="text-2xl font-semibold text-[#8B5E3C]">
+                {formatCurrency(product.price)}
+              </p>
+              {showMrp && (
+                <p className="text-base text-muted-foreground line-through">
+                  {formatCurrency(product.priceWithoutDiscount!)}
+                </p>
+              )}
+            </div>
             <p className="mt-2 text-sm text-muted-foreground">
               {canPurchase
                 ? `${product.stock} in stock`
@@ -250,6 +271,71 @@ export function ShopProductPage() {
                 </li>
               ))}
             </ul>
+          )}
+
+          {showWoodSection && (
+            <div className="space-y-3">
+              <p className="text-sm font-medium text-[#3D2B1F]">
+                Select wood
+                {requiresWood && selectedWoodId == null && (
+                  <span className="ml-1 font-normal text-muted-foreground">
+                    (required)
+                  </span>
+                )}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {productWoods.map((wood) => {
+                  const available = wood.isAvailable;
+                  const selected = selectedWoodId === wood.id;
+                  return (
+                    <button
+                      key={wood.id}
+                      type="button"
+                      disabled={!available}
+                      onClick={() => {
+                        if (available) setSelectedWoodId(wood.id);
+                      }}
+                      title={
+                        available
+                          ? wood.name
+                          : `${wood.name} — not available now`
+                      }
+                      className={cn(
+                        "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition-colors",
+                        !available &&
+                          "cursor-not-allowed opacity-50 border-dashed",
+                        available &&
+                          selected &&
+                          "border-[#8B5E3C] bg-[#F8F1E8] text-[#3D2B1F]",
+                        available &&
+                          !selected &&
+                          "border-[#E8DFD3] bg-white text-muted-foreground hover:border-[#D9CBB8]",
+                      )}
+                      aria-pressed={selected}
+                      aria-disabled={!available}
+                    >
+                      <span
+                        className="size-3.5 rounded-full border border-[#D9CBB8]"
+                        style={{ backgroundColor: wood.color }}
+                        aria-hidden
+                      />
+                      <span>{wood.name}</span>
+                      {!available && (
+                        <span className="text-[10px] uppercase tracking-wide">
+                          Unavailable
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+              {productWoods.some((w) => !w.isAvailable) && (
+                <p className="text-xs text-muted-foreground">
+                  Some woods are offered for this piece but not available right
+                  now.
+                </p>
+              )}
+            </div>
           )}
 
           <div className="flex items-center gap-3">
@@ -279,9 +365,16 @@ export function ShopProductPage() {
 
             <Button
               className="flex-1 bg-[#8B5E3C] hover:bg-[#744C31]"
-              disabled={!canPurchase}
+              disabled={!canPurchase || (requiresWood && selectedWoodId == null)}
               onClick={() => {
                 void (async () => {
+                  if (requiresWood && selectedWoodId == null) {
+                    toast.error("Please select a wood");
+                    return;
+                  }
+                  const wood = selectableWoods.find(
+                    (w) => w.id === selectedWoodId,
+                  );
                   try {
                     await addItem(
                       {
@@ -290,6 +383,13 @@ export function ShopProductPage() {
                         price: product.price,
                         slug: product.slug,
                         imageUrl: primaryImage?.url,
+                        ...(wood
+                          ? {
+                              woodId: wood.id,
+                              woodName: wood.name,
+                              woodColor: wood.color,
+                            }
+                          : {}),
                       },
                       quantity,
                     );

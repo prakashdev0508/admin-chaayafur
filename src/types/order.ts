@@ -42,6 +42,9 @@ export type OrderItem = {
   productId: number;
   quantity: number;
   price: string;
+  woodId?: number | null;
+  woodName?: string | null;
+  woodColor?: string | null;
   product: {
     id: number;
     name: string;
@@ -167,13 +170,13 @@ export type UpdateOrderPayload = {
   status?: OrderStatus;
   shippingAddressId?: number;
   billingAddressId?: number;
-  items?: { productId: number; quantity: number }[];
+  items?: { productId: number; quantity: number; woodId?: number }[];
   payment?: { notes: string };
 };
 
 /** Shop checkout uses `useCart: true`; legacy guest flow may send `items` instead. */
 export type CreateOrderPayload = {
-  items?: { productId: number; quantity: number }[];
+  items?: { productId: number; quantity: number; woodId?: number }[];
   useCart?: boolean;
   shippingAddressId: number;
   billingAddressId?: number;

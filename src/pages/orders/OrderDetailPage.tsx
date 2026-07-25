@@ -482,6 +482,18 @@ export function OrderDetailPage() {
                             >
                               {item.product.name}
                             </Link>
+                            {item.woodName && (
+                              <p className="mt-0.5 flex items-center gap-1.5 text-xs font-normal text-muted-foreground">
+                                {item.woodColor && (
+                                  <span
+                                    className="size-2.5 rounded-full border border-border"
+                                    style={{ backgroundColor: item.woodColor }}
+                                    aria-hidden
+                                  />
+                                )}
+                                {item.woodName}
+                              </p>
+                            )}
                           </TableCell>
                           <TableCell>{item.quantity}</TableCell>
                           <TableCell>{formatCurrency(item.price)}</TableCell>

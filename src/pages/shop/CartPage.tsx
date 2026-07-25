@@ -87,10 +87,11 @@ export function CartPage() {
         {items.map((item) => {
           const maxQty = item.stock ?? item.quantity + 999;
           const atMaxStock = item.quantity >= maxQty;
+          const lineKey = `${item.productId}:${item.woodId ?? "none"}`;
 
           return (
             <div
-              key={item.productId}
+              key={lineKey}
               className="flex gap-4 rounded-2xl border border-[#E8DFD3] bg-white p-4"
             >
               <div className="size-24 shrink-0 overflow-hidden rounded-xl bg-[#F3EBE0]">
@@ -112,6 +113,18 @@ export function CartPage() {
                     >
                       {item.name}
                     </Link>
+                    {item.woodName && (
+                      <p className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+                        {item.woodColor && (
+                          <span
+                            className="size-2.5 rounded-full border border-[#D9CBB8]"
+                            style={{ backgroundColor: item.woodColor }}
+                            aria-hidden
+                          />
+                        )}
+                        {item.woodName}
+                      </p>
+                    )}
                     <p className="text-sm text-[#8B5E3C]">
                       {formatCurrency(item.price)}
                     </p>
@@ -125,7 +138,7 @@ export function CartPage() {
                     variant="ghost"
                     size="icon-sm"
                     disabled={isSyncing}
-                    onClick={() => void removeItem(item.productId)}
+                    onClick={() => void removeItem(item.productId, item.woodId)}
                   >
                     <Trash2 className="size-4" />
                   </Button>
@@ -137,7 +150,11 @@ export function CartPage() {
                     size="icon-sm"
                     disabled={isSyncing}
                     onClick={() =>
-                      void updateQuantity(item.productId, item.quantity - 1)
+                      void updateQuantity(
+                        item.productId,
+                        item.quantity - 1,
+                        item.woodId,
+                      )
                     }
                   >
                     <Minus className="size-4" />
@@ -148,7 +165,11 @@ export function CartPage() {
                     size="icon-sm"
                     disabled={isSyncing || atMaxStock}
                     onClick={() =>
-                      void updateQuantity(item.productId, item.quantity + 1)
+                      void updateQuantity(
+                        item.productId,
+                        item.quantity + 1,
+                        item.woodId,
+                      )
                     }
                   >
                     <Plus className="size-4" />
