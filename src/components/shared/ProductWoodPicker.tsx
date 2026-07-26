@@ -3,10 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { getProduct } from "@/services/products.service";
-import {
-  getSelectableProductWoods,
-  productRequiresWood,
-} from "@/types/wood";
+import { getSelectableProductWoods } from "@/types/wood";
 
 type ProductWoodPickerProps = {
   productId: number | null;
@@ -16,7 +13,7 @@ type ProductWoodPickerProps = {
 };
 
 /**
- * Loads product detail woods. Shows all assigned options; only
+ * Loads product detail woods. Wood is optional; only
  * `isAvailable: true` woods are selectable.
  */
 export function ProductWoodPicker({
@@ -44,7 +41,22 @@ export function ProductWoodPicker({
 
   return (
     <div className="space-y-2">
-      <Label>Wood</Label>
+      <div className="flex items-center justify-between gap-2">
+        <Label>
+          Wood{" "}
+          <span className="font-normal text-muted-foreground">(optional)</span>
+        </Label>
+        {value != null && (
+          <button
+            type="button"
+            className="text-xs text-muted-foreground underline-offset-2 hover:underline"
+            disabled={disabled}
+            onClick={() => onChange(null)}
+          >
+            Clear
+          </button>
+        )}
+      </div>
       <div className="flex flex-wrap gap-2">
         {woods.map((wood) => {
           const available = wood.isAvailable;
@@ -55,7 +67,7 @@ export function ProductWoodPicker({
               type="button"
               disabled={disabled || !available}
               onClick={() => {
-                if (available) onChange(wood.id);
+                if (available) onChange(selected ? null : wood.id);
               }}
               title={
                 available ? wood.name : `${wood.name} — not available now`
@@ -87,15 +99,11 @@ export function ProductWoodPicker({
           Unavailable woods are shown but cannot be selected.
         </p>
       )}
-      {woods.length > 0 && selectableWoods.length === 0 && (
-        <p className="text-xs text-destructive">
-          No woods are currently available for this product.
-        </p>
-      )}
     </div>
   );
 }
 
+/** @deprecated Wood is optional; prefer useWoodSelection without requiring. */
 export function useProductRequiresWood(productId: number | null) {
   const productQuery = useQuery({
     queryKey: ["product-wood-picker", productId],
@@ -103,18 +111,25 @@ export function useProductRequiresWood(productId: number | null) {
     enabled: productId != null && productId > 0,
   });
   return {
-    requiresWood: productRequiresWood(productQuery.data?.woods),
+    requiresWood: false,
+    hasSelectableWoods: getSelectableProductWoods(productQuery.data?.woods)
+      .length > 0,
     isLoading: productQuery.isLoading && productId != null,
   };
 }
 
 export function useWoodSelection(productId: number | null) {
   const [woodId, setWoodId] = useState<number | null>(null);
-  const { requiresWood, isLoading } = useProductRequiresWood(productId);
+  const { isLoading } = useProductRequiresWood(productId);
 
   useEffect(() => {
     setWoodId(null);
   }, [productId]);
 
-  return { woodId, setWoodId, requiresWood, isLoading };
+  return {
+    woodId,
+    setWoodId,
+    requiresWood: false,
+    isLoading,
+  };
 }

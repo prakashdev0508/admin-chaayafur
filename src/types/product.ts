@@ -1,4 +1,5 @@
 import type { SubCategory } from "@/types/category";
+import type { ProductFabric } from "@/types/fabric";
 import type { ProductWood } from "@/types/wood";
 
 export type ProductImage = {
@@ -37,6 +38,7 @@ export type Product = {
   isNewArrival: boolean;
   productFeatures: string[];
   woods?: ProductWood[];
+  fabrics?: ProductFabric[];
   subCategoryId: number;
   subCategory: SubCategory;
   images: ProductImage[];
@@ -60,6 +62,7 @@ export type ProductListItem = {
   isNewArrival: boolean;
   productFeatures: string[];
   woods?: ProductWood[];
+  fabrics?: ProductFabric[];
   subCategoryId: number;
   subCategory: SubCategory;
   primaryImage: { url: string; altText: string } | null;
@@ -101,6 +104,7 @@ export type CreateProductPayload = {
   isNewArrival?: boolean;
   productFeatures?: string[];
   woods?: { woodId: number; isActive?: boolean }[];
+  fabrics?: { fabricId: number; isActive?: boolean }[];
   images?: ProductImageInput[];
 };
 
@@ -115,6 +119,11 @@ export type UpdateProductCmsTagsPayload = {
 
 export type ProductWoodFormEntry = {
   woodId: number;
+  isActive: boolean;
+};
+
+export type ProductFabricFormEntry = {
+  fabricId: number;
   isActive: boolean;
 };
 
@@ -133,5 +142,6 @@ export type ProductFormValues = {
   isNewArrival: boolean;
   productFeatures: string[];
   woods: ProductWoodFormEntry[];
+  fabrics: ProductFabricFormEntry[];
   images: ProductImageInput[];
 };

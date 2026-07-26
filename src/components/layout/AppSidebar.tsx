@@ -3,7 +3,6 @@ import {
   LayoutDashboard,
   Package,
   FolderTree,
-  Trees,
   ShoppingCart,
   ShoppingBag,
   CreditCard,
@@ -46,6 +45,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { usePermission } from "@/hooks/usePermission";
 import { PERMISSIONS } from "@/lib/roles";
 import { formatRoleLabel, isSuperAdminSlug } from "@/lib/staff-utils";
+import { CustomizationSidebarNav } from "@/components/layout/CustomizationSidebarNav";
 import { ReportsSidebarNav } from "@/components/layout/ReportsSidebarNav";
 
 function getInitials(firstName: string | null, lastName: string | null, email: string) {
@@ -85,12 +85,6 @@ const navMain: NavItem[] = [
     title: "Products",
     url: "/products",
     icon: Package,
-    permission: PERMISSIONS.VIEW_PRODUCTS,
-  },
-  {
-    title: "Woods",
-    url: "/woods",
-    icon: Trees,
     permission: PERMISSIONS.VIEW_PRODUCTS,
   },
   {
@@ -246,6 +240,7 @@ export function AppSidebar() {
                   />
                 </SidebarMenuItem>
               ))}
+              <CustomizationSidebarNav />
               <ReportsSidebarNav />
             </SidebarMenu>
           </SidebarGroupContent>

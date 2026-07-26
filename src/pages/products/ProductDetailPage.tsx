@@ -240,30 +240,83 @@ export function ProductDetailPage() {
               <CardHeader>
                 <CardTitle>Woods</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2">
+              <CardContent className="space-y-3">
                 {product.woods!.map((wood) => (
+                  <div key={wood.id} className="space-y-2 text-sm">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="flex items-center gap-2">
+                        <span
+                          className="size-3.5 rounded-full border border-border"
+                          style={{ backgroundColor: wood.color }}
+                          aria-hidden
+                        />
+                        {wood.name}
+                      </span>
+                      <div className="flex flex-wrap items-center justify-end gap-1">
+                        <StatusBadge
+                          variant={wood.isActive ? "success" : "neutral"}
+                        >
+                          {wood.isActive ? "Assigned active" : "Assigned off"}
+                        </StatusBadge>
+                        <StatusBadge
+                          variant={wood.isAvailable ? "success" : "warning"}
+                        >
+                          {wood.isAvailable ? "Selectable" : "Unavailable"}
+                        </StatusBadge>
+                      </div>
+                    </div>
+                    {(wood.polishes?.length ?? 0) > 0 && (
+                      <div className="flex flex-wrap gap-1.5 pl-5">
+                        {wood.polishes!.map((polish) => (
+                          <span
+                            key={polish.id}
+                            className="inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs text-muted-foreground"
+                          >
+                            <span
+                              className="size-2.5 rounded-full border border-border"
+                              style={{ backgroundColor: polish.color }}
+                              aria-hidden
+                            />
+                            {polish.name}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
+          {(product.fabrics?.length ?? 0) > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Fabrics</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {product.fabrics!.map((fabric) => (
                   <div
-                    key={wood.id}
+                    key={fabric.id}
                     className="flex items-center justify-between gap-2 text-sm"
                   >
                     <span className="flex items-center gap-2">
                       <span
                         className="size-3.5 rounded-full border border-border"
-                        style={{ backgroundColor: wood.color }}
+                        style={{ backgroundColor: fabric.color }}
                         aria-hidden
                       />
-                      {wood.name}
+                      {fabric.name}
                     </span>
                     <div className="flex flex-wrap items-center justify-end gap-1">
                       <StatusBadge
-                        variant={wood.isActive ? "success" : "neutral"}
+                        variant={fabric.isActive ? "success" : "neutral"}
                       >
-                        {wood.isActive ? "Assigned active" : "Assigned off"}
+                        {fabric.isActive ? "Assigned active" : "Assigned off"}
                       </StatusBadge>
                       <StatusBadge
-                        variant={wood.isAvailable ? "success" : "warning"}
+                        variant={fabric.isAvailable ? "success" : "warning"}
                       >
-                        {wood.isAvailable ? "Selectable" : "Unavailable"}
+                        {fabric.isAvailable ? "Selectable" : "Unavailable"}
                       </StatusBadge>
                     </div>
                   </div>
