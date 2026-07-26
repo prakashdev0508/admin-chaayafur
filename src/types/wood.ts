@@ -1,9 +1,25 @@
+export type WoodPolish = {
+  id: number;
+  name: string;
+  slug: string;
+  color: string;
+  isActive: boolean;
+};
+
+export type WoodPolishInput = {
+  name: string;
+  slug: string;
+  color: string;
+  isActive?: boolean;
+};
+
 export type Wood = {
   id: number;
   name: string;
   slug: string;
   color: string;
   isActive: boolean;
+  polishes?: WoodPolish[];
   createdAt?: string;
   updatedAt?: string;
 };
@@ -22,6 +38,8 @@ export type ProductWood = {
    * List responses only include available woods.
    */
   isAvailable: boolean;
+  /** Active polishes for storefront browsing (not persisted on cart yet). */
+  polishes?: WoodPolish[];
 };
 
 /** True when the wood can be chosen for cart/checkout. */
@@ -29,14 +47,17 @@ export function isProductWoodAvailable(wood: ProductWood): boolean {
   return wood.isAvailable;
 }
 
-/** Woods that may be selected; empty means no woodId required. */
+/** Woods that may be selected (optional customization). */
 export function getSelectableProductWoods(
   woods: ProductWood[] | undefined | null,
 ): ProductWood[] {
   return (woods ?? []).filter(isProductWoodAvailable);
 }
 
-/** Product requires a woodId when at least one wood is selectable. */
+/**
+ * @deprecated Wood is optional on cart; prefer getSelectableProductWoods.
+ * Kept for call sites that still check “has selectable woods”.
+ */
 export function productRequiresWood(
   woods: ProductWood[] | undefined | null,
 ): boolean {
@@ -60,13 +81,28 @@ export type CreateWoodPayload = {
   slug: string;
   color: string;
   isActive?: boolean;
+  polishes?: WoodPolishInput[];
 };
 
-export type UpdateWoodPayload = Partial<CreateWoodPayload>;
+export type UpdateWoodPayload = Partial<CreateWoodPayload> & {
+  /** Omit = unchanged; `[]` = clear; non-empty = replace all. */
+  polishes?: WoodPolishInput[];
+};
+
+export type WoodPolishFormEntry = {
+  /** Local key for React lists (existing id or temp). */
+  key: string;
+  name: string;
+  slug: string;
+  color: string;
+  isActive: boolean;
+  slugTouched: boolean;
+};
 
 export type WoodFormValues = {
   name: string;
   slug: string;
   color: string;
   isActive: boolean;
+  polishes: WoodPolishFormEntry[];
 };

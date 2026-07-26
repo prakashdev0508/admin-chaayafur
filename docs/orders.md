@@ -181,7 +181,7 @@ Create an order from frontend cart items. Creates a Razorpay Payment Link for th
 | `items` | array | Yes | Min 1 item |
 | `items[].productId` | integer | Yes | Must exist and be active |
 | `items[].quantity` | integer | Yes | Min 1, max 9999 |
-| `items[].woodId` | integer | Conditional | Required when product has active woods; omit otherwise ([woods.md](./woods.md)) |
+| `items[].woodId` | integer | No | Optional customization; if set, must be an active wood for that product ([woods.md](./woods.md)) |
 | `shippingAddressId` | integer | Yes | Customer's own address |
 | `billingAddressId` | integer | No | Defaults to `shippingAddressId` |
 | `couponCode` | string | No | Max 32 chars; validated server-side |
@@ -191,7 +191,7 @@ Create an order from frontend cart items. Creates a Razorpay Payment Link for th
 1. All addresses must belong to the authenticated customer
 2. All products must exist and be `isActive: true`
 3. Sufficient stock for each line item
-4. Wood selection required/validated when the product has active woods
+4. If `woodId` is provided, it must be available for that product; omitting wood is always allowed
 5. `subtotalAmount` computed server-side from product prices
 6. Optional coupon validated and discount applied
 6. Shipping address pincode checked for serviceability ([shipping.md](./shipping.md)); `shippingAmount` computed from site settings

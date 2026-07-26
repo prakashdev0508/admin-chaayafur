@@ -28,7 +28,6 @@ import {
 } from "@/lib/product-utils";
 import {
   getSelectableProductWoods,
-  productRequiresWood,
 } from "@/types/wood";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -74,6 +73,8 @@ export function ShopProductPage() {
   const { isAuthenticated } = useCustomerAuth();
   const [quantity, setQuantity] = useState(1);
   const [selectedWoodId, setSelectedWoodId] = useState<number | null>(null);
+  const [selectedPolishId, setSelectedPolishId] = useState<number | null>(null);
+  const [selectedFabricId, setSelectedFabricId] = useState<number | null>(null);
   const [reviewsPage, setReviewsPage] = useState(1);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
@@ -121,8 +122,11 @@ export function ShopProductPage() {
   const activeTags = product ? getActiveProductTags(product) : [];
   const productWoods = product?.woods ?? [];
   const selectableWoods = getSelectableProductWoods(productWoods);
-  const requiresWood = productRequiresWood(productWoods);
   const showWoodSection = productWoods.length > 0;
+  const selectedWood = selectableWoods.find((w) => w.id === selectedWoodId);
+  const woodPolishes = selectedWood?.polishes ?? [];
+  const productFabrics = product?.fabrics ?? [];
+  const showFabricSection = productFabrics.length > 0;
   const canPurchase = stockStatus === "in_stock" || stockStatus === "low_stock";
   const sortedImages = [...(product?.images ?? [])].sort(
     (a, b) => a.sortOrder - b.sortOrder,
@@ -275,14 +279,26 @@ export function ShopProductPage() {
 
           {showWoodSection && (
             <div className="space-y-3">
-              <p className="text-sm font-medium text-[#3D2B1F]">
-                Select wood
-                {requiresWood && selectedWoodId == null && (
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-medium text-[#3D2B1F]">
+                  Wood
                   <span className="ml-1 font-normal text-muted-foreground">
-                    (required)
+                    (optional)
                   </span>
+                </p>
+                {selectedWoodId != null && (
+                  <button
+                    type="button"
+                    className="text-xs text-muted-foreground underline-offset-2 hover:underline"
+                    onClick={() => {
+                      setSelectedWoodId(null);
+                      setSelectedPolishId(null);
+                    }}
+                  >
+                    Clear
+                  </button>
                 )}
-              </p>
+              </div>
               <div className="flex flex-wrap gap-2">
                 {productWoods.map((wood) => {
                   const available = wood.isAvailable;
@@ -293,7 +309,9 @@ export function ShopProductPage() {
                       type="button"
                       disabled={!available}
                       onClick={() => {
-                        if (available) setSelectedWoodId(wood.id);
+                        if (!available) return;
+                        setSelectedWoodId(wood.id);
+                        setSelectedPolishId(null);
                       }}
                       title={
                         available
@@ -329,12 +347,124 @@ export function ShopProductPage() {
                   );
                 })}
               </div>
+              {woodPolishes.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-[#3D2B1F]">
+                    Polish
+                    <span className="ml-1 font-normal text-muted-foreground">
+                      (preview)
+                    </span>
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {woodPolishes.map((polish) => {
+                      const selected = selectedPolishId === polish.id;
+                      return (
+                        <button
+                          key={polish.id}
+                          type="button"
+                          onClick={() =>
+                            setSelectedPolishId(
+                              selected ? null : polish.id,
+                            )
+                          }
+                          className={cn(
+                            "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition-colors",
+                            selected
+                              ? "border-[#8B5E3C] bg-[#F8F1E8] text-[#3D2B1F]"
+                              : "border-[#E8DFD3] bg-white text-muted-foreground hover:border-[#D9CBB8]",
+                          )}
+                          aria-pressed={selected}
+                        >
+                          <span
+                            className="size-3.5 rounded-full border border-[#D9CBB8]"
+                            style={{ backgroundColor: polish.color }}
+                            aria-hidden
+                          />
+                          {polish.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
               {productWoods.some((w) => !w.isAvailable) && (
                 <p className="text-xs text-muted-foreground">
                   Some woods are offered for this piece but not available right
                   now.
                 </p>
               )}
+            </div>
+          )}
+
+          {showFabricSection && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-medium text-[#3D2B1F]">
+                  Fabric
+                  <span className="ml-1 font-normal text-muted-foreground">
+                    (preview)
+                  </span>
+                </p>
+                {selectedFabricId != null && (
+                  <button
+                    type="button"
+                    className="text-xs text-muted-foreground underline-offset-2 hover:underline"
+                    onClick={() => setSelectedFabricId(null)}
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {productFabrics.map((fabric) => {
+                  const available = fabric.isAvailable;
+                  const selected = selectedFabricId === fabric.id;
+                  return (
+                    <button
+                      key={fabric.id}
+                      type="button"
+                      disabled={!available}
+                      onClick={() => {
+                        if (!available) return;
+                        setSelectedFabricId(selected ? null : fabric.id);
+                      }}
+                      title={
+                        available
+                          ? fabric.name
+                          : `${fabric.name} — not available now`
+                      }
+                      className={cn(
+                        "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition-colors",
+                        !available &&
+                          "cursor-not-allowed opacity-50 border-dashed",
+                        available &&
+                          selected &&
+                          "border-[#8B5E3C] bg-[#F8F1E8] text-[#3D2B1F]",
+                        available &&
+                          !selected &&
+                          "border-[#E8DFD3] bg-white text-muted-foreground hover:border-[#D9CBB8]",
+                      )}
+                      aria-pressed={selected}
+                      aria-disabled={!available}
+                    >
+                      <span
+                        className="size-3.5 rounded-full border border-[#D9CBB8]"
+                        style={{ backgroundColor: fabric.color }}
+                        aria-hidden
+                      />
+                      <span>{fabric.name}</span>
+                      {!available && (
+                        <span className="text-[10px] uppercase tracking-wide">
+                          Unavailable
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Fabric choice is for browsing; it is not added to the cart yet.
+              </p>
             </div>
           )}
 
@@ -365,13 +495,9 @@ export function ShopProductPage() {
 
             <Button
               className="flex-1 bg-[#8B5E3C] hover:bg-[#744C31]"
-              disabled={!canPurchase || (requiresWood && selectedWoodId == null)}
+              disabled={!canPurchase}
               onClick={() => {
                 void (async () => {
-                  if (requiresWood && selectedWoodId == null) {
-                    toast.error("Please select a wood");
-                    return;
-                  }
                   const wood = selectableWoods.find(
                     (w) => w.id === selectedWoodId,
                   );

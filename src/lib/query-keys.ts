@@ -60,6 +60,12 @@ export const queryKeys = {
       ["woods", "list", params] as const,
     detail: (id: number) => ["woods", "detail", id] as const,
   },
+  fabrics: {
+    all: ["fabrics"] as const,
+    list: (params: Record<string, unknown>) =>
+      ["fabrics", "list", params] as const,
+    detail: (id: number) => ["fabrics", "detail", id] as const,
+  },
   categories: {
     all: ["categories"] as const,
     tree: ["categories", "tree"] as const,

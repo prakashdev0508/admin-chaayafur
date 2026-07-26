@@ -2,7 +2,7 @@
 
 Create, update, and list furniture products.
 
-[← Back to index](./README.md) · [Categories docs](./categories.md) · [Home / CMS](./home.md) · [Auth docs](./auth.md) · [Orders / checkout](./orders.md)
+[← Back to index](./README.md) · [Categories docs](./categories.md) · [Woods](./woods.md) · [Fabrics](./fabrics.md) · [Home / CMS](./home.md) · [Auth docs](./auth.md) · [Orders / checkout](./orders.md)
 
 ---
 
@@ -16,7 +16,8 @@ Create, update, and list furniture products.
 - Default list shows only **active** products (`isActive=true`)
 - **`price`** is the selling price (after discount) — used for cart, checkout, and filters
 - **`priceWithoutDiscount`** is optional compare-at / MRP; display-only, does not affect checkout
-- **`woods`** — product wood options (see [woods.md](./woods.md)); detail includes unavailable woods with `isAvailable: false`
+- **`woods`** — product wood options with nested polishes (see [woods.md](./woods.md)); detail includes unavailable woods with `isAvailable: false`
+- **`fabrics`** — product fabric options (see [fabrics.md](./fabrics.md)); same availability pattern as woods; independent of wood
 - Products link to **`subCategoryId`** (not top-level `categoryId`)
 - Public list responses are **cached** in Upstash Redis (60s default) and return `Cache-Control` headers for CDN edge caching
 - Cache is invalidated automatically when products, categories, or sub-categories are created or updated
@@ -122,6 +123,7 @@ Authorization: Bearer <accessToken>
 | `isNewArrival` | boolean | No | Default `false` — CMS merchandising tag |
 | `productFeatures` | string[] | No | Max 50 items; each string max 200 chars. Default `[]` |
 | `woods` | array | No | `{ woodId, isActive? }[]` — assign woods for this product. Pass `[]` to clear. See [woods.md](./woods.md) |
+| `fabrics` | array | No | `{ fabricId, isActive? }[]` — assign fabrics for this product. Pass `[]` to clear. See [fabrics.md](./fabrics.md) |
 | `images` | array | No | Max 10 items. Upload files first via [uploads.md](./uploads.md); include `storageKey` from upload response |
 
 ### Success response `201`

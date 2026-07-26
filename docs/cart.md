@@ -1,6 +1,6 @@
 # Cart API
 
-Persistent server-side cart for logged-in customers. Line keys are `productId` + optional `woodId`; **all prices are computed from live product data** on every read and at checkout. See [woods.md](./woods.md) for wood selection rules.
+Persistent server-side cart for logged-in customers. Line keys are `productId` + optional `woodId`; **all prices are computed from live product data** on every read and at checkout. See [woods.md](./woods.md) for optional wood selection rules.
 
 [← Back to index](./README.md) · [Customers](./customers.md) · [Orders](./orders.md) · [Coupons](./coupons.md) · [Products](./products.md)
 
@@ -138,13 +138,13 @@ Add a product or replace quantity if the line already exists (upsert).
 |-------|-------|
 | `productId` | Integer ≥ 1, must exist |
 | `quantity` | Integer ≥ 1, max per app validation constant |
-| `woodId` | Required when the product has active woods; omit when it has none |
+| `woodId` | Optional customization; if set, must be an active wood assigned to the product ([woods.md](./woods.md)) |
 
 ### Validation
 
 - Product must exist and `isActive: true`
 - `quantity` must not exceed current `stock`
-- Wood selection must satisfy [woods.md](./woods.md) rules
+- If `woodId` is provided, it must be available for that product
 
 ### Response
 

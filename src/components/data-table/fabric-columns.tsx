@@ -4,15 +4,15 @@ import { Link } from "react-router-dom";
 import { buttonVariants } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { cn } from "@/lib/utils";
-import type { Wood } from "@/types/wood";
+import type { Fabric } from "@/types/fabric";
 
-export const woodColumns: ColumnDef<Wood>[] = [
+export const fabricColumns: ColumnDef<Fabric>[] = [
   {
     accessorKey: "name",
     header: "Name",
     cell: ({ row }) => (
       <Link
-        to={`/woods/${row.original.id}/edit`}
+        to={`/fabrics/${row.original.id}/edit`}
         className="flex items-center gap-2 font-medium hover:underline"
       >
         <span
@@ -43,15 +43,6 @@ export const woodColumns: ColumnDef<Wood>[] = [
     ),
   },
   {
-    id: "polishes",
-    header: "Polishes",
-    cell: ({ row }) => (
-      <span className="text-sm text-muted-foreground">
-        {row.original.polishes?.length ?? 0}
-      </span>
-    ),
-  },
-  {
     accessorKey: "isActive",
     header: "Status",
     cell: ({ row }) =>
@@ -66,7 +57,7 @@ export const woodColumns: ColumnDef<Wood>[] = [
     header: () => <span className="sr-only">Actions</span>,
     cell: ({ row }) => (
       <Link
-        to={`/woods/${row.original.id}/edit`}
+        to={`/fabrics/${row.original.id}/edit`}
         className={cn(buttonVariants({ variant: "ghost", size: "icon-sm" }))}
         aria-label={`Edit ${row.original.name}`}
       >

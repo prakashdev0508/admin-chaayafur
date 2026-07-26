@@ -27,10 +27,7 @@ import {
 } from "@/services/admin-carts.service";
 import { getProduct } from "@/services/products.service";
 import { cartLineKey, type AdminCartDetail } from "@/types/cart";
-import {
-  getSelectableProductWoods,
-  productRequiresWood,
-} from "@/types/wood";
+import { getSelectableProductWoods } from "@/types/wood";
 import type { ProductListItem } from "@/types/product";
 
 type LineRef = { productId: number; woodId?: number | null };
@@ -75,7 +72,6 @@ export function AdminCartItemsPanel({
 
   const productWoods = productDetailQuery.data?.woods ?? [];
   const selectableWoods = getSelectableProductWoods(productWoods);
-  const requiresWood = productRequiresWood(productWoods);
   const showWoodPicker = productWoods.length > 0;
 
   useEffect(() => {
@@ -337,10 +333,6 @@ export function AdminCartItemsPanel({
               const qty = Number(quantity);
               if (!Number.isFinite(qty) || qty < 1) {
                 toast.error("Quantity must be at least 1");
-                return;
-              }
-              if (requiresWood && selectedWoodId == null) {
-                toast.error("Select a wood for this product");
                 return;
               }
               upsertMutation.mutate({

@@ -54,7 +54,6 @@ export function CartListPage() {
   const {
     woodId: selectedWoodId,
     setWoodId: setSelectedWoodId,
-    requiresWood,
   } = useWoodSelection(selectedProduct?.id ?? null);
 
   const params = useMemo(
@@ -211,10 +210,6 @@ export function CartListPage() {
               }
               if (!Number.isFinite(qty) || qty < 1) {
                 toast.error("Quantity must be at least 1");
-                return;
-              }
-              if (requiresWood && selectedWoodId == null) {
-                toast.error("Select a wood for this product");
                 return;
               }
               seedMutation.mutate({

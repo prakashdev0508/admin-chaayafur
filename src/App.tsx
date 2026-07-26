@@ -16,6 +16,9 @@ import { ProductDetailPage } from "@/pages/products/ProductDetailPage";
 import { WoodListPage } from "@/pages/woods/WoodListPage";
 import { AddWoodPage } from "@/pages/woods/AddWoodPage";
 import { EditWoodPage } from "@/pages/woods/EditWoodPage";
+import { FabricListPage } from "@/pages/fabrics/FabricListPage";
+import { AddFabricPage } from "@/pages/fabrics/AddFabricPage";
+import { EditFabricPage } from "@/pages/fabrics/EditFabricPage";
 import { OrderListPage } from "@/pages/orders/OrderListPage";
 import { OrderDetailPage } from "@/pages/orders/OrderDetailPage";
 import { PaymentListPage } from "@/pages/payments/PaymentListPage";
@@ -134,6 +137,7 @@ const App = () => {
             }
           >
             <Route path="woods" element={<WoodListPage />} />
+            <Route path="fabrics" element={<FabricListPage />} />
           </Route>
           <Route
             element={
@@ -141,6 +145,7 @@ const App = () => {
             }
           >
             <Route path="woods/new" element={<AddWoodPage />} />
+            <Route path="fabrics/new" element={<AddFabricPage />} />
           </Route>
           <Route
             element={
@@ -148,6 +153,7 @@ const App = () => {
             }
           >
             <Route path="woods/:id/edit" element={<EditWoodPage />} />
+            <Route path="fabrics/:id/edit" element={<EditFabricPage />} />
           </Route>
           <Route
             element={<PermissionRoute permission={PERMISSIONS.VIEW_ORDERS} />}

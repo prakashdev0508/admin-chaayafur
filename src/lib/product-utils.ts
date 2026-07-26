@@ -80,6 +80,10 @@ export function productToFormValues(product: Product): ProductFormValues {
       woodId: w.id,
       isActive: w.isActive,
     })),
+    fabrics: (product.fabrics ?? []).map((f) => ({
+      fabricId: f.id,
+      isActive: f.isActive,
+    })),
     images:
       product.images.length > 0
         ? product.images.map((img) => ({
@@ -128,6 +132,10 @@ export function formValuesToCreatePayload(
     woods: values.woods.map((w) => ({
       woodId: w.woodId,
       isActive: w.isActive,
+    })),
+    fabrics: values.fabrics.map((f) => ({
+      fabricId: f.fabricId,
+      isActive: f.isActive,
     })),
     images: images.length > 0 ? images : undefined,
   };
