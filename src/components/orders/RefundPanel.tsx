@@ -157,7 +157,7 @@ function RefundItemCard({
               disabled={busy}
               onClick={onComplete}
             >
-              {completeLoading ? "Completing..." : "Complete refund"}
+              {completeLoading ? "Sending OTP..." : "Complete refund"}
             </Button>
           )}
           {canCancelRequest && (

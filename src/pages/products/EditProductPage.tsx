@@ -57,7 +57,7 @@ export function EditProductPage() {
     setError(null);
     try {
       await updateProduct(productId, formValuesToCreatePayload(values));
-      navigate("/products");
+      navigate(`/products/${productId}`);
     } catch (err) {
       setError(
         err instanceof ApiError ? err.message : "Failed to update product",

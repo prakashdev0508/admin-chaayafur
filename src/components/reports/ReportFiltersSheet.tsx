@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -127,6 +128,7 @@ export function ReportFiltersSheet({
   onApplyCustomers,
   onApplyPayments,
 }: ReportFiltersSheetProps) {
+  const [open, setOpen] = useState(false);
   const titles: Record<ReportKind, string> = {
     products: "Product report filters",
     sales: "Sales report filters",
@@ -137,7 +139,7 @@ export function ReportFiltersSheet({
   };
 
   return (
-    <Sheet>
+    <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger
         render={
           <Button variant="outline">
@@ -180,6 +182,7 @@ export function ReportFiltersSheet({
                   | "true"
                   | "false",
               });
+              setOpen(false);
               return;
             }
 
@@ -194,6 +197,7 @@ export function ReportFiltersSheet({
                 categoryId: String(data.get("categoryId") ?? ""),
                 city: String(data.get("city") ?? ""),
               });
+              setOpen(false);
               return;
             }
 
@@ -212,6 +216,7 @@ export function ReportFiltersSheet({
                 paymentStatus: String(data.get("paymentStatus") ?? "all") as OrdersReportFilters["paymentStatus"],
                 city: String(data.get("city") ?? ""),
               });
+              setOpen(false);
               return;
             }
 
@@ -225,6 +230,7 @@ export function ReportFiltersSheet({
                   | "true"
                   | "false",
               });
+              setOpen(false);
               return;
             }
 
@@ -239,6 +245,7 @@ export function ReportFiltersSheet({
                 hasOrderInRange: data.get("hasOrderInRange") === "on",
                 city: String(data.get("city") ?? ""),
               });
+              setOpen(false);
               return;
             }
 
@@ -252,6 +259,7 @@ export function ReportFiltersSheet({
               status: String(data.get("status") ?? "all") as PaymentsReportFilters["status"],
               orderNumber: String(data.get("orderNumber") ?? ""),
             });
+            setOpen(false);
           }}
         >
           {kind !== "inventory" && (

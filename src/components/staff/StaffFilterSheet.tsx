@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -36,6 +37,7 @@ export function StaffFilterSheet({
   onApply,
   activeCount,
 }: StaffFilterSheetProps) {
+  const [open, setOpen] = useState(false);
   const rolesQuery = useQuery({
     queryKey: queryKeys.roles.list,
     queryFn: listRoles,
@@ -51,7 +53,7 @@ export function StaffFilterSheet({
   ];
 
   return (
-    <Sheet>
+    <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger
         render={
           <Button variant="outline">
@@ -82,6 +84,7 @@ export function StaffFilterSheet({
               isActive: String(form.get("isActive") ?? "all"),
               email: String(form.get("email") ?? ""),
             });
+            setOpen(false);
           }}
         >
           <div className="space-y-2">

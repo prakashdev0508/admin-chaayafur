@@ -7,7 +7,7 @@ import { uploadSupportImage } from "@/services/uploads.service";
 import type { SupportTicketAttachment } from "@/types/support-ticket";
 
 const MAX_IMAGES = 5;
-const MAX_FILE_SIZE_MB = 5;
+const MAX_FILE_SIZE_MB = 4;
 const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 
 type ImageSlot = {

@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { RefundCompleteOtpDialog } from "@/components/orders/RefundCompleteOtpDialog";
 import { RefundCompleteResultDialog } from "@/components/orders/RefundCompleteResultDialog";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -16,6 +17,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { useAuth } from "@/contexts/AuthContext";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { getOrderStatusLabel } from "@/lib/order-status";
 import {
@@ -27,10 +29,7 @@ import { queryKeys } from "@/lib/query-keys";
 import { PERMISSIONS } from "@/lib/roles";
 import { usePermission } from "@/hooks/usePermission";
 import { cn } from "@/lib/utils";
-import {
-  cancelOrderRefund,
-  completeOrderRefund,
-} from "@/services/orders.service";
+import { cancelOrderRefund } from "@/services/orders.service";
 import { getRefund } from "@/services/refunds.service";
 import type { OrderRefund } from "@/types/refund";
 
@@ -38,6 +37,7 @@ export function RefundDetailPage() {
   const { id } = useParams<{ id: string }>();
   const refundId = Number(id);
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const { hasPermission, hasAnyPermission } = usePermission();
   const canView = hasAnyPermission([
     PERMISSIONS.VIEW_PAYMENTS,
@@ -45,7 +45,7 @@ export function RefundDetailPage() {
   ]);
   const canUpdate = hasPermission(PERMISSIONS.UPDATE_PAYMENTS);
 
-  const [completeOpen, setCompleteOpen] = useState(false);
+  const [completeOtpOpen, setCompleteOtpOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [completeResult, setCompleteResult] = useState<OrderRefund | null>(
     null,
@@ -55,27 +55,6 @@ export function RefundDetailPage() {
     queryKey: queryKeys.refunds.detail(refundId),
     queryFn: () => getRefund(refundId),
     enabled: canView && Number.isFinite(refundId),
-  });
-
-  const completeMutation = useMutation({
-    mutationFn: () =>
-      completeOrderRefund(refundQuery.data!.orderId, refundId),
-    onSuccess: (refund) => {
-      setCompleteOpen(false);
-      setCompleteResult(refund);
-      void queryClient.invalidateQueries({ queryKey: queryKeys.refunds.all });
-      void queryClient.invalidateQueries({
-        queryKey: queryKeys.refunds.detail(refundId),
-      });
-      void queryClient.invalidateQueries({
-        queryKey: queryKeys.orders.refund(refund.orderId),
-      });
-    },
-    onError: (error) => {
-      toast.error(
-        error instanceof Error ? error.message : "Failed to complete refund",
-      );
-    },
   });
 
   const cancelMutation = useMutation({
@@ -97,6 +76,16 @@ export function RefundDetailPage() {
       );
     },
   });
+
+  function invalidateAfterComplete(refund: OrderRefund) {
+    void queryClient.invalidateQueries({ queryKey: queryKeys.refunds.all });
+    void queryClient.invalidateQueries({
+      queryKey: queryKeys.refunds.detail(refundId),
+    });
+    void queryClient.invalidateQueries({
+      queryKey: queryKeys.orders.refund(refund.orderId),
+    });
+  }
 
   if (!canView) {
     return (
@@ -160,7 +149,7 @@ export function RefundDetailPage() {
               Open order
             </Link>
             {canComplete && (
-              <Button onClick={() => setCompleteOpen(true)}>
+              <Button onClick={() => setCompleteOtpOpen(true)}>
                 Complete refund
               </Button>
             )}
@@ -316,23 +305,25 @@ export function RefundDetailPage() {
         </CardContent>
       </Card>
 
-      <ConfirmDialog
-        open={completeOpen}
-        onOpenChange={setCompleteOpen}
-        title="Complete this refund?"
-        description={`This calls Razorpay for ${formatCurrency(refund.amount)}. Order fulfillment status will not change.`}
-        confirmLabel="Complete refund"
-        cancelLabel="Back"
-        variant="destructive"
-        loading={completeMutation.isPending}
-        onConfirm={() => completeMutation.mutateAsync()}
+      <RefundCompleteOtpDialog
+        open={completeOtpOpen}
+        onOpenChange={setCompleteOtpOpen}
+        orderId={refund.orderId}
+        refundId={refund.id}
+        amount={refund.amount}
+        orderNumber={refund.order.orderNumber}
+        staffEmail={user?.email}
+        onVerified={(completed) => {
+          invalidateAfterComplete(completed);
+          setCompleteResult(completed);
+        }}
       />
 
       <ConfirmDialog
         open={cancelOpen}
         onOpenChange={setCancelOpen}
         title="Cancel refund request?"
-        description="This only cancels the initiated request. No money is moved."
+        description="This only cancels the initiated request. Any pending OTP is cleared. No money is moved."
         confirmLabel="Cancel request"
         cancelLabel="Back"
         variant="destructive"

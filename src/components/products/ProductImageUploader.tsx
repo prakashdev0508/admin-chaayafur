@@ -26,7 +26,7 @@ import { uploadProductImage } from "@/services/uploads.service";
 import type { ProductImageInput } from "@/types/product";
 
 const MAX_IMAGES = 10;
-const MAX_FILE_SIZE_MB = 5;
+const MAX_FILE_SIZE_MB = 4;
 const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 
 type ImageSlot = {

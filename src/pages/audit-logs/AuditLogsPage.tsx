@@ -49,6 +49,7 @@ export function AuditLogsPage() {
   const [page, setPage] = useState(0);
   const pageSize = 20;
   const [filters, setFilters] = useState<AuditFilters>(defaultFilters);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const params = useMemo(
     () => ({
@@ -111,7 +112,7 @@ export function AuditLogsPage() {
             >
               <RefreshCw className={`size-4 ${isFetching ? "animate-spin" : ""}`} />
             </Button>
-            <Sheet>
+            <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
               <SheetTrigger
                 render={
                   <Button variant="outline">
@@ -144,6 +145,7 @@ export function AuditLogsPage() {
                       changedById: String(form.get("changedById") ?? ""),
                     });
                     setPage(0);
+                    setFiltersOpen(false);
                   }}
                 >
                   <div className="space-y-2">

@@ -341,7 +341,10 @@ export function ProductFilterSheet({
           <Button variant="outline" className="flex-1" onClick={onClear}>
             Clear
           </Button>
-          <Button className="flex-1" onClick={onApply}>
+          <Button className="flex-1" onClick={() => {
+            onApply();
+            onOpenChange(false);
+          }}>
             Apply filters
           </Button>
         </SheetFooter>
