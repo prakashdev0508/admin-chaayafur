@@ -10,7 +10,7 @@ export type BrandingImageInput = {
   storageKey?: string;
 };
 
-const MAX_FILE_SIZE_MB = 5;
+const MAX_FILE_SIZE_MB = 4;
 const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
 type BrandingImageUploaderProps = {

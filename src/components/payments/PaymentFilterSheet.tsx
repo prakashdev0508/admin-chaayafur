@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,8 +33,10 @@ export function PaymentFilterSheet({
   onApply,
   activeCount,
 }: PaymentFilterSheetProps) {
+  const [open, setOpen] = useState(false);
+
   return (
-    <Sheet>
+    <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger
         render={
           <Button variant="outline">
@@ -69,6 +72,7 @@ export function PaymentFilterSheet({
               createdFrom: String(data.get("createdFrom") ?? ""),
               createdTo: String(data.get("createdTo") ?? ""),
             });
+            setOpen(false);
           }}
         >
           <div className="space-y-2">

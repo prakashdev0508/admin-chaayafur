@@ -110,3 +110,14 @@ export type InitiateRefundPayload = {
   /** Omit to refund the full remaining balance */
   amount?: number;
 };
+
+/** POST /orders/:id/refund/:refundId/complete — OTP emailed to staff */
+export type RefundCompleteOtpResponse = {
+  message: string;
+  expiresInSeconds?: number;
+  retryAfterSeconds?: number;
+};
+
+export type VerifyRefundCompletePayload = {
+  otp: string;
+};

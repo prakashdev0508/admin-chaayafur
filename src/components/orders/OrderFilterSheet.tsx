@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,8 +36,10 @@ export function OrderFilterSheet({
   onApply,
   activeCount,
 }: OrderFilterSheetProps) {
+  const [open, setOpen] = useState(false);
+
   return (
-    <Sheet>
+    <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger
         render={
           <Button variant="outline">
@@ -72,6 +75,7 @@ export function OrderFilterSheet({
               createdFrom: String(data.get("createdFrom") ?? ""),
               createdTo: String(data.get("createdTo") ?? ""),
             });
+            setOpen(false);
           }}
         >
           <div className="space-y-2">

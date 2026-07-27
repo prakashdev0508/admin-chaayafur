@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,8 +32,10 @@ export function SupportTicketFilterSheet({
   onApply,
   activeCount,
 }: SupportTicketFilterSheetProps) {
+  const [open, setOpen] = useState(false);
+
   return (
-    <Sheet>
+    <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger
         render={
           <Button variant="outline">
@@ -66,6 +69,7 @@ export function SupportTicketFilterSheet({
               orderId: String(data.get("orderId") ?? ""),
               customerId: String(data.get("customerId") ?? ""),
             });
+            setOpen(false);
           }}
         >
           <div className="space-y-2">

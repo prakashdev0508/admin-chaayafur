@@ -106,8 +106,8 @@ export function RefundOrderDialog({
             Create a refund request for {orderNumber}. Payment total is{" "}
             {paymentAmountLabel}; remaining balance is {remainingLabel}. Leave
             the amount as remaining for a full refund, or enter a smaller amount
-            for a partial refund. Razorpay is not charged until you click
-            Complete refund.
+            for a partial refund. Razorpay is not charged until you verify an
+            OTP when completing the refund.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">

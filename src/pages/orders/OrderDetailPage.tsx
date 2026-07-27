@@ -33,10 +33,12 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { OrderStatusForm } from "@/components/orders/OrderStatusForm";
+import { RefundCompleteOtpDialog } from "@/components/orders/RefundCompleteOtpDialog";
 import { RefundCompleteResultDialog } from "@/components/orders/RefundCompleteResultDialog";
 import { RefundOrderDialog } from "@/components/orders/RefundOrderDialog";
 import { RefundPanel } from "@/components/orders/RefundPanel";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { useAuth } from "@/contexts/AuthContext";
 import { TrackingTimeline } from "@/components/shared/TrackingTimeline";
 import { InvoicePanel } from "@/components/shared/InvoicePanel";
 import { AuditLogTable } from "@/components/shared/AuditLogTable";
@@ -60,7 +62,6 @@ import { cn } from "@/lib/utils";
 import { ApiError } from "@/lib/api";
 import {
   cancelOrderRefund,
-  completeOrderRefund,
   emailOrderInvoice,
   generateOrderInvoice,
   getOrder,
@@ -80,6 +81,7 @@ export function OrderDetailPage() {
   const { id } = useParams();
   const orderId = Number(id);
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const { hasPermission } = usePermission();
   const canViewSupport = hasPermission(PERMISSIONS.VIEW_ORDER_SUPPORT);
   const canRefund = hasPermission(PERMISSIONS.UPDATE_PAYMENTS);
@@ -88,7 +90,7 @@ export function OrderDetailPage() {
     hasPermission(PERMISSIONS.VIEW_PAYMENTS) ||
     hasPermission(PERMISSIONS.VIEW_ORDERS);
   const [refundOpen, setRefundOpen] = useState(false);
-  const [completeConfirmOpen, setCompleteConfirmOpen] = useState(false);
+  const [completeOtpOpen, setCompleteOtpOpen] = useState(false);
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
   const [completeResultOpen, setCompleteResultOpen] = useState(false);
   const [completeResultRefund, setCompleteResultRefund] =
@@ -187,21 +189,6 @@ export function OrderDetailPage() {
       toast.error(
         error instanceof Error ? error.message : "Failed to initiate refund",
       );
-    },
-  });
-
-  const completeRefundMutation = useMutation({
-    mutationFn: (refundId: number) => completeOrderRefund(orderId, refundId),
-    onSuccess: (refund) => {
-      invalidateOrderQueries();
-      setCompleteResultRefund(refund);
-      setCompleteResultOpen(true);
-    },
-    onError: (error) => {
-      toast.error(
-        error instanceof Error ? error.message : "Failed to complete refund",
-      );
-      invalidateOrderQueries();
     },
   });
 
@@ -751,11 +738,11 @@ export function OrderDetailPage() {
                   <RefundPanel
                     data={refundData}
                     canUpdate={canRefund}
-                    completeLoading={completeRefundMutation.isPending}
+                    completeLoading={false}
                     cancelLoading={cancelRefundMutation.isPending}
                     onComplete={(item) => {
                       setSelectedRefund(item);
-                      setCompleteConfirmOpen(true);
+                      setCompleteOtpOpen(true);
                     }}
                     onCancel={(item) => {
                       setSelectedRefund(item);
@@ -871,22 +858,25 @@ export function OrderDetailPage() {
         onConfirm={(payload) => initiateRefundMutation.mutateAsync(payload)}
       />
 
-      <ConfirmDialog
-        open={completeConfirmOpen}
-        onOpenChange={(open) => {
-          setCompleteConfirmOpen(open);
-          if (!open) setSelectedRefund(null);
-        }}
-        title="Complete this refund?"
-        description={`This submits a refund of ${formatCurrency(selectedRefund?.amount ?? "0")} for ${order.orderNumber} to Razorpay. Payment becomes fully refunded only when remaining balance reaches zero.`}
-        confirmLabel="Complete refund"
-        variant="destructive"
-        loading={completeRefundMutation.isPending}
-        onConfirm={() => {
-          if (!selectedRefund) return Promise.resolve();
-          return completeRefundMutation.mutateAsync(selectedRefund.id);
-        }}
-      />
+      {selectedRefund && (
+        <RefundCompleteOtpDialog
+          open={completeOtpOpen}
+          onOpenChange={(open) => {
+            setCompleteOtpOpen(open);
+            if (!open) setSelectedRefund(null);
+          }}
+          orderId={orderId}
+          refundId={selectedRefund.id}
+          amount={selectedRefund.amount}
+          orderNumber={order.orderNumber}
+          staffEmail={user?.email}
+          onVerified={(refund) => {
+            invalidateOrderQueries();
+            setCompleteResultRefund(refund);
+            setCompleteResultOpen(true);
+          }}
+        />
+      )}
 
       <ConfirmDialog
         open={cancelConfirmOpen}
@@ -895,7 +885,7 @@ export function OrderDetailPage() {
           if (!open) setSelectedRefund(null);
         }}
         title="Cancel this refund request?"
-        description="Razorpay has not been charged yet. You can initiate a new refund later."
+        description="Razorpay has not been charged yet. Any pending OTP is cleared. You can initiate a new refund later."
         confirmLabel="Cancel request"
         variant="destructive"
         loading={cancelRefundMutation.isPending}

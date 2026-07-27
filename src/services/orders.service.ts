@@ -14,6 +14,8 @@ import type {
   InitiateRefundPayload,
   OrderRefund,
   OrderRefundsResponse,
+  RefundCompleteOtpResponse,
+  VerifyRefundCompletePayload,
 } from "@/types/refund";
 
 export function listOrders(params: ListOrdersParams = {}) {
@@ -76,10 +78,27 @@ export function initiateOrderRefund(
   });
 }
 
-export function completeOrderRefund(orderId: number, refundId: number) {
-  return apiRequest<OrderRefund>(
+export function requestOrderRefundCompleteOtp(
+  orderId: number,
+  refundId: number,
+) {
+  return apiRequest<RefundCompleteOtpResponse>(
     `/orders/${orderId}/refund/${refundId}/complete`,
     { method: "POST" },
+  );
+}
+
+export function verifyOrderRefundComplete(
+  orderId: number,
+  refundId: number,
+  payload: VerifyRefundCompletePayload,
+) {
+  return apiRequest<OrderRefund>(
+    `/orders/${orderId}/refund/${refundId}/complete/verify`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
   );
 }
 

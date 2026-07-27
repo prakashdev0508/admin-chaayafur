@@ -1,6 +1,6 @@
 # Refunds API
 
-Two-phase staff refund flow for completed Razorpay payments: initiate with reason → complete (calls Razorpay) → processed or failed, with a full event timeline.
+Staff refund flow for completed Razorpay payments: initiate with reason → staff email OTP → verify OTP (calls Razorpay) → processed or failed, with a full event timeline.
 
 [← Back to index](./README.md) · [Payments](./payments.md) · [Orders](./orders.md)
 
@@ -9,11 +9,12 @@ Two-phase staff refund flow for completed Razorpay payments: initiate with reaso
 ## Overview
 
 ```text
-1. POST /orders/:id/refund                    → Refund row INITIATED (Order.status unchanged)
-2. POST /orders/:id/refund/:refundId/complete → Refund PROCESSING → Razorpay refund API
-3. Gateway result                             → Refund PROCESSED or FAILED
-4. On PROCESSED                               → if fully refunded: payment REFUNDED + stock/coupon restored
-                                              → if partial: payment stays COMPLETED
+1. POST /orders/:id/refund                           → Refund row INITIATED (Order.status unchanged)
+2. POST /orders/:id/refund/:refundId/complete        → OTP emailed to completing staff (still INITIATED)
+3. POST /orders/:id/refund/:refundId/complete/verify → Verify OTP → PROCESSING → Razorpay refund API
+4. Gateway result                                    → Refund PROCESSED or FAILED
+5. On PROCESSED                                      → if fully refunded: payment REFUNDED + stock/coupon restored
+                                                     → if partial: payment stays COMPLETED
 ```
 
 - **Order.status and Refund.status are separate** — fulfillment stays on the order; refund lifecycle lives on `refunds`
@@ -26,23 +27,24 @@ Two-phase staff refund flow for completed Razorpay payments: initiate with reaso
 - Staff order list supports `?refundStatus=INITIATED` to find orders with an open refund
 - Global refund inbox: `GET /refunds` and `GET /refunds/:id`
 - **Customer emails (Resend)** — refund initiated (includes amount) and refund completed; see [orders.md](./orders.md) for env vars. Recipient = shipping/billing address email; skipped if missing
+- **Staff email OTP (Resend)** — every refund completion (partial or full) requires an OTP sent to the logged-in staff email before Razorpay is called. OTP is single-use (deleted on success), TTL/attempts/resend cooldown reuse `OTP_LENGTH` / `OTP_TTL_MS` / `OTP_MAX_ATTEMPTS` / `OTP_RESEND_COOLDOWN_MS`. Production fails closed if Resend is not configured.
 
 ### Refund statuses
 
 | Status | Meaning |
 |--------|---------|
-| `INITIATED` | Staff created refund request with reason — Razorpay not called yet |
-| `PROCESSING` | Complete clicked; Razorpay refund submitted |
+| `INITIATED` | Staff created refund request with reason — Razorpay not called yet (OTP may be pending) |
+| `PROCESSING` | OTP verified; Razorpay refund submitted |
 | `PROCESSED` | Money refunded for this request; payment becomes `REFUNDED` only when remaining balance is 0 |
 | `FAILED` | Razorpay API or `refund.failed` webhook reported failure |
-| `CANCELLED` | Staff cancelled before clicking Complete |
+| `CANCELLED` | Staff cancelled before OTP verification / completion |
 
 ### Event timeline types
 
 | Event | When |
 |-------|------|
 | `INITIATED` | Staff creates refund with reason |
-| `COMPLETE_REQUESTED` | Staff clicks Complete |
+| `COMPLETE_REQUESTED` | Staff verifies OTP and completes |
 | `GATEWAY_ACCEPTED` | Razorpay accepted the refund request (`razorpayRefundId` stored) |
 | `PROCESSED` | Refund finalized (API terminal success or `refund.processed` webhook) |
 | `FAILED` | Razorpay API error or `refund.failed` webhook |
@@ -56,6 +58,7 @@ Two-phase staff refund flow for completed Razorpay payments: initiate with reaso
 | `GET /refunds/:id` | `view-payments` **or** `view-orders` | Yes | Yes | No |
 | `POST /orders/:id/refund` | `update-payments` | Yes | Yes | No |
 | `POST /orders/:id/refund/:refundId/complete` | `update-payments` | Yes | Yes | No |
+| `POST /orders/:id/refund/:refundId/complete/verify` | `update-payments` | Yes | Yes | No |
 | `POST /orders/:id/refund/:refundId/cancel` | `update-payments` | Yes | Yes | No |
 | `GET /orders/:id/refund` | `view-payments` **or** `view-orders` | Yes | Yes | No |
 
@@ -69,6 +72,7 @@ Two-phase staff refund flow for completed Razorpay payments: initiate with reaso
 | `GET` | `/api/v1/refunds/:id` | Staff (`view-payments` or `view-orders`) | `200` |
 | `POST` | `/api/v1/orders/:id/refund` | Staff (`update-payments`) | `201` |
 | `POST` | `/api/v1/orders/:id/refund/:refundId/complete` | Staff (`update-payments`) | `200` |
+| `POST` | `/api/v1/orders/:id/refund/:refundId/complete/verify` | Staff (`update-payments`) | `200` |
 | `POST` | `/api/v1/orders/:id/refund/:refundId/cancel` | Staff (`update-payments`) | `200` |
 | `GET` | `/api/v1/orders/:id/refund` | Staff (`view-payments` or `view-orders`) | `200` |
 
@@ -205,13 +209,78 @@ curl -X POST http://localhost:5000/api/v1/orders/1/refund \
 
 ## POST /api/v1/orders/:id/refund/:refundId/complete
 
-Staff clicks **Complete refund** — moves status to `PROCESSING` and calls Razorpay `payments.refund`.
+Staff requests an **email OTP** to authorize completion. Does **not** call Razorpay. Refund stays `INITIATED`.
 
 | | |
 |---|---|
 | **Auth** | Staff Bearer (`update-payments`) |
 | **Status** | `200` |
-| **Precondition** | Refund status must be `INITIATED` |
+| **Precondition** | Refund status must be `INITIATED`; payment must have `razorpayPaymentId` |
+
+OTP is sent to the **logged-in staff member’s email**. Only that same staff member can verify it. Resend is rate-limited by `OTP_RESEND_COOLDOWN_MS`. In non-production, the OTP is also logged when Resend is disabled.
+
+### Success response
+
+```json
+{
+  "success": true,
+  "data": {
+    "message": "OTP sent to your email",
+    "expiresInSeconds": 300
+  }
+}
+```
+
+When still in cooldown:
+
+```json
+{
+  "success": true,
+  "data": {
+    "message": "OTP already sent. Please wait before requesting again.",
+    "retryAfterSeconds": 42,
+    "expiresInSeconds": 258
+  }
+}
+```
+
+```bash
+curl -X POST http://localhost:5000/api/v1/orders/1/refund/3/complete \
+  -H "Authorization: Bearer $STAFF_TOKEN"
+```
+
+### Errors
+
+| Status | When |
+|--------|------|
+| `400` | Refund not `INITIATED`, or payment missing Razorpay payment id |
+| `403` | Missing `update-payments` |
+| `404` | Order/refund not found |
+| `503` | Production and Resend email is not configured |
+
+---
+
+## POST /api/v1/orders/:id/refund/:refundId/complete/verify
+
+Staff submits the OTP from their email. On success: OTP is deleted (single-use), status moves to `PROCESSING`, and Razorpay `payments.refund` is called.
+
+| | |
+|---|---|
+| **Auth** | Staff Bearer (`update-payments`) |
+| **Status** | `200` |
+| **Body** | `{ "otp": "123456" }` |
+| **Precondition** | Refund status must be `INITIATED`; OTP must have been requested by the same staff |
+
+| Field | Type | Required | Rules |
+|-------|------|----------|-------|
+| `otp` | string | Yes | Exactly `OTP_LENGTH` characters (default 6) |
+
+### OTP rules
+
+- Bound to `refundId` + requesting `staffId`
+- Deleted on successful verify (cannot reuse)
+- Deleted on expiry or when max attempts (`OTP_MAX_ATTEMPTS`) are exceeded
+- Wrong OTP increments attempts and returns `401`
 
 ### Gateway behaviour
 
@@ -222,8 +291,10 @@ Staff clicks **Complete refund** — moves status to `PROCESSING` and calls Razo
 | API error | `FAILED` with `failureReason`; order/payment unchanged |
 
 ```bash
-curl -X POST http://localhost:5000/api/v1/orders/1/refund/3/complete \
-  -H "Authorization: Bearer $STAFF_TOKEN"
+curl -X POST http://localhost:5000/api/v1/orders/1/refund/3/complete/verify \
+  -H "Authorization: Bearer $STAFF_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"otp":"123456"}'
 ```
 
 ### Events after a successful complete (terminal)
@@ -235,7 +306,8 @@ curl -X POST http://localhost:5000/api/v1/orders/1/refund/3/complete \
 | Status | When |
 |--------|------|
 | `400` | Refund not `INITIATED`, or payment missing Razorpay payment id |
-| `403` | Missing `update-payments` |
+| `401` | OTP missing, expired, invalid, or too many attempts |
+| `403` | Missing `update-payments`, or OTP was requested by a different staff member |
 | `404` | Order/refund not found |
 | `500` | Razorpay refund API failed (refund marked `FAILED`) |
 
@@ -243,7 +315,7 @@ curl -X POST http://localhost:5000/api/v1/orders/1/refund/3/complete \
 
 ## POST /api/v1/orders/:id/refund/:refundId/cancel
 
-Cancel an `INITIATED` refund before completion.
+Cancel an `INITIATED` refund before OTP verification / completion. Any pending refund OTP for this refund is cleared.
 
 | | |
 |---|---|
@@ -289,9 +361,9 @@ curl http://localhost:5000/api/v1/orders/1/refund \
 | `initiatedByStaffId` | integer | Who initiated (scalar id) |
 | `initiatedBy` | object | `{ id, firstName, lastName, email }` |
 | `initiatedAt` | string | ISO timestamp |
-| `completedByStaffId` | integer \| null | Who clicked Complete |
+| `completedByStaffId` | integer \| null | Who verified OTP and completed |
 | `completedBy` | object \| null | `{ id, firstName, lastName, email }` or `null` |
-| `completedAt` | string \| null | When Complete was clicked |
+| `completedAt` | string \| null | When OTP was verified and complete ran |
 | `processedAt` | string \| null | When refund finalized |
 | `failedAt` | string \| null | When refund failed |
 | `failureReason` | string \| null | Gateway / API failure message |
@@ -345,6 +417,7 @@ Initiating or cancelling a refund only updates `Refund.status` — never `Order.
 | Refund list / inbox | `GET /refunds` |
 | Refund detail | `GET /refunds/:id` |
 | Initiate refund (reason form) | `POST /orders/:id/refund` |
-| Complete refund | `POST /orders/:id/refund/:refundId/complete` |
+| Request complete OTP | `POST /orders/:id/refund/:refundId/complete` |
+| Verify OTP & complete refund | `POST /orders/:id/refund/:refundId/complete/verify` |
 | Cancel request | `POST /orders/:id/refund/:refundId/cancel` |
 | Order-scoped refund history | `GET /orders/:id/refund` |
