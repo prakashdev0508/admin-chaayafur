@@ -3,17 +3,9 @@ import { Download, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ApiError } from "@/lib/api";
+import { triggerBrowserDownload } from "@/lib/download";
 import { exportReport } from "@/services/reports.service";
 import type { ReportKind } from "@/types/reports";
-
-function triggerBrowserDownload(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = filename;
-  anchor.click();
-  URL.revokeObjectURL(url);
-}
 
 type ReportExportButtonProps = {
   kind: ReportKind;

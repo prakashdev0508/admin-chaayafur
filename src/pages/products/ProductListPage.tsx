@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Filter, Loader2, Plus, RefreshCw } from "lucide-react";
+import { Filter, FileSpreadsheet, Loader2, Plus, RefreshCw, Upload } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/data-table/data-table";
 import { createProductColumns } from "@/components/data-table/product-columns";
 import { ProductActiveFilters } from "@/components/products/ProductActiveFilters";
+import { ProductBulkUploadDialog } from "@/components/products/ProductBulkUploadDialog";
 import {
   ProductFilterSheet,
   defaultProductFilters,
@@ -118,6 +119,7 @@ export function ProductListPage() {
   const canUpdate = hasPermission(PERMISSIONS.UPDATE_PRODUCTS);
 
   const [filterOpen, setFilterOpen] = useState(false);
+  const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
   const [appliedFilters, setAppliedFilters] =
     useState<ProductFilters>(defaultProductFilters);
   const [draftFilters, setDraftFilters] =
@@ -289,14 +291,32 @@ export function ProductListPage() {
               )}
             </Button>
             {canCreate && (
-              <Button
-                render={
-                  <Link to="/products/new">
-                    <Plus className="size-4" />
-                    Add product
-                  </Link>
-                }
-              />
+              <>
+                <Button
+                  variant="outline"
+                  render={
+                    <Link to="/products/bulk-prepare">
+                      <FileSpreadsheet className="size-4" />
+                      Prepare import
+                    </Link>
+                  }
+                />
+                <Button
+                  variant="outline"
+                  onClick={() => setBulkUploadOpen(true)}
+                >
+                  <Upload className="size-4" />
+                  Bulk upload
+                </Button>
+                <Button
+                  render={
+                    <Link to="/products/new">
+                      <Plus className="size-4" />
+                      Add product
+                    </Link>
+                  }
+                />
+              </>
             )}
           </div>
         }
@@ -365,6 +385,18 @@ export function ProductListPage() {
         onApply={handleApply}
         onClear={handleClear}
       />
+
+      {canCreate && (
+        <ProductBulkUploadDialog
+          open={bulkUploadOpen}
+          onOpenChange={setBulkUploadOpen}
+          onImportSuccess={(result) => {
+            if (result.successCount > 0) {
+              setRefreshKey((k) => k + 1);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

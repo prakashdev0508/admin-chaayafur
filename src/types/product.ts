@@ -117,6 +117,12 @@ export type UpdateProductCmsTagsPayload = {
   isNewArrival?: boolean;
 };
 
+export type ProductBulkUploadResult = {
+  successCount: number;
+  failedCount: number;
+  documentUrl: string;
+};
+
 export type ProductWoodFormEntry = {
   woodId: number;
   isActive: boolean;

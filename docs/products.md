@@ -9,8 +9,9 @@ Create, update, and list furniture products.
 ## Overview
 
 - **No delete endpoint** — use `isActive: false` to soft-hide products
-- **Product images** — upload via [uploads.md](./uploads.md) (Cloudflare R2), then attach URLs in product create/update (max 10 per product)
-- **`productFeatures`** — optional array of feature strings (e.g. `"Solid oak wood"`, `"1-year warranty"`) for product detail bullets; max 50 items, 200 chars each
+- **Product images** — upload via [uploads.md](./uploads.md) (Cloudflare R2), then attach URLs in product create/update (max **5** per product)
+- **`productFeatures`** — optional array of feature strings (e.g. `"Solid oak wood"`, `"1-year warranty"`) for product detail bullets; max **10** items, 200 chars each
+- **Bulk Excel upload** — download a sample template, upload images first to get URLs, then import products via `.xlsx` (see [Bulk upload](#bulk-upload))
 - **CMS tags** — optional booleans `isBestSeller`, `isFeaturedProduct`, `isMostPopular`, `isNewArrival` for storefront sections; filter with `GET /products?tag=isFeaturedProduct`, or assign via `PATCH /admin/cms/products/:id/tags` (see [home.md](./home.md))
 - Aggregated home sections: [home.md](./home.md) (`GET /home`)
 - Default list shows only **active** products (`isActive=true`)
@@ -38,6 +39,8 @@ Use a sub-category ID from [categories.md](./categories.md). Example after seed:
 | Endpoint | Permission | SUPER_ADMIN | ADMIN | ORDER_MANAGER |
 |----------|------------|:-----------:|:-----:|:-------------:|
 | `POST /products` | `create-products` | Yes | Yes | No |
+| `GET /products/bulk-upload/sample` | `create-products` | Yes | Yes | No |
+| `POST /products/bulk-upload` | `create-products` | Yes | Yes | No |
 | `PATCH /products/:id` | `update-products` | Yes | Yes | No |
 | `PATCH /admin/cms/products/:id/tags` | `update-products` | Yes | Yes | No |
 | `POST /uploads/product-images` | `create-products` or `update-products` | Yes | Yes | No |
@@ -52,6 +55,8 @@ Use a sub-category ID from [categories.md](./categories.md). Example after seed:
 | Method | Endpoint | Permission | Status |
 |--------|----------|------------|--------|
 | `POST` | `/api/v1/products` | `create-products` | `201` |
+| `GET` | `/api/v1/products/bulk-upload/sample` | `create-products` | `200` |
+| `POST` | `/api/v1/products/bulk-upload` | `create-products` | `201` |
 | `PATCH` | `/api/v1/products/:id` | `update-products` | `200` |
 | `GET` | `/api/v1/products` | **Public** | `200` |
 | `GET` | `/api/v1/products/filters` | **Public** | `200` |
@@ -121,10 +126,10 @@ Authorization: Bearer <accessToken>
 | `isFeaturedProduct` | boolean | No | Default `false` — CMS merchandising tag |
 | `isMostPopular` | boolean | No | Default `false` — CMS merchandising tag |
 | `isNewArrival` | boolean | No | Default `false` — CMS merchandising tag |
-| `productFeatures` | string[] | No | Max 50 items; each string max 200 chars. Default `[]` |
+| `productFeatures` | string[] | No | Max 10 items; each string max 200 chars. Default `[]` |
 | `woods` | array | No | `{ woodId, isActive? }[]` — assign woods for this product. Pass `[]` to clear. See [woods.md](./woods.md) |
 | `fabrics` | array | No | `{ fabricId, isActive? }[]` — assign fabrics for this product. Pass `[]` to clear. See [fabrics.md](./fabrics.md) |
-| `images` | array | No | Max 10 items. Upload files first via [uploads.md](./uploads.md); include `storageKey` from upload response |
+| `images` | array | No | Max 5 items. Upload files first via [uploads.md](./uploads.md); include `storageKey` from upload response |
 
 ### Success response `201`
 
@@ -212,6 +217,106 @@ curl -X POST http://localhost:5000/api/v1/products \
 
 ---
 
+## Bulk upload
+
+Import many products from an Excel (`.xlsx`) sheet. Failed rows do not stop the batch; each row gets a `status` in a result workbook stored on R2.
+
+### Workflow
+
+1. Download the sample template: `GET /api/v1/products/bulk-upload/sample`
+2. Upload product images via [uploads.md](./uploads.md) (`POST /uploads/product-images`) and copy the returned `url` values into the sheet `images` column
+3. Fill one product per row and upload: `POST /api/v1/products/bulk-upload`
+
+### Excel columns
+
+Header names must match exactly (case-insensitive). Backend appends **`status`** only on the result file.
+
+| Column | Required | Format |
+|--------|----------|--------|
+| `name` | Yes | string |
+| `slug` | Yes | unique slug |
+| `description` | No | string |
+| `price` | Yes | number |
+| `priceWithoutDiscount` | No | number |
+| `stock` | Yes | integer ≥ 0 |
+| `subCategoryId` | Yes | integer |
+| `isActive` | No | `true` / `false` (default true) |
+| `isBestSeller` | No | `true` / `false` |
+| `isFeaturedProduct` | No | `true` / `false` |
+| `isMostPopular` | No | `true` / `false` |
+| `isNewArrival` | No | `true` / `false` |
+| `productFeatures` | No | pipe-separated, max 10: `Solid oak\|Seats 6\|1-year warranty` |
+| `images` | No | comma-separated public URLs, max 5 |
+| `woods` | No | comma-separated wood IDs: `1,2` |
+| `fabrics` | No | comma-separated fabric IDs: `3,4` |
+| `status` | Backend-only | `Success` or error message |
+
+Limits: max **500** data rows per file, max **5 MB** `.xlsx`.
+
+---
+
+## GET /api/v1/products/bulk-upload/sample
+
+| | |
+|---|---|
+| **Auth** | Bearer token + `create-products` |
+| **Status** | `200` |
+| **Response** | Excel file download (`product-bulk-upload-sample.xlsx`) |
+
+### cURL
+
+```bash
+curl -OJ http://localhost:5000/api/v1/products/bulk-upload/sample \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+---
+
+## POST /api/v1/products/bulk-upload
+
+| | |
+|---|---|
+| **Auth** | Bearer token + `create-products` |
+| **Content-Type** | `multipart/form-data` |
+| **Field** | `file` (`.xlsx`) |
+| **Status** | `201` |
+
+Processes every non-empty data row. Partial failures are expected; use `successCount` / `failedCount` and the result document.
+
+### Success response `201`
+
+```json
+{
+  "success": true,
+  "data": {
+    "successCount": 12,
+    "failedCount": 3,
+    "documentUrl": "https://cdn.example.com/product-bulk-imports/2026/07/8f3c2a1b-4d5e-6f70-8a9b-0c1d2e3f4a5b.xlsx"
+  }
+}
+```
+
+The result workbook contains all original columns plus a final **`status`** column (`Success` or the error message).
+
+### Errors (whole request)
+
+| Status | When |
+|--------|------|
+| `400` | Missing/invalid file, wrong sheet headers, empty sheet, or more than 500 rows |
+| `401` | Missing or invalid token |
+| `403` | Missing `create-products` permission |
+| `503` | R2 storage is not configured (cannot store the result document) |
+
+### cURL
+
+```bash
+curl -X POST http://localhost:5000/api/v1/products/bulk-upload \
+  -H "Authorization: Bearer $TOKEN" \
+  -F "file=@./products.xlsx"
+```
+
+---
+
 ## PATCH /api/v1/products/:id
 
 Partial update. All body fields are optional.
@@ -231,7 +336,7 @@ Partial update. All body fields are optional.
 | `isMostPopular` | boolean | CMS tag |
 | `isNewArrival` | boolean | CMS tag |
 | `productFeatures` | string[] | Replace entire list. Pass `[]` to clear all features |
-| `images` | array | Replaces all images when provided (max 10) |
+| `images` | array | Replaces all images when provided (max 5) |
 
 ### cURL
 
