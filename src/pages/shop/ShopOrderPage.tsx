@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { LifeBuoy, MessageCircleQuestion, Star } from "lucide-react";
 import { TrackingTimeline } from "@/components/shared/TrackingTimeline";
+import { CustomizationMaterialsHighlight } from "@/components/customization-requests/CustomizationMaterialsHighlight";
 import { CreateSupportTicketDialog } from "@/components/shop/CreateSupportTicketDialog";
 import { SupportTicketDetailSheet } from "@/components/shop/SupportTicketDetailSheet";
 import { SupportTicketStatusBadge } from "@/components/support-tickets/SupportTicketStatusBadge";
@@ -26,6 +27,10 @@ import {
   canUsePaymentLink,
   startOrderPayment,
 } from "@/lib/razorpay";
+import {
+  getCustomizationRequestMaterialChips,
+  getOrderItemMaterialChips,
+} from "@/lib/order-customization-materials";
 import { formatOrderAddressRef } from "@/lib/order-utils";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { toast } from "sonner";
@@ -178,6 +183,10 @@ export function ShopOrderPage() {
   const deliveryAddress = order.shippingAddressRef
     ? formatOrderAddressRef(order.shippingAddressRef)
     : order.shippingAddress;
+  const customization = order.customizationRequest ?? null;
+  const customizationMaterials = customization
+    ? getCustomizationRequestMaterialChips(customization)
+    : [];
 
   const hasDiscount = parseFloat(order.discountAmount) > 0;
   const canOpenSupport =
@@ -252,27 +261,71 @@ export function ShopOrderPage() {
 
       <TrackingTimeline tracking={tracking} loading={trackingQuery.isLoading} />
 
+      {customization && (
+        <section className="rounded-2xl border border-[#E8DFD3] bg-[#F8F1E8] p-5">
+          <h2 className="text-lg font-medium text-[#3D2B1F]">
+            Custom order details
+          </h2>
+          <p className="mt-2 text-sm text-muted-foreground whitespace-pre-wrap">
+            {customization.description}
+          </p>
+          <CustomizationMaterialsHighlight
+            materials={customizationMaterials}
+            variant="shop"
+            title="Wood, polish & fabric"
+            className="mt-4"
+          />
+          {customization.referenceImageUrl && (
+            <img
+              src={customization.referenceImageUrl}
+              alt="Reference"
+              className="mt-4 max-h-48 rounded-xl border border-[#E8DFD3] object-cover"
+            />
+          )}
+          <Link
+            to={`/shop/customize/requests/${customization.id}`}
+            className="mt-4 inline-block text-sm font-medium text-[#8B5E3C] hover:underline"
+          >
+            View customization request
+          </Link>
+        </section>
+      )}
+
       <div className="grid gap-6 lg:grid-cols-2">
         <section className="rounded-2xl border border-[#E8DFD3] bg-white p-5">
           <h2 className="text-lg font-medium text-[#3D2B1F]">Items</h2>
           <div className="mt-4 space-y-3">
             {order.items.map((item) => {
               const existing = productReviewByProductId.get(item.productId);
+              const itemMaterials = getOrderItemMaterialChips(
+                item,
+                customization,
+              );
               return (
                 <div key={item.id} className="flex justify-between gap-3 text-sm">
                   <div>
                     <p className="font-medium">{item.product.name}</p>
-                    {item.woodName && (
-                      <p className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-                        {item.woodColor && (
+                    {itemMaterials.length > 0 && (
+                      <div className="mt-1.5 flex flex-wrap gap-1.5">
+                        {itemMaterials.map((material) => (
                           <span
-                            className="size-2.5 rounded-full border border-[#D9CBB8]"
-                            style={{ backgroundColor: item.woodColor }}
-                            aria-hidden
-                          />
-                        )}
-                        {item.woodName}
-                      </p>
+                            key={`${material.label}-${material.name}`}
+                            className="inline-flex items-center gap-1 rounded-full border border-[#D9CBB8] bg-[#FAF7F2] px-2 py-0.5 text-[11px] font-medium"
+                          >
+                            {material.color && (
+                              <span
+                                className="size-2 rounded-full border border-[#D9CBB8]"
+                                style={{ backgroundColor: material.color }}
+                                aria-hidden
+                              />
+                            )}
+                            <span className="text-muted-foreground">
+                              {material.label}:
+                            </span>
+                            {material.name}
+                          </span>
+                        ))}
+                      </div>
                     )}
                     <p className="text-muted-foreground">
                       Qty {item.quantity} · {formatCurrency(item.price)} each

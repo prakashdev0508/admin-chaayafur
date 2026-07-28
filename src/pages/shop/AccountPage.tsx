@@ -105,6 +105,29 @@ export function AccountPage() {
       )}
 
       <section className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-xl font-medium text-[#3D2B1F]">
+            Custom furniture
+          </h2>
+          <Link
+            to="/shop/customize"
+            className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+          >
+            New request
+          </Link>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Request bespoke pieces and track quotes from our workshop team.
+        </p>
+        <Link
+          to="/shop/customize/requests"
+          className="inline-block text-sm font-medium text-[#8B5E3C] hover:underline"
+        >
+          View my customization requests
+        </Link>
+      </section>
+
+      <section className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-medium text-[#3D2B1F]">Recent orders</h2>
           <Link

@@ -796,6 +796,7 @@ All of `POST /orders` and `GET /orders/:id` return this shape (wrapped in `{ suc
 | `shippingAddressRef` | object | Full address record (see below) |
 | `billingAddressRef` | object | Full billing address record |
 | `items` | array | Line items (see below) |
+| `customizationRequest` | object \| null | Present when the order came from convert-to-order; includes wood / polish / fabric and reference image |
 | `payment` | object \| null | Payment + Razorpay checkout fields (see [Payment object](#payment-object-fields-on-every-order-detail)) |
 | `invoice` | object \| null | Summary after confirmation; `null` while `PENDING` |
 | `orderReview` | object \| null | Overall order review if submitted (see below) |
@@ -809,8 +810,36 @@ All of `POST /orders` and `GET /orders/:id` return this shape (wrapped in `{ suc
 | `productId` | integer | Product ID |
 | `quantity` | integer | Quantity ordered |
 | `price` | string | Unit price at checkout (server-side) |
+| `woodId` | integer \| null | Selected wood (cart / customization) |
+| `woodName` | string \| null | Snapshot at checkout |
+| `woodColor` | string \| null | Snapshot at checkout |
+| `polishId` | integer \| null | Polish (customization orders) |
+| `polishName` | string \| null | Snapshot at checkout |
+| `polishColor` | string \| null | Snapshot at checkout |
+| `fabricId` | integer \| null | Fabric (customization orders) |
+| `fabricName` | string \| null | Snapshot at checkout |
+| `fabricColor` | string \| null | Snapshot at checkout |
+| `wood` | object \| null | Live catalog join when `woodId` is set |
+| `polish` | object \| null | Live catalog join when `polishId` is set |
+| `fabric` | object \| null | Live catalog join when `fabricId` is set |
 | `product` | object | `{ id, name, slug }` |
 | `review` | object \| null | Product review for this line item if submitted for this order |
+
+### `customizationRequest` (when present)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | integer | Customization request ID |
+| `productName` | string | Requested product name |
+| `description` | string | Customer customization notes |
+| `quantity` | integer | Requested quantity |
+| `status` | string | Usually `CONVERTED` |
+| `referenceImageUrl` | string \| null | Reference image URL |
+| `referenceImageKey` | string \| null | R2 storage key |
+| `woodId` / `polishId` / `fabricId` | integer \| null | Catalog IDs |
+| `wood` / `polish` / `fabric` | object \| null | Nested catalog details (`id`, `name`, `slug`, `color`; polish also `woodId`) |
+
+For orders converted before polish/fabric snapshots were stored on line items, use this block when `items[].polish*` / `items[].fabric*` are null.
 
 ### Reviews on order detail
 

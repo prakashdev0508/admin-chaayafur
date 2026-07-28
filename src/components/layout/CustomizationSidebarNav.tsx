@@ -1,6 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { ChevronRight, Palette, Shirt, Trees } from "lucide-react";
+import {
+  ChevronRight,
+  ClipboardList,
+  Palette,
+  Shirt,
+  Trees,
+} from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,10 +25,16 @@ import { usePermission } from "@/hooks/usePermission";
 import { PERMISSIONS } from "@/lib/roles";
 import { cn } from "@/lib/utils";
 
-const subItems = [
+const catalogSubItems = [
   { label: "Woods", path: "/woods", icon: Trees },
   { label: "Fabrics", path: "/fabrics", icon: Shirt },
 ] as const;
+
+const requestsSubItem = {
+  label: "Requests",
+  path: "/customization-requests",
+  icon: ClipboardList,
+} as const;
 
 export function CustomizationSidebarNav() {
   const location = useLocation();
@@ -31,9 +43,30 @@ export function CustomizationSidebarNav() {
   const { hasPermission } = usePermission();
   const isCollapsed = sidebarState === "collapsed";
 
+  const canViewCatalog = hasPermission(PERMISSIONS.VIEW_PRODUCTS);
+  const canViewRequests = hasPermission(
+    PERMISSIONS.VIEW_CUSTOMIZATION_REQUESTS,
+  );
+
+  const subItems = useMemo(() => {
+    const items: Array<{
+      label: string;
+      path: string;
+      icon: typeof Trees;
+    }> = [];
+    if (canViewCatalog) {
+      items.push(...catalogSubItems);
+    }
+    if (canViewRequests) {
+      items.push(requestsSubItem);
+    }
+    return items;
+  }, [canViewCatalog, canViewRequests]);
+
   const onCustomizationRoute =
     location.pathname.startsWith("/woods") ||
-    location.pathname.startsWith("/fabrics");
+    location.pathname.startsWith("/fabrics") ||
+    location.pathname.startsWith("/customization-requests");
   const [subOpen, setSubOpen] = useState(onCustomizationRoute);
 
   useEffect(() => {
@@ -42,7 +75,7 @@ export function CustomizationSidebarNav() {
     }
   }, [onCustomizationRoute]);
 
-  if (!hasPermission(PERMISSIONS.VIEW_PRODUCTS)) {
+  if (subItems.length === 0) {
     return null;
   }
 

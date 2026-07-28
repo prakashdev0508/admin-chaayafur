@@ -463,7 +463,7 @@ export function ShopProductPage() {
                 })}
               </div>
               <p className="text-xs text-muted-foreground">
-                Fabric choice is for browsing; it is not added to the cart yet.
+                Optional fabric selection is saved with your cart line.
               </p>
             </div>
           )}
@@ -501,6 +501,12 @@ export function ShopProductPage() {
                   const wood = selectableWoods.find(
                     (w) => w.id === selectedWoodId,
                   );
+                  const polish =
+                    woodPolishes.find((p) => p.id === selectedPolishId) ??
+                    null;
+                  const fabric =
+                    productFabrics.find((f) => f.id === selectedFabricId) ??
+                    null;
                   try {
                     await addItem(
                       {
@@ -514,6 +520,20 @@ export function ShopProductPage() {
                               woodId: wood.id,
                               woodName: wood.name,
                               woodColor: wood.color,
+                            }
+                          : {}),
+                        ...(polish
+                          ? {
+                              polishId: polish.id,
+                              polishName: polish.name,
+                              polishColor: polish.color,
+                            }
+                          : {}),
+                        ...(fabric
+                          ? {
+                              fabricId: fabric.id,
+                              fabricName: fabric.name,
+                              fabricColor: fabric.color,
                             }
                           : {}),
                       },

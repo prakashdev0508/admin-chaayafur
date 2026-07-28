@@ -15,6 +15,7 @@ const routePermissions: Record<string, Permission | Permission[] | []> = {
   "/website/home": PERMISSIONS.VIEW_BANNERS,
   "/orders": PERMISSIONS.VIEW_ORDERS,
   "/support-tickets": PERMISSIONS.VIEW_ORDER_SUPPORT,
+  "/customization-requests": PERMISSIONS.VIEW_CUSTOMIZATION_REQUESTS,
   "/payments": PERMISSIONS.VIEW_PAYMENTS,
   "/coupons": PERMISSIONS.VIEW_COUPONS,
   "/coupons/new": PERMISSIONS.CREATE_COUPONS,

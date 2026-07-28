@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AddressPicker } from "@/components/shop/AddressPicker";
+import { CartMaterialChips } from "@/components/shop/CartMaterialChips";
 import { CouponInput } from "@/components/shop/CouponInput";
 import { OTPLoginDialog } from "@/components/shop/OTPLoginDialog";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,7 @@ import { listCustomerAddresses } from "@/services/shop-addresses.service";
 import { getShippingQuote } from "@/services/shipping.service";
 import type { ValidateCouponResponse } from "@/services/shop-coupons.service";
 import { toast } from "sonner";
+import { cartLineKey, cartLineRefFromItem } from "@/types/cart";
 import { cn } from "@/lib/utils";
 
 export function CheckoutPage() {
@@ -205,14 +207,18 @@ export function CheckoutPage() {
           <div className="space-y-2 text-sm">
             {items.map((item) => (
               <div
-                key={`${item.productId}:${item.woodId ?? "none"}`}
-                className="flex justify-between gap-3"
+                key={cartLineKey(cartLineRefFromItem(item))}
+                className="space-y-1"
               >
-                <span className="text-muted-foreground">
-                  {item.name}
-                  {item.woodName ? ` · ${item.woodName}` : ""} × {item.quantity}
-                </span>
-                <span>{formatCurrency(parseFloat(item.price) * item.quantity)}</span>
+                <div className="flex justify-between gap-3 text-sm">
+                  <span className="text-muted-foreground">
+                    {item.name} × {item.quantity}
+                  </span>
+                  <span>
+                    {formatCurrency(parseFloat(item.price) * item.quantity)}
+                  </span>
+                </div>
+                <CartMaterialChips item={item} />
               </div>
             ))}
           </div>

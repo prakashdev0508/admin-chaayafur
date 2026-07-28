@@ -51,6 +51,8 @@ import { SettingsPage } from "@/pages/settings/SettingsPage";
 import { ReviewListPage } from "@/pages/reviews/ReviewListPage";
 import { ContactInquiryListPage } from "@/pages/contact/ContactInquiryListPage";
 import { ContactInquiryDetailPage } from "@/pages/contact/ContactInquiryDetailPage";
+import { CustomizationRequestListPage } from "@/pages/customization-requests/CustomizationRequestListPage";
+import { CustomizationRequestDetailPage } from "@/pages/customization-requests/CustomizationRequestDetailPage";
 import { ShopHomePage } from "@/pages/shop/ShopHomePage";
 import { ShopCatalogPage } from "@/pages/shop/ShopCatalogPage";
 import { ShopProductPage } from "@/pages/shop/ShopProductPage";
@@ -59,6 +61,9 @@ import { CartPage } from "@/pages/shop/CartPage";
 import { CheckoutPage } from "@/pages/shop/CheckoutPage";
 import { ShopOrderPage } from "@/pages/shop/ShopOrderPage";
 import { AccountPage } from "@/pages/shop/AccountPage";
+import { ShopCustomizePage } from "@/pages/shop/ShopCustomizePage";
+import { ShopCustomizationRequestsPage } from "@/pages/shop/ShopCustomizationRequestsPage";
+import { ShopCustomizationRequestDetailPage } from "@/pages/shop/ShopCustomizationRequestDetailPage";
 import { SuperAdminRoute } from "@/components/auth/SuperAdminRoute";
 import { StaffHomeRedirect } from "@/components/auth/StaffHomeRedirect";
 import { PERMISSIONS } from "@/lib/roles";
@@ -76,6 +81,15 @@ const App = () => {
           <Route path="/shop/checkout" element={<CheckoutPage />} />
           <Route path="/shop/orders/:id" element={<ShopOrderPage />} />
           <Route path="/shop/account" element={<AccountPage />} />
+          <Route path="/shop/customize" element={<ShopCustomizePage />} />
+          <Route
+            path="/shop/customize/requests"
+            element={<ShopCustomizationRequestsPage />}
+          />
+          <Route
+            path="/shop/customize/requests/:id"
+            element={<ShopCustomizationRequestDetailPage />}
+          />
         </Route>
       </Route>
 
@@ -174,6 +188,22 @@ const App = () => {
             <Route
               path="support-tickets/:id"
               element={<SupportTicketDetailPage />}
+            />
+          </Route>
+          <Route
+            element={
+              <PermissionRoute
+                permission={PERMISSIONS.VIEW_CUSTOMIZATION_REQUESTS}
+              />
+            }
+          >
+            <Route
+              path="customization-requests"
+              element={<CustomizationRequestListPage />}
+            />
+            <Route
+              path="customization-requests/:id"
+              element={<CustomizationRequestDetailPage />}
             />
           </Route>
           <Route

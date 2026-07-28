@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { Loader2, Minus, Plus, Trash2 } from "lucide-react";
+import { CartMaterialChips } from "@/components/shop/CartMaterialChips";
 import { OTPLoginDialog } from "@/components/shop/OTPLoginDialog";
 import { Button } from "@/components/ui/button";
 import { buttonVariants } from "@/components/ui/button";
@@ -8,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useCart } from "@/contexts/CartContext";
 import { useCustomerAuth } from "@/contexts/CustomerAuthContext";
 import { formatCurrency } from "@/lib/format";
+import { cartLineKey, cartLineRefFromItem } from "@/types/cart";
 import { cn } from "@/lib/utils";
 
 export function CartPage() {
@@ -87,11 +89,11 @@ export function CartPage() {
         {items.map((item) => {
           const maxQty = item.stock ?? item.quantity + 999;
           const atMaxStock = item.quantity >= maxQty;
-          const lineKey = `${item.productId}:${item.woodId ?? "none"}`;
+          const lineRef = cartLineRefFromItem(item);
 
           return (
             <div
-              key={lineKey}
+              key={cartLineKey(lineRef)}
               className="flex gap-4 rounded-2xl border border-[#E8DFD3] bg-white p-4"
             >
               <div className="size-24 shrink-0 overflow-hidden rounded-xl bg-[#F3EBE0]">
@@ -113,19 +115,8 @@ export function CartPage() {
                     >
                       {item.name}
                     </Link>
-                    {item.woodName && (
-                      <p className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-                        {item.woodColor && (
-                          <span
-                            className="size-2.5 rounded-full border border-[#D9CBB8]"
-                            style={{ backgroundColor: item.woodColor }}
-                            aria-hidden
-                          />
-                        )}
-                        {item.woodName}
-                      </p>
-                    )}
-                    <p className="text-sm text-[#8B5E3C]">
+                    <CartMaterialChips item={item} className="mt-1.5" />
+                    <p className="mt-1 text-sm text-[#8B5E3C]">
                       {formatCurrency(item.price)}
                     </p>
                     {item.isAvailable === false && (
@@ -138,7 +129,7 @@ export function CartPage() {
                     variant="ghost"
                     size="icon-sm"
                     disabled={isSyncing}
-                    onClick={() => void removeItem(item.productId, item.woodId)}
+                    onClick={() => void removeItem(lineRef)}
                   >
                     <Trash2 className="size-4" />
                   </Button>
@@ -150,11 +141,7 @@ export function CartPage() {
                     size="icon-sm"
                     disabled={isSyncing}
                     onClick={() =>
-                      void updateQuantity(
-                        item.productId,
-                        item.quantity - 1,
-                        item.woodId,
-                      )
+                      void updateQuantity(lineRef, item.quantity - 1)
                     }
                   >
                     <Minus className="size-4" />
@@ -165,11 +152,7 @@ export function CartPage() {
                     size="icon-sm"
                     disabled={isSyncing || atMaxStock}
                     onClick={() =>
-                      void updateQuantity(
-                        item.productId,
-                        item.quantity + 1,
-                        item.woodId,
-                      )
+                      void updateQuantity(lineRef, item.quantity + 1)
                     }
                   >
                     <Plus className="size-4" />

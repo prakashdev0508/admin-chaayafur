@@ -157,6 +157,12 @@ export const queryKeys = {
         ["shop", "support-tickets", "order", orderId] as const,
       detail: (id: number) => ["shop", "support-tickets", "detail", id] as const,
     },
+    customizationRequests: {
+      list: (params: Record<string, unknown>) =>
+        ["shop", "customization-requests", "list", params] as const,
+      detail: (id: number) =>
+        ["shop", "customization-requests", "detail", id] as const,
+    },
     reviews: {
       mine: ["shop", "reviews", "mine"] as const,
       product: (productId: number, params?: Record<string, unknown>) =>
@@ -173,5 +179,11 @@ export const queryKeys = {
     list: (params: Record<string, unknown>) =>
       ["contact-inquiries", "list", params] as const,
     detail: (id: number) => ["contact-inquiries", "detail", id] as const,
+  },
+  customizationRequests: {
+    all: ["customization-requests"] as const,
+    list: (params: Record<string, unknown>) =>
+      ["customization-requests", "list", params] as const,
+    detail: (id: number) => ["customization-requests", "detail", id] as const,
   },
 };
