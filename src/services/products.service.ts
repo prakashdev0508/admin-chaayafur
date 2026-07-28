@@ -1,9 +1,10 @@
-import { apiRequest, ApiError } from "@/lib/api";
+import { apiBlobRequest, apiFormRequest, apiRequest, ApiError } from "@/lib/api";
 import type { PaginatedResponse } from "@/types/api";
 import type {
   CreateProductPayload,
   ListProductsParams,
   Product,
+  ProductBulkUploadResult,
   ProductListItem,
   UpdateProductCmsTagsPayload,
   UpdateProductPayload,
@@ -39,6 +40,19 @@ export function createProduct(payload: CreateProductPayload) {
     method: "POST",
     body: JSON.stringify(payload),
   });
+}
+
+export function downloadProductBulkUploadSample() {
+  return apiBlobRequest("/products/bulk-upload/sample");
+}
+
+export function bulkUploadProducts(file: File) {
+  const formData = new FormData();
+  formData.append("file", file);
+  return apiFormRequest<ProductBulkUploadResult>(
+    "/products/bulk-upload",
+    formData,
+  );
 }
 
 export function updateProduct(id: number, payload: UpdateProductPayload) {

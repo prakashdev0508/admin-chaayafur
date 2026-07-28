@@ -9,11 +9,12 @@ Staff endpoints for uploading product and category images to **Cloudflare R2**. 
 ## Overview
 
 1. **Upload** image(s) via multipart form → receive `url` + `key`
-2. **Attach** to a product via `POST /products` or `PATCH /products/:id` in the `images` array, or to a category via `image: { url, storageKey }`
+2. **Attach** to a product via `POST /products` or `PATCH /products/:id` in the `images` array, or paste comma-separated `url` values into the product [bulk upload](./products.md#bulk-upload) Excel `images` column, or attach to a category via `image: { url, storageKey }`
 
 ```text
 Admin UI  →  POST /uploads/product-images  →  R2 bucket
            →  POST/PATCH /products { images: [{ url, storageKey }] }
+           →  or Excel bulk upload images column (comma-separated urls)
 
 Admin UI  →  POST /uploads/category-images  →  R2 bucket
            →  POST/PATCH /categories { image: { url, storageKey } }
@@ -115,7 +116,7 @@ curl -X POST http://localhost:5000/api/v1/uploads/product-images \
 
 ## POST /api/v1/uploads/product-images/batch
 
-Upload up to **10** images in one request.
+Upload up to **5** images in one request.
 
 | | |
 |---|---|

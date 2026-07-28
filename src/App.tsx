@@ -10,6 +10,7 @@ import { DashboardPage } from "@/pages/dashboard/DashboardPage";
 import { ReportsPage } from "@/pages/reports/ReportsPage";
 import { CategoryMasterPage } from "@/pages/categories/CategoryMasterPage";
 import { ProductListPage } from "@/pages/products/ProductListPage";
+import { ProductBulkPreparePage } from "@/pages/products/ProductBulkPreparePage";
 import { AddProductPage } from "@/pages/products/AddProductPage";
 import { EditProductPage } from "@/pages/products/EditProductPage";
 import { ProductDetailPage } from "@/pages/products/ProductDetailPage";
@@ -141,6 +142,10 @@ const App = () => {
             }
           >
             <Route path="products/new" element={<AddProductPage />} />
+            <Route
+              path="products/bulk-prepare"
+              element={<ProductBulkPreparePage />}
+            />
           </Route>
           <Route
             element={
