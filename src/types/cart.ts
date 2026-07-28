@@ -1,3 +1,10 @@
+export type CartLineRef = {
+  productId: number;
+  woodId?: number | null;
+  polishId?: number | null;
+  fabricId?: number | null;
+};
+
 export type CartItem = {
   productId: number;
   quantity: number;
@@ -10,12 +17,20 @@ export type CartItem = {
   woodId?: number | null;
   woodName?: string | null;
   woodColor?: string | null;
+  polishId?: number | null;
+  polishName?: string | null;
+  polishColor?: string | null;
+  fabricId?: number | null;
+  fabricName?: string | null;
+  fabricColor?: string | null;
 };
 
 export type CartOrderItem = {
   productId: number;
   quantity: number;
   woodId?: number;
+  polishId?: number;
+  fabricId?: number;
 };
 
 /** Line from GET /cart (server-computed pricing). */
@@ -32,6 +47,12 @@ export type ServerCartLine = {
   woodId?: number | null;
   woodName?: string | null;
   woodColor?: string | null;
+  polishId?: number | null;
+  polishName?: string | null;
+  polishColor?: string | null;
+  fabricId?: number | null;
+  fabricName?: string | null;
+  fabricColor?: string | null;
 };
 
 export type CartResponse = {
@@ -40,12 +61,54 @@ export type CartResponse = {
   subtotalAmount: string;
 };
 
-/** Stable key for a cart line: productId or productId:woodId. */
-export function cartLineKey(
-  productId: number,
-  woodId?: number | null,
-): string {
-  return woodId != null ? `${productId}:${woodId}` : String(productId);
+/** Stable key for a cart line (product + optional wood / polish / fabric). */
+export function cartLineKey(ref: CartLineRef): string {
+  const wood = ref.woodId ?? "none";
+  const polish = ref.polishId ?? "none";
+  const fabric = ref.fabricId ?? "none";
+  return `${ref.productId}:${wood}:${polish}:${fabric}`;
+}
+
+export function cartLineRefFromItem(
+  item: Pick<
+    CartItem,
+    "productId" | "woodId" | "polishId" | "fabricId"
+  >,
+): CartLineRef {
+  return {
+    productId: item.productId,
+    woodId: item.woodId ?? null,
+    polishId: item.polishId ?? null,
+    fabricId: item.fabricId ?? null,
+  };
+}
+
+export function cartLineQueryParams(ref: CartLineRef): {
+  woodId?: number;
+  polishId?: number;
+  fabricId?: number;
+} {
+  const params: { woodId?: number; polishId?: number; fabricId?: number } = {};
+  if (ref.woodId != null) params.woodId = ref.woodId;
+  if (ref.polishId != null) params.polishId = ref.polishId;
+  if (ref.fabricId != null) params.fabricId = ref.fabricId;
+  return params;
+}
+
+export function upsertPayloadFromLine(
+  line: Pick<
+    CartItem,
+    "productId" | "quantity" | "woodId" | "polishId" | "fabricId"
+  >,
+): UpsertCartItemPayload {
+  const payload: UpsertCartItemPayload = {
+    productId: line.productId,
+    quantity: line.quantity,
+  };
+  if (line.woodId != null) payload.woodId = line.woodId;
+  if (line.polishId != null) payload.polishId = line.polishId;
+  if (line.fabricId != null) payload.fabricId = line.fabricId;
+  return payload;
 }
 
 export function serverCartLineToCartItem(line: ServerCartLine): CartItem {
@@ -61,6 +124,12 @@ export function serverCartLineToCartItem(line: ServerCartLine): CartItem {
     woodId: line.woodId ?? null,
     woodName: line.woodName ?? null,
     woodColor: line.woodColor ?? null,
+    polishId: line.polishId ?? null,
+    polishName: line.polishName ?? null,
+    polishColor: line.polishColor ?? null,
+    fabricId: line.fabricId ?? null,
+    fabricName: line.fabricName ?? null,
+    fabricColor: line.fabricColor ?? null,
   };
 }
 
@@ -101,16 +170,61 @@ export type SeedAdminCartPayload = {
   productId: number;
   quantity: number;
   woodId?: number;
+  polishId?: number;
+  fabricId?: number;
 };
 
 export type UpsertAdminCartItemPayload = {
   productId: number;
   quantity: number;
   woodId?: number;
+  polishId?: number;
+  fabricId?: number;
 };
 
 export type UpsertCartItemPayload = {
   productId: number;
   quantity: number;
   woodId?: number;
+  polishId?: number;
+  fabricId?: number;
 };
+
+export type CartMaterialChip = {
+  label: string;
+  name: string;
+  color?: string | null;
+};
+
+/** Display chips for wood / polish / fabric on a cart line. */
+export function getCartLineMaterialChips(
+  item: Pick<
+    CartItem,
+    | "woodName"
+    | "woodColor"
+    | "polishName"
+    | "polishColor"
+    | "fabricName"
+    | "fabricColor"
+  >,
+): CartMaterialChip[] {
+  const chips: CartMaterialChip[] = [];
+  if (item.woodName) {
+    chips.push({ label: "Wood", name: item.woodName, color: item.woodColor });
+  }
+  if (item.polishName) {
+    chips.push({
+      label: "Polish",
+      name: item.polishName,
+      color: item.polishColor,
+    });
+  }
+  if (item.fabricName) {
+    chips.push({
+      label: "Fabric",
+      name: item.fabricName,
+      color: item.fabricColor,
+    });
+  }
+  return chips;
+}

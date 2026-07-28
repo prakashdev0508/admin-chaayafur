@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Minus, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { CartMaterialChips } from "@/components/shop/CartMaterialChips";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { ProductSearchSelect } from "@/components/shared/ProductSearchSelect";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -26,11 +27,15 @@ import {
   upsertAdminCartItem,
 } from "@/services/admin-carts.service";
 import { getProduct } from "@/services/products.service";
-import { cartLineKey, type AdminCartDetail } from "@/types/cart";
+import {
+  cartLineKey,
+  cartLineRefFromItem,
+  type AdminCartDetail,
+  type CartLineRef,
+} from "@/types/cart";
+import { getSelectableProductFabrics } from "@/types/fabric";
 import { getSelectableProductWoods } from "@/types/wood";
 import type { ProductListItem } from "@/types/product";
-
-type LineRef = { productId: number; woodId?: number | null };
 
 type AdminCartItemsPanelProps = {
   cart: AdminCartDetail;
@@ -60,8 +65,10 @@ export function AdminCartItemsPanel({
     null,
   );
   const [selectedWoodId, setSelectedWoodId] = useState<number | null>(null);
+  const [selectedPolishId, setSelectedPolishId] = useState<number | null>(null);
+  const [selectedFabricId, setSelectedFabricId] = useState<number | null>(null);
   const [quantity, setQuantity] = useState("1");
-  const [removeLine, setRemoveLine] = useState<LineRef | null>(null);
+  const [removeLine, setRemoveLine] = useState<CartLineRef | null>(null);
   const [pendingKey, setPendingKey] = useState<string | null>(null);
 
   const productDetailQuery = useQuery({
@@ -73,10 +80,21 @@ export function AdminCartItemsPanel({
   const productWoods = productDetailQuery.data?.woods ?? [];
   const selectableWoods = getSelectableProductWoods(productWoods);
   const showWoodPicker = productWoods.length > 0;
+  const selectedWood = selectableWoods.find((w) => w.id === selectedWoodId);
+  const woodPolishes = selectedWood?.polishes ?? [];
+  const productFabrics = productDetailQuery.data?.fabrics ?? [];
+  const selectableFabrics = getSelectableProductFabrics(productFabrics);
+  const showFabricPicker = productFabrics.length > 0;
 
   useEffect(() => {
     setSelectedWoodId(null);
+    setSelectedPolishId(null);
+    setSelectedFabricId(null);
   }, [selectedProduct?.id]);
+
+  useEffect(() => {
+    setSelectedPolishId(null);
+  }, [selectedWoodId]);
 
   const invalidate = async () => {
     await queryClient.invalidateQueries({
@@ -89,16 +107,15 @@ export function AdminCartItemsPanel({
   };
 
   const upsertMutation = useMutation({
-    mutationFn: (payload: {
-      productId: number;
-      quantity: number;
-      woodId?: number;
-    }) => upsertAdminCartItem(cart.id, payload),
+    mutationFn: (payload: Parameters<typeof upsertAdminCartItem>[1]) =>
+      upsertAdminCartItem(cart.id, payload),
     onSuccess: async () => {
       toast.success("Cart item saved");
       setAddOpen(false);
       setSelectedProduct(null);
       setSelectedWoodId(null);
+      setSelectedPolishId(null);
+      setSelectedFabricId(null);
       setQuantity("1");
       await invalidate();
     },
@@ -111,17 +128,13 @@ export function AdminCartItemsPanel({
 
   const setQtyMutation = useMutation({
     mutationFn: ({
-      productId,
+      line,
       quantity: qty,
-      woodId,
     }: {
-      productId: number;
+      line: CartLineRef;
       quantity: number;
-      woodId?: number | null;
-    }) =>
-      setAdminCartItemQuantity(cart.id, productId, { quantity: qty }, woodId),
-    onMutate: ({ productId, woodId }) =>
-      setPendingKey(cartLineKey(productId, woodId)),
+    }) => setAdminCartItemQuantity(cart.id, line, { quantity: qty }),
+    onMutate: ({ line }) => setPendingKey(cartLineKey(line)),
     onSettled: () => setPendingKey(null),
     onSuccess: async () => {
       await invalidate();
@@ -134,8 +147,7 @@ export function AdminCartItemsPanel({
   });
 
   const removeMutation = useMutation({
-    mutationFn: ({ productId, woodId }: LineRef) =>
-      removeAdminCartItem(cart.id, productId, woodId),
+    mutationFn: (line: CartLineRef) => removeAdminCartItem(cart.id, line),
     onSuccess: async () => {
       toast.success("Item removed");
       setRemoveLine(null);
@@ -154,17 +166,16 @@ export function AdminCartItemsPanel({
     removeMutation.isPending;
 
   async function handleQuantityDelta(
-    productId: number,
+    line: CartLineRef,
     current: number,
     delta: number,
-    woodId?: number | null,
   ) {
     const next = current + delta;
     if (next < 1) {
-      setRemoveLine({ productId, woodId });
+      setRemoveLine(line);
       return;
     }
-    setQtyMutation.mutate({ productId, quantity: next, woodId });
+    setQtyMutation.mutate({ line, quantity: next });
   }
 
   return (
@@ -180,7 +191,8 @@ export function AdminCartItemsPanel({
         <p className="text-sm text-muted-foreground">Cart is empty.</p>
       ) : (
         cart.items.map((item) => {
-          const key = cartLineKey(item.productId, item.woodId);
+          const line = cartLineRefFromItem(item);
+          const key = cartLineKey(line);
           const lineBusy = pendingKey === key && busy;
           return (
             <div
@@ -205,18 +217,11 @@ export function AdminCartItemsPanel({
                     >
                       {item.name}
                     </Link>
-                    {item.woodName && (
-                      <p className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-                        {item.woodColor && (
-                          <span
-                            className="size-2.5 rounded-full border border-border"
-                            style={{ backgroundColor: item.woodColor }}
-                            aria-hidden
-                          />
-                        )}
-                        {item.woodName}
-                      </p>
-                    )}
+                    <CartMaterialChips
+                      item={item}
+                      size="md"
+                      className="mt-1.5"
+                    />
                     <p className="text-muted-foreground">
                       Product #{item.productId} · Stock {item.stock}
                     </p>
@@ -234,12 +239,7 @@ export function AdminCartItemsPanel({
                         size="icon-sm"
                         disabled={busy}
                         onClick={() =>
-                          void handleQuantityDelta(
-                            item.productId,
-                            item.quantity,
-                            -1,
-                            item.woodId,
-                          )
+                          void handleQuantityDelta(line, item.quantity, -1)
                         }
                       >
                         <Minus className="size-3.5" />
@@ -257,12 +257,7 @@ export function AdminCartItemsPanel({
                         size="icon-sm"
                         disabled={busy || item.quantity >= item.stock}
                         onClick={() =>
-                          void handleQuantityDelta(
-                            item.productId,
-                            item.quantity,
-                            1,
-                            item.woodId,
-                          )
+                          void handleQuantityDelta(line, item.quantity, 1)
                         }
                       >
                         <Plus className="size-3.5" />
@@ -272,12 +267,7 @@ export function AdminCartItemsPanel({
                         variant="ghost"
                         size="icon-sm"
                         disabled={busy}
-                        onClick={() =>
-                          setRemoveLine({
-                            productId: item.productId,
-                            woodId: item.woodId,
-                          })
-                        }
+                        onClick={() => setRemoveLine(line)}
                       >
                         <Trash2 className="size-3.5" />
                       </Button>
@@ -310,16 +300,18 @@ export function AdminCartItemsPanel({
           if (!open) {
             setSelectedProduct(null);
             setSelectedWoodId(null);
+            setSelectedPolishId(null);
+            setSelectedFabricId(null);
             setQuantity("1");
           }
         }}
       >
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add or update item</DialogTitle>
             <DialogDescription>
               Search by product name. Quantity replaces any existing line for
-              that product and wood.
+              the same product, wood, polish, and fabric combination.
             </DialogDescription>
           </DialogHeader>
           <form
@@ -339,6 +331,12 @@ export function AdminCartItemsPanel({
                 productId: selectedProduct.id,
                 quantity: qty,
                 ...(selectedWoodId != null ? { woodId: selectedWoodId } : {}),
+                ...(selectedPolishId != null
+                  ? { polishId: selectedPolishId }
+                  : {}),
+                ...(selectedFabricId != null
+                  ? { fabricId: selectedFabricId }
+                  : {}),
               });
             }}
           >
@@ -348,11 +346,11 @@ export function AdminCartItemsPanel({
               disabled={upsertMutation.isPending}
             />
             {selectedProduct && productDetailQuery.isLoading && (
-              <p className="text-sm text-muted-foreground">Loading woods…</p>
+              <p className="text-sm text-muted-foreground">Loading options…</p>
             )}
             {showWoodPicker && (
               <div className="space-y-2">
-                <Label>Wood</Label>
+                <Label>Wood (optional)</Label>
                 <div className="flex flex-wrap gap-2">
                   {productWoods.map((wood) => {
                     const available = wood.isAvailable;
@@ -363,7 +361,9 @@ export function AdminCartItemsPanel({
                         type="button"
                         disabled={!available}
                         onClick={() => {
-                          if (available) setSelectedWoodId(wood.id);
+                          if (available) {
+                            setSelectedWoodId(selected ? null : wood.id);
+                          }
                         }}
                         title={
                           available
@@ -398,6 +398,82 @@ export function AdminCartItemsPanel({
                 {selectableWoods.length === 0 && (
                   <p className="text-xs text-destructive">
                     No woods are currently available for this product.
+                  </p>
+                )}
+              </div>
+            )}
+            {selectedWoodId && woodPolishes.length > 0 && (
+              <div className="space-y-2">
+                <Label>Polish (optional)</Label>
+                <div className="flex flex-wrap gap-2">
+                  {woodPolishes.map((polish) => {
+                    const selected = selectedPolishId === polish.id;
+                    return (
+                      <button
+                        key={polish.id}
+                        type="button"
+                        onClick={() =>
+                          setSelectedPolishId(selected ? null : polish.id)
+                        }
+                        className={cn(
+                          "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm",
+                          selected
+                            ? "border-primary bg-muted"
+                            : "border-border hover:bg-muted/50",
+                        )}
+                      >
+                        <span
+                          className="size-3 rounded-full border border-border"
+                          style={{ backgroundColor: polish.color }}
+                          aria-hidden
+                        />
+                        {polish.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            {showFabricPicker && (
+              <div className="space-y-2">
+                <Label>Fabric (optional)</Label>
+                <div className="flex flex-wrap gap-2">
+                  {productFabrics.map((fabric) => {
+                    const available = fabric.isAvailable;
+                    const selected = selectedFabricId === fabric.id;
+                    return (
+                      <button
+                        key={fabric.id}
+                        type="button"
+                        disabled={!available}
+                        onClick={() => {
+                          if (available) {
+                            setSelectedFabricId(selected ? null : fabric.id);
+                          }
+                        }}
+                        className={cn(
+                          "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm",
+                          !available &&
+                            "cursor-not-allowed opacity-50 border-dashed",
+                          available && selected && "border-primary bg-muted",
+                          available &&
+                            !selected &&
+                            "border-border hover:bg-muted/50",
+                        )}
+                      >
+                        <span
+                          className="size-3 rounded-full border border-border"
+                          style={{ backgroundColor: fabric.color }}
+                          aria-hidden
+                        />
+                        {fabric.name}
+                      </button>
+                    );
+                  })}
+                </div>
+                {selectableFabrics.length === 0 && (
+                  <p className="text-xs text-destructive">
+                    No fabrics are currently available for this product.
                   </p>
                 )}
               </div>

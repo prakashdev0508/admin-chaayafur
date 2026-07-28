@@ -33,6 +33,12 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { OrderStatusForm } from "@/components/orders/OrderStatusForm";
+import { CustomizationMaterialsHighlight } from "@/components/customization-requests/CustomizationMaterialsHighlight";
+import {
+  getCustomizationRequestMaterialChips,
+  getOrderItemMaterialChips,
+  orderShowsSeparateBilling,
+} from "@/lib/order-customization-materials";
 import { RefundCompleteOtpDialog } from "@/components/orders/RefundCompleteOtpDialog";
 import { RefundCompleteResultDialog } from "@/components/orders/RefundCompleteResultDialog";
 import { RefundOrderDialog } from "@/components/orders/RefundOrderDialog";
@@ -307,6 +313,11 @@ export function OrderDetailPage() {
         .filter(Boolean)
         .join(", ")
     : undefined;
+  const showBilling = orderShowsSeparateBilling(order);
+  const customization = order.customizationRequest ?? null;
+  const customizationMaterials = customization
+    ? getCustomizationRequestMaterialChips(customization)
+    : [];
 
   const ticketCount =
     supportTicketsQuery.data?.meta.total ??
@@ -428,13 +439,44 @@ export function OrderDetailPage() {
                       </p>
                       <p className="text-sm">{order.shippingAddress}</p>
                     </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">
-                        Billing address
-                      </p>
-                      <p className="text-sm">{order.billingAddress}</p>
-                    </div>
+                    {showBilling && (
+                      <div>
+                        <p className="text-sm text-muted-foreground">
+                          Billing address
+                        </p>
+                        <p className="text-sm">{order.billingAddress}</p>
+                      </div>
+                    )}
                   </div>
+                  {customization && (
+                    <div className="space-y-3 rounded-lg border border-amber-200/80 bg-amber-50/40 p-4 dark:border-amber-900/50 dark:bg-amber-950/20">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-sm font-medium">
+                          Custom order · Request #{customization.id}
+                        </p>
+                        <Link
+                          to={`/customization-requests/${customization.id}`}
+                          className="text-sm font-medium text-primary hover:underline"
+                        >
+                          View request
+                        </Link>
+                      </div>
+                      <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                        {customization.description}
+                      </p>
+                      <CustomizationMaterialsHighlight
+                        materials={customizationMaterials}
+                        title="Wood, polish & fabric"
+                      />
+                      {customization.referenceImageUrl && (
+                        <img
+                          src={customization.referenceImageUrl}
+                          alt="Customization reference"
+                          className="max-h-40 rounded-lg border object-cover"
+                        />
+                      )}
+                    </div>
+                  )}
                   {order.coupon && (
                     <div className="rounded-lg border bg-muted/30 p-3 text-sm">
                       Coupon applied: <strong>{order.coupon.code}</strong> (
@@ -460,7 +502,12 @@ export function OrderDetailPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {order.items.map((item) => (
+                      {order.items.map((item) => {
+                        const itemMaterials = getOrderItemMaterialChips(
+                          item,
+                          customization,
+                        );
+                        return (
                         <TableRow key={item.id}>
                           <TableCell className="font-medium">
                             <Link
@@ -469,17 +516,29 @@ export function OrderDetailPage() {
                             >
                               {item.product.name}
                             </Link>
-                            {item.woodName && (
-                              <p className="mt-0.5 flex items-center gap-1.5 text-xs font-normal text-muted-foreground">
-                                {item.woodColor && (
+                            {itemMaterials.length > 0 && (
+                              <div className="mt-2 flex flex-wrap gap-1.5">
+                                {itemMaterials.map((material) => (
                                   <span
-                                    className="size-2.5 rounded-full border border-border"
-                                    style={{ backgroundColor: item.woodColor }}
-                                    aria-hidden
-                                  />
-                                )}
-                                {item.woodName}
-                              </p>
+                                    key={`${material.label}-${material.name}`}
+                                    className="inline-flex items-center gap-1 rounded-full border border-amber-200/80 bg-amber-50/80 px-2 py-0.5 text-[11px] font-medium dark:border-amber-800 dark:bg-amber-950/40"
+                                  >
+                                    {material.color && (
+                                      <span
+                                        className="size-2 rounded-full border border-black/10"
+                                        style={{
+                                          backgroundColor: material.color,
+                                        }}
+                                        aria-hidden
+                                      />
+                                    )}
+                                    <span className="text-muted-foreground">
+                                      {material.label}:
+                                    </span>
+                                    {material.name}
+                                  </span>
+                                ))}
+                              </div>
                             )}
                           </TableCell>
                           <TableCell>{item.quantity}</TableCell>
@@ -522,7 +581,8 @@ export function OrderDetailPage() {
                             )}
                           </TableCell>
                         </TableRow>
-                      ))}
+                        );
+                      })}
                     </TableBody>
                   </Table>
                   <Separator className="my-4" />

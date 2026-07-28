@@ -20,6 +20,10 @@ export const STAFF_HOME_CANDIDATES: StaffHomeCandidate[] = [
   { path: "/website/home", permission: PERMISSIONS.VIEW_BANNERS },
   { path: "/orders", permission: PERMISSIONS.VIEW_ORDERS },
   { path: "/support-tickets", permission: PERMISSIONS.VIEW_ORDER_SUPPORT },
+  {
+    path: "/customization-requests",
+    permission: PERMISSIONS.VIEW_CUSTOMIZATION_REQUESTS,
+  },
   { path: "/payments", permission: PERMISSIONS.VIEW_PAYMENTS },
   { path: "/refunds", permission: PERMISSIONS.VIEW_PAYMENTS },
   { path: "/coupons", permission: PERMISSIONS.VIEW_COUPONS },
@@ -43,6 +47,7 @@ const ROUTE_PERMISSIONS: Record<string, Permission | null> = {
   "/website/home": PERMISSIONS.VIEW_BANNERS,
   "/orders": PERMISSIONS.VIEW_ORDERS,
   "/support-tickets": PERMISSIONS.VIEW_ORDER_SUPPORT,
+  "/customization-requests": PERMISSIONS.VIEW_CUSTOMIZATION_REQUESTS,
   "/payments": PERMISSIONS.VIEW_PAYMENTS,
   "/refunds": PERMISSIONS.VIEW_PAYMENTS,
   "/coupons": PERMISSIONS.VIEW_COUPONS,

@@ -92,6 +92,9 @@ export function ShopLayout() {
             <NavLink to="/shop/contact" className={navLinkClass}>
               Contact
             </NavLink>
+            <NavLink to="/shop/customize" className={navLinkClass}>
+              Custom design
+            </NavLink>
           </nav>
 
           <ShopSearchBar className="mx-auto hidden min-w-0 flex-1 lg:block" />

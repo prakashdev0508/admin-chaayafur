@@ -1,6 +1,6 @@
 # Cart API
 
-Persistent server-side cart for logged-in customers. Line keys are `productId` + optional `woodId`; **all prices are computed from live product data** on every read and at checkout. See [woods.md](./woods.md) for optional wood selection rules.
+Persistent server-side cart for logged-in customers. Line keys are `productId` + optional `woodId` + `polishId` + `fabricId`; **all prices are computed from live product data** on every read and at checkout. See [woods.md](./woods.md) and [fabrics.md](./fabrics.md).
 
 [← Back to index](./README.md) · [Customers](./customers.md) · [Orders](./orders.md) · [Coupons](./coupons.md) · [Products](./products.md)
 
@@ -52,9 +52,9 @@ Customer routes require `@CustomerOnly()`. Staff routes use permissions above (O
 | Method | Endpoint | Status | Description |
 |--------|----------|--------|-------------|
 | `GET` | `/api/v1/cart` | `200` | Cart lines + computed totals |
-| `POST` | `/api/v1/cart/items` | `200` | Upsert line by `productId` + `woodId` |
-| `PATCH` | `/api/v1/cart/items/:productId?woodId=` | `200` | Set quantity for one line |
-| `DELETE` | `/api/v1/cart/items/:productId?woodId=` | `200` | Remove one line |
+| `POST` | `/api/v1/cart/items` | `200` | Upsert line by `productId` + optional `woodId` / `polishId` / `fabricId` |
+| `PATCH` | `/api/v1/cart/items/:productId?woodId=&polishId=&fabricId=` | `200` | Set quantity for one line |
+| `DELETE` | `/api/v1/cart/items/:productId?woodId=&polishId=&fabricId=` | `200` | Remove one line |
 
 ---
 
@@ -130,7 +130,9 @@ Add a product or replace quantity if the line already exists (upsert).
 {
   "productId": 1,
   "quantity": 2,
-  "woodId": 2
+  "woodId": 2,
+  "polishId": 3,
+  "fabricId": 4
 }
 ```
 
@@ -138,7 +140,9 @@ Add a product or replace quantity if the line already exists (upsert).
 |-------|-------|
 | `productId` | Integer ≥ 1, must exist |
 | `quantity` | Integer ≥ 1, max per app validation constant |
-| `woodId` | Optional customization; if set, must be an active wood assigned to the product ([woods.md](./woods.md)) |
+| `woodId` | Optional; must be an active wood assigned to the product |
+| `polishId` | Optional; requires `woodId`; must belong to that wood |
+| `fabricId` | Optional; must be an active fabric assigned to the product |
 
 ### Validation
 
@@ -224,7 +228,7 @@ Guests and older clients can still send `items: [{ productId, quantity }]` on `P
 ## Data model (reference)
 
 - One `Cart` row per `customerId` (created on first add).
-- `CartItem` rows: unique `(cartId, productId, woodId)` (`NULLS NOT DISTINCT`), quantity only — no stored price.
+- `CartItem` rows: unique `(cartId, productId, woodId, polishId, fabricId)` (`NULLS NOT DISTINCT`), quantity only — no stored price.
 
 ---
 

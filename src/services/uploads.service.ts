@@ -99,3 +99,14 @@ export function uploadSupportImagesBatch(files: File[]) {
     "customer",
   );
 }
+
+export function uploadCustomizationImage(file: File) {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  return apiFormRequest<UploadApiResult | UploadApiResult[]>(
+    "/uploads/customization-images",
+    formData,
+    "customer",
+  ).then(normalizeUploadResponse);
+}

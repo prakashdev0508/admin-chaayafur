@@ -23,8 +23,13 @@ import {
   setCartItemQuantity,
   upsertCartItem,
 } from "@/services/shop-cart.service";
-import type { CartItem, CartOrderItem } from "@/types/cart";
-import { cartLineKey, serverCartLineToCartItem } from "@/types/cart";
+import type { CartItem, CartLineRef, CartOrderItem } from "@/types/cart";
+import {
+  cartLineKey,
+  cartLineRefFromItem,
+  serverCartLineToCartItem,
+  upsertPayloadFromLine,
+} from "@/types/cart";
 
 type CartContextValue = {
   items: CartItem[];
@@ -33,26 +38,16 @@ type CartContextValue = {
   isLoading: boolean;
   isSyncing: boolean;
   addItem: (item: Omit<CartItem, "quantity">, quantity?: number) => Promise<void>;
-  updateQuantity: (
-    productId: number,
-    quantity: number,
-    woodId?: number | null,
-  ) => Promise<void>;
-  removeItem: (productId: number, woodId?: number | null) => Promise<void>;
+  updateQuantity: (line: CartLineRef, quantity: number) => Promise<void>;
+  removeItem: (line: CartLineRef) => Promise<void>;
   clearCart: () => void;
   getOrderItems: () => CartOrderItem[];
 };
 
 const CartContext = createContext<CartContextValue | null>(null);
 
-function sameLine(
-  a: { productId: number; woodId?: number | null },
-  productId: number,
-  woodId?: number | null,
-) {
-  return (
-    cartLineKey(a.productId, a.woodId) === cartLineKey(productId, woodId)
-  );
+function sameLine(a: CartLineRef, b: CartLineRef) {
+  return cartLineKey(a) === cartLineKey(b);
 }
 
 export function CartProvider({ children }: { children: ReactNode }) {
@@ -97,11 +92,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       setIsSyncing(true);
       try {
         for (const line of localLines) {
-          await upsertCartItem({
-            productId: line.productId,
-            quantity: line.quantity,
-            ...(line.woodId != null ? { woodId: line.woodId } : {}),
-          });
+          await upsertCartItem(upsertPayloadFromLine(line));
         }
         clearStoredCart();
         setGuestItems([]);
@@ -124,19 +115,21 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const addItem = useCallback(
     async (item: Omit<CartItem, "quantity">, quantity = 1) => {
-      const woodId = item.woodId ?? null;
+      const lineRef = cartLineRefFromItem(item);
 
       if (isAuthenticated) {
         setIsSyncing(true);
         try {
           const existing = serverItems.find((entry) =>
-            sameLine(entry, item.productId, woodId),
+            sameLine(cartLineRefFromItem(entry), lineRef),
           );
           const nextQty = (existing?.quantity ?? 0) + quantity;
           await upsertCartItem({
             productId: item.productId,
             quantity: nextQty,
-            ...(woodId != null ? { woodId } : {}),
+            ...(lineRef.woodId != null ? { woodId: lineRef.woodId } : {}),
+            ...(lineRef.polishId != null ? { polishId: lineRef.polishId } : {}),
+            ...(lineRef.fabricId != null ? { fabricId: lineRef.fabricId } : {}),
           });
           await invalidateCart();
         } finally {
@@ -147,11 +140,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
       setGuestItems((current) => {
         const existing = current.find((entry) =>
-          sameLine(entry, item.productId, woodId),
+          sameLine(cartLineRefFromItem(entry), lineRef),
         );
         if (existing) {
           return current.map((entry) =>
-            sameLine(entry, item.productId, woodId)
+            sameLine(cartLineRefFromItem(entry), lineRef)
               ? { ...entry, ...item, quantity: entry.quantity + quantity }
               : entry,
           );
@@ -163,18 +156,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
   );
 
   const updateQuantity = useCallback(
-    async (
-      productId: number,
-      quantity: number,
-      woodId?: number | null,
-    ) => {
+    async (line: CartLineRef, quantity: number) => {
       if (isAuthenticated) {
         setIsSyncing(true);
         try {
           if (quantity <= 0) {
-            await removeCartItem(productId, woodId);
+            await removeCartItem(line);
           } else {
-            await setCartItemQuantity(productId, { quantity }, woodId);
+            await setCartItemQuantity(line, { quantity });
           }
           await invalidateCart();
         } finally {
@@ -185,14 +174,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
       if (quantity <= 0) {
         setGuestItems((current) =>
-          current.filter((entry) => !sameLine(entry, productId, woodId)),
+          current.filter((entry) => !sameLine(cartLineRefFromItem(entry), line)),
         );
         return;
       }
 
       setGuestItems((current) =>
         current.map((entry) =>
-          sameLine(entry, productId, woodId)
+          sameLine(cartLineRefFromItem(entry), line)
             ? { ...entry, quantity }
             : entry,
         ),
@@ -202,8 +191,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
   );
 
   const removeItem = useCallback(
-    async (productId: number, woodId?: number | null) => {
-      await updateQuantity(productId, 0, woodId);
+    async (line: CartLineRef) => {
+      await updateQuantity(line, 0);
     },
     [updateQuantity],
   );
@@ -217,11 +206,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [isAuthenticated, queryClient]);
 
   const getOrderItems = useCallback((): CartOrderItem[] => {
-    return items.map(({ productId, quantity, woodId }) => ({
-      productId,
-      quantity,
-      ...(woodId != null ? { woodId } : {}),
-    }));
+    return items.map((item) => {
+      const orderItem: CartOrderItem = {
+        productId: item.productId,
+        quantity: item.quantity,
+      };
+      if (item.woodId != null) orderItem.woodId = item.woodId;
+      if (item.polishId != null) orderItem.polishId = item.polishId;
+      if (item.fabricId != null) orderItem.fabricId = item.fabricId;
+      return orderItem;
+    });
   }, [items]);
 
   const itemCount = useMemo(

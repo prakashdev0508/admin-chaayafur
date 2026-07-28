@@ -1,6 +1,11 @@
 import { buildQueryString } from "@/lib/build-query";
 import { apiRequest } from "@/lib/api";
-import type { CartResponse, UpsertCartItemPayload } from "@/types/cart";
+import type {
+  CartLineRef,
+  CartResponse,
+  UpsertCartItemPayload,
+} from "@/types/cart";
+import { cartLineQueryParams } from "@/types/cart";
 
 export function getCart() {
   return apiRequest<CartResponse>("/cart", {}, "customer");
@@ -18,12 +23,11 @@ export function upsertCartItem(payload: UpsertCartItemPayload) {
 }
 
 export function setCartItemQuantity(
-  productId: number,
+  line: CartLineRef,
   payload: { quantity: number },
-  woodId?: number | null,
 ) {
   return apiRequest<CartResponse>(
-    `/cart/items/${productId}${buildQueryString({ woodId: woodId ?? undefined })}`,
+    `/cart/items/${line.productId}${buildQueryString(cartLineQueryParams(line))}`,
     {
       method: "PATCH",
       body: JSON.stringify(payload),
@@ -32,12 +36,9 @@ export function setCartItemQuantity(
   );
 }
 
-export function removeCartItem(
-  productId: number,
-  woodId?: number | null,
-) {
+export function removeCartItem(line: CartLineRef) {
   return apiRequest<CartResponse>(
-    `/cart/items/${productId}${buildQueryString({ woodId: woodId ?? undefined })}`,
+    `/cart/items/${line.productId}${buildQueryString(cartLineQueryParams(line))}`,
     {
       method: "DELETE",
     },

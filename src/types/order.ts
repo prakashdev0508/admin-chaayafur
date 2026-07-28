@@ -45,12 +45,45 @@ export type OrderItem = {
   woodId?: number | null;
   woodName?: string | null;
   woodColor?: string | null;
+  polishId?: number | null;
+  polishName?: string | null;
+  polishColor?: string | null;
+  fabricId?: number | null;
+  fabricName?: string | null;
+  fabricColor?: string | null;
+  wood?: OrderCatalogMaterial | null;
+  polish?: OrderCatalogMaterial | null;
+  fabric?: OrderCatalogMaterial | null;
   product: {
     id: number;
     name: string;
     slug: string;
   };
   review?: OrderItemReview | null;
+};
+
+export type OrderCatalogMaterial = {
+  id: number;
+  name: string;
+  slug: string;
+  color: string;
+  woodId?: number;
+};
+
+export type OrderCustomizationRequest = {
+  id: number;
+  productName: string;
+  description: string;
+  quantity: number;
+  status: string;
+  referenceImageUrl?: string | null;
+  referenceImageKey?: string | null;
+  woodId?: number | null;
+  polishId?: number | null;
+  fabricId?: number | null;
+  wood?: OrderCatalogMaterial | null;
+  polish?: OrderCatalogMaterial | null;
+  fabric?: OrderCatalogMaterial | null;
 };
 
 export type OrderPayment = {
@@ -127,6 +160,7 @@ export type Order = {
     isActive?: boolean;
   };
   items: OrderItem[];
+  customizationRequest?: OrderCustomizationRequest | null;
   payment: OrderPayment;
   coupon: OrderCoupon | null;
   shippingAddressRef?: OrderAddressRef;

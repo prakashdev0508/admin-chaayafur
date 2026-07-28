@@ -8,11 +8,8 @@ import { adminCartColumns } from "@/components/data-table/admin-cart-columns";
 import { DataTable } from "@/components/data-table/data-table";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { ProductCartMaterialPickers } from "@/components/shared/ProductCartMaterialPickers";
 import { ProductSearchSelect } from "@/components/shared/ProductSearchSelect";
-import {
-  ProductWoodPicker,
-  useWoodSelection,
-} from "@/components/shared/ProductWoodPicker";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -51,10 +48,9 @@ export function CartListPage() {
     null,
   );
   const [quantity, setQuantity] = useState("1");
-  const {
-    woodId: selectedWoodId,
-    setWoodId: setSelectedWoodId,
-  } = useWoodSelection(selectedProduct?.id ?? null);
+  const [selectedWoodId, setSelectedWoodId] = useState<number | null>(null);
+  const [selectedPolishId, setSelectedPolishId] = useState<number | null>(null);
+  const [selectedFabricId, setSelectedFabricId] = useState<number | null>(null);
 
   const params = useMemo(
     () => ({
@@ -183,6 +179,8 @@ export function CartListPage() {
             setCustomerId("");
             setSelectedProduct(null);
             setSelectedWoodId(null);
+            setSelectedPolishId(null);
+            setSelectedFabricId(null);
             setQuantity("1");
           }
         }}
@@ -217,6 +215,12 @@ export function CartListPage() {
                 productId: selectedProduct.id,
                 quantity: qty,
                 ...(selectedWoodId != null ? { woodId: selectedWoodId } : {}),
+                ...(selectedPolishId != null
+                  ? { polishId: selectedPolishId }
+                  : {}),
+                ...(selectedFabricId != null
+                  ? { fabricId: selectedFabricId }
+                  : {}),
               });
             }}
           >
@@ -234,10 +238,14 @@ export function CartListPage() {
               onChange={setSelectedProduct}
               disabled={seedMutation.isPending}
             />
-            <ProductWoodPicker
+            <ProductCartMaterialPickers
               productId={selectedProduct?.id ?? null}
-              value={selectedWoodId}
-              onChange={setSelectedWoodId}
+              woodId={selectedWoodId}
+              polishId={selectedPolishId}
+              fabricId={selectedFabricId}
+              onWoodChange={setSelectedWoodId}
+              onPolishChange={setSelectedPolishId}
+              onFabricChange={setSelectedFabricId}
               disabled={seedMutation.isPending}
             />
             <div className="space-y-2">

@@ -4,10 +4,12 @@ import type { PaginatedResponse } from "@/types/api";
 import type {
   AdminCartDetail,
   AdminCartListItem,
+  CartLineRef,
   ListAdminCartsParams,
   SeedAdminCartPayload,
   UpsertAdminCartItemPayload,
 } from "@/types/cart";
+import { cartLineQueryParams } from "@/types/cart";
 
 export function listAdminCarts(params: ListAdminCartsParams = {}) {
   return apiRequest<PaginatedResponse<AdminCartListItem>>(
@@ -39,12 +41,13 @@ export function upsertAdminCartItem(
 
 export function setAdminCartItemQuantity(
   cartId: number,
-  productId: number,
+  line: CartLineRef,
   payload: { quantity: number },
-  woodId?: number | null,
 ) {
   return apiRequest<AdminCartDetail>(
-    `/carts/${cartId}/items/${productId}${buildQueryString({ woodId: woodId ?? undefined })}`,
+    `/carts/${cartId}/items/${line.productId}${buildQueryString(
+      cartLineQueryParams(line),
+    )}`,
     {
       method: "PATCH",
       body: JSON.stringify(payload),
@@ -52,13 +55,11 @@ export function setAdminCartItemQuantity(
   );
 }
 
-export function removeAdminCartItem(
-  cartId: number,
-  productId: number,
-  woodId?: number | null,
-) {
+export function removeAdminCartItem(cartId: number, line: CartLineRef) {
   return apiRequest<AdminCartDetail>(
-    `/carts/${cartId}/items/${productId}${buildQueryString({ woodId: woodId ?? undefined })}`,
+    `/carts/${cartId}/items/${line.productId}${buildQueryString(
+      cartLineQueryParams(line),
+    )}`,
     {
       method: "DELETE",
     },

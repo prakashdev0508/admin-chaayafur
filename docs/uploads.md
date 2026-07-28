@@ -37,6 +37,7 @@ Admin UI  →  POST /uploads/category-images  →  R2 bucket
 | `POST /uploads/favicon-images` | `update-settings` | Yes | Yes | No |
 | `POST /uploads/support-images` | Customer JWT | Yes | No | No |
 | `POST /uploads/support-images/batch` | Customer JWT | Yes | No | No |
+| `POST /uploads/customization-images` | Customer JWT | Yes | No | No |
 
 ---
 
@@ -73,6 +74,7 @@ Set in `.env` (see `.env.example`):
 | `POST` | `/api/v1/uploads/favicon-images` | `201` |
 | `POST` | `/api/v1/uploads/support-images` | `201` |
 | `POST` | `/api/v1/uploads/support-images/batch` | `201` |
+| `POST` | `/api/v1/uploads/customization-images` | `201` |
 
 ---
 

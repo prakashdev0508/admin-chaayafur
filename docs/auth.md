@@ -568,6 +568,8 @@ Admin password reset (no current password). **SUPER_ADMIN only.** Cannot reset y
 | `view-coupons` | View coupons |
 | `view-order-support` | View order support tickets |
 | `update-order-support` | Reply to / update support tickets |
+| `view-customization-requests` | View customization requests |
+| `update-customization-requests` | Approve / reject / convert customization requests |
 | `create-banners` | Create home banners |
 | `update-banners` | Update home banners |
 | `view-banners` | View home banners (admin) |
