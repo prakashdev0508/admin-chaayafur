@@ -49,9 +49,12 @@ import { SupportTicketDetailPage } from "@/pages/support-tickets/SupportTicketDe
 import { WebsiteHomePage } from "@/pages/website/WebsiteHomePage";
 import { SettingsPage } from "@/pages/settings/SettingsPage";
 import { ReviewListPage } from "@/pages/reviews/ReviewListPage";
+import { ContactInquiryListPage } from "@/pages/contact/ContactInquiryListPage";
+import { ContactInquiryDetailPage } from "@/pages/contact/ContactInquiryDetailPage";
 import { ShopHomePage } from "@/pages/shop/ShopHomePage";
 import { ShopCatalogPage } from "@/pages/shop/ShopCatalogPage";
 import { ShopProductPage } from "@/pages/shop/ShopProductPage";
+import { ShopContactPage } from "@/pages/shop/ShopContactPage";
 import { CartPage } from "@/pages/shop/CartPage";
 import { CheckoutPage } from "@/pages/shop/CheckoutPage";
 import { ShopOrderPage } from "@/pages/shop/ShopOrderPage";
@@ -67,6 +70,7 @@ const App = () => {
         <Route path="/shop" element={<ShopHomePage />} />
         <Route path="/shop/products" element={<ShopCatalogPage />} />
         <Route path="/shop/products/:id" element={<ShopProductPage />} />
+        <Route path="/shop/contact" element={<ShopContactPage />} />
         <Route path="/shop/cart" element={<CartPage />} />
         <Route element={<CustomerProtectedRoute />}>
           <Route path="/shop/checkout" element={<CheckoutPage />} />
@@ -264,6 +268,8 @@ const App = () => {
               <PermissionRoute permission={PERMISSIONS.VIEW_SETTINGS} />
             }
           >
+            <Route path="contact" element={<ContactInquiryListPage />} />
+            <Route path="contact/:id" element={<ContactInquiryDetailPage />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>
         </Route>

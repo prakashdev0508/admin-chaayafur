@@ -89,6 +89,9 @@ export function ShopLayout() {
             <NavLink to="/shop/products" className={navLinkClass}>
               Products
             </NavLink>
+            <NavLink to="/shop/contact" className={navLinkClass}>
+              Contact
+            </NavLink>
           </nav>
 
           <ShopSearchBar className="mx-auto hidden min-w-0 flex-1 lg:block" />
@@ -208,6 +211,9 @@ export function ShopLayout() {
             <div className="flex gap-4">
               <Link to="/shop/products" className="hover:text-foreground">
                 Shop
+              </Link>
+              <Link to="/shop/contact" className="hover:text-foreground">
+                Contact
               </Link>
               <Link to="/login" className="hover:text-foreground">
                 Admin

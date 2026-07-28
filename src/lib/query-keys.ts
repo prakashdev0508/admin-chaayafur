@@ -168,4 +168,10 @@ export const queryKeys = {
     list: (params: Record<string, unknown>) =>
       ["reviews", "list", params] as const,
   },
+  contactInquiries: {
+    all: ["contact-inquiries"] as const,
+    list: (params: Record<string, unknown>) =>
+      ["contact-inquiries", "list", params] as const,
+    detail: (id: number) => ["contact-inquiries", "detail", id] as const,
+  },
 };

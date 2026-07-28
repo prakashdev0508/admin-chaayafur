@@ -18,6 +18,7 @@ import {
   UserPlus,
   Globe,
   Shield,
+  Mail,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -149,6 +150,12 @@ const navMore: NavItem[] = [
     url: "/reviews",
     icon: MessageSquareQuote,
     permission: PERMISSIONS.VIEW_REVIEWS,
+  },
+  {
+    title: "Contact",
+    url: "/contact",
+    icon: Mail,
+    permission: PERMISSIONS.VIEW_SETTINGS,
   },
   {
     title: "Audit Logs",
