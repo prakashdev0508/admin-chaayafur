@@ -323,6 +323,11 @@ export function ShopOrderPage() {
                               {material.label}:
                             </span>
                             {material.name}
+                            {material.priceAdjustmentLabel && (
+                              <span className="text-muted-foreground">
+                                {material.priceAdjustmentLabel}
+                              </span>
+                            )}
                           </span>
                         ))}
                       </div>

@@ -10,7 +10,8 @@ Checkout from frontend cart, Razorpay payment links, order tracking, and staff o
 
 - **Backend cart** — see [cart.md](./cart.md); `GET/PATCH /cart` for logged-in customers
 - **Checkout** — send `items` in the body (legacy) or `useCart: true` to charge the saved server cart
-- **Server-side pricing** — totals are computed from database product prices; frontend prices are never trusted
+- **Server-side pricing** — totals use `Product.price` plus **product-level** wood / polish / fabric `priceAdjustment` values; frontend prices are never trusted (see [products.md](./products.md#product-level-customization-pricing))
+- **Order line snapshots** — checkout stores unit price (base + adjustments) and `woodPriceAdjustment` / `polishPriceAdjustment` / `fabricPriceAdjustment` so historical totals stay fixed
 - **Stock is decremented** atomically when the order is created
 - **Stock is restored** when payment fails/expires (webhook) or staff cancels an order
 - Each order gets a human-readable `orderNumber` (e.g. `ORD-20260710-0001`)
@@ -167,7 +168,7 @@ Create an order from frontend cart items. Creates a Razorpay Payment Link for th
 ```json
 {
   "items": [
-    { "productId": 1, "quantity": 2, "woodId": 2 },
+    { "productId": 1, "quantity": 2, "woodId": 2, "polishId": 5, "fabricId": 3 },
     { "productId": 3, "quantity": 1 }
   ],
   "shippingAddressId": 1,
@@ -181,7 +182,9 @@ Create an order from frontend cart items. Creates a Razorpay Payment Link for th
 | `items` | array | Yes | Min 1 item |
 | `items[].productId` | integer | Yes | Must exist and be active |
 | `items[].quantity` | integer | Yes | Min 1, max 9999 |
-| `items[].woodId` | integer | No | Optional customization; if set, must be an active wood for that product ([woods.md](./woods.md)) |
+| `items[].woodId` | integer | No | Optional; must be an active wood **assigned to that product** ([woods.md](./woods.md)) |
+| `items[].polishId` | integer | No | Optional; requires `woodId`; must be an active polish assigned to that product and belonging to that wood |
+| `items[].fabricId` | integer | No | Optional; must be an active fabric **assigned to that product** ([fabrics.md](./fabrics.md)) |
 | `shippingAddressId` | integer | Yes | Customer's own address |
 | `billingAddressId` | integer | No | Defaults to `shippingAddressId` |
 | `couponCode` | string | No | Max 32 chars; validated server-side |
@@ -191,12 +194,12 @@ Create an order from frontend cart items. Creates a Razorpay Payment Link for th
 1. All addresses must belong to the authenticated customer
 2. All products must exist and be `isActive: true`
 3. Sufficient stock for each line item
-4. If `woodId` is provided, it must be available for that product; omitting wood is always allowed
-5. `subtotalAmount` computed server-side from product prices
+4. If `woodId` / `polishId` / `fabricId` is provided, it must be available for that product; omitting customizations is always allowed
+5. `subtotalAmount` = sum of `(base price + wood adj + polish adj + fabric adj) × quantity`
 6. Optional coupon validated and discount applied
-6. Shipping address pincode checked for serviceability ([shipping.md](./shipping.md)); `shippingAmount` computed from site settings
-7. `totalAmount = subtotal - discount + shippingAmount`
-8. Razorpay Payment Link created for full `totalAmount`
+7. Shipping address pincode checked for serviceability ([shipping.md](./shipping.md)); `shippingAmount` computed from site settings
+8. `totalAmount = subtotal - discount + shippingAmount`
+9. Razorpay Payment Link created for full `totalAmount`
 
 ### Success response `201`
 
@@ -809,16 +812,19 @@ All of `POST /orders` and `GET /orders/:id` return this shape (wrapped in `{ suc
 | `id` | integer | Order line item ID |
 | `productId` | integer | Product ID |
 | `quantity` | integer | Quantity ordered |
-| `price` | string | Unit price at checkout (server-side) |
+| `price` | string | Captured unit price at checkout (`base + wood + polish + fabric` adjustments) |
 | `woodId` | integer \| null | Selected wood (cart / customization) |
 | `woodName` | string \| null | Snapshot at checkout |
 | `woodColor` | string \| null | Snapshot at checkout |
-| `polishId` | integer \| null | Polish (customization orders) |
+| `woodPriceAdjustment` | string | Product-level wood adjustment snapped at checkout (`"0.00"` if none) |
+| `polishId` | integer \| null | Selected polish |
 | `polishName` | string \| null | Snapshot at checkout |
 | `polishColor` | string \| null | Snapshot at checkout |
-| `fabricId` | integer \| null | Fabric (customization orders) |
+| `polishPriceAdjustment` | string | Product-level polish adjustment snapped at checkout |
+| `fabricId` | integer \| null | Selected fabric |
 | `fabricName` | string \| null | Snapshot at checkout |
 | `fabricColor` | string \| null | Snapshot at checkout |
+| `fabricPriceAdjustment` | string | Product-level fabric adjustment snapped at checkout |
 | `wood` | object \| null | Live catalog join when `woodId` is set |
 | `polish` | object \| null | Live catalog join when `polishId` is set |
 | `fabric` | object \| null | Live catalog join when `fabricId` is set |

@@ -50,17 +50,17 @@ export function AddProductPage() {
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
       <PageHeader
         title="Add product"
-        description="Create a new furniture item for your catalog."
+        description="Create a catalog item with pricing, images, and customization options."
         action={
           <Button
             variant="outline"
             render={
               <Link to="/products">
                 <ArrowLeft className="size-4" />
-                Back to products
+                Back
               </Link>
             }
           />
@@ -74,8 +74,6 @@ export function AddProductPage() {
         isSubmitting={isSubmitting}
         error={error}
       />
-
-      <Button variant="outline" render={<Link to="/products">Cancel</Link>} />
     </div>
   );
 }

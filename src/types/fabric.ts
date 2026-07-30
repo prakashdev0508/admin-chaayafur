@@ -16,6 +16,8 @@ export type ProductFabric = {
   color: string;
   isActive: boolean;
   isAvailable: boolean;
+  /** Product-level adjustment added to base price when selected. */
+  priceAdjustment?: string;
 };
 
 export function isProductFabricAvailable(fabric: ProductFabric): boolean {

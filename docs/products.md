@@ -17,11 +17,102 @@ Create, update, and list furniture products.
 - Default list shows only **active** products (`isActive=true`)
 - **`price`** is the selling price (after discount) — used for cart, checkout, and filters
 - **`priceWithoutDiscount`** is optional compare-at / MRP; display-only, does not affect checkout
-- **`woods`** — product wood options with nested polishes (see [woods.md](./woods.md)); detail includes unavailable woods with `isAvailable: false`
-- **`fabrics`** — product fabric options (see [fabrics.md](./fabrics.md)); same availability pattern as woods; independent of wood
+- **Product-level customization pricing** — woods, polishes, and fabrics each carry a per-product `priceAdjustment` (default `0`). Cart/checkout unit price = `base price + wood adj + polish adj + fabric adj`. See [Product-level customization pricing](#product-level-customization-pricing)
+- **`woods`** — product wood options with nested polishes and `priceAdjustment` (see [woods.md](./woods.md)); detail includes unavailable woods with `isAvailable: false`
+- **`polishes`** — product polish options (also nested under each wood); must belong to an assigned wood
+- **`fabrics`** — product fabric options with `priceAdjustment` (see [fabrics.md](./fabrics.md)); same availability pattern as woods; independent of wood
 - Products link to **`subCategoryId`** (not top-level `categoryId`)
 - Public list responses are **cached** in Upstash Redis (60s default) and return `Cache-Control` headers for CDN edge caching
 - Cache is invalidated automatically when products, categories, or sub-categories are created or updated
+
+### Product-level customization pricing
+
+Customization options (Wood, Polish, Fabric) do **not** use a global price. Each product stores its own price adjustments on the join tables:
+
+| Join table | Assignment field | Price field |
+|------------|------------------|-------------|
+| `ProductWood` | `woods[].woodId` | `woods[].priceAdjustment` |
+| `ProductPolish` | `polishes[].woodPolishId` | `polishes[].priceAdjustment` |
+| `ProductFabric` | `fabrics[].fabricId` | `fabrics[].priceAdjustment` |
+
+**Rules**
+
+- Omit `priceAdjustment` → defaults to `0`
+- Only options assigned to the product are returned on product detail / list and accepted on cart / checkout
+- Polishes must belong to a wood assigned to the same product
+- When `woods` is updated without an explicit `polishes` array, active polishes of the assigned woods are synced automatically at `priceAdjustment: 0` (existing polish prices for still-valid polishes are preserved)
+- Storefront live price: `product.price + selectedWood.priceAdjustment + selectedPolish.priceAdjustment + selectedFabric.priceAdjustment`
+
+**Admin create/update example**
+
+```json
+{
+  "woods": [
+    { "woodId": 1, "isActive": true, "priceAdjustment": 3000 },
+    { "woodId": 2, "isActive": true, "priceAdjustment": 6000 }
+  ],
+  "polishes": [
+    { "woodPolishId": 5, "isActive": true, "priceAdjustment": 500 }
+  ],
+  "fabrics": [
+    { "fabricId": 3, "isActive": true, "priceAdjustment": 1500 }
+  ]
+}
+```
+
+**Product detail customization shape**
+
+```json
+{
+  "woods": [
+    {
+      "id": 1,
+      "name": "Sheesham",
+      "slug": "sheesham",
+      "color": "#8B5E3C",
+      "isActive": true,
+      "isAvailable": true,
+      "priceAdjustment": "3000.00",
+      "polishes": [
+        {
+          "id": 5,
+          "name": "Matte",
+          "slug": "matte",
+          "color": "#E8E8E8",
+          "isActive": true,
+          "isAvailable": true,
+          "priceAdjustment": "500.00"
+        }
+      ]
+    }
+  ],
+  "polishes": [
+    {
+      "id": 5,
+      "woodId": 1,
+      "name": "Matte",
+      "slug": "matte",
+      "color": "#E8E8E8",
+      "isActive": true,
+      "isAvailable": true,
+      "priceAdjustment": "500.00"
+    }
+  ],
+  "fabrics": [
+    {
+      "id": 3,
+      "name": "Linen Beige",
+      "slug": "linen-beige",
+      "color": "#D4C4A8",
+      "isActive": true,
+      "isAvailable": true,
+      "priceAdjustment": "1500.00"
+    }
+  ]
+}
+```
+
+Frontend should show only these assigned options and recompute the displayed price when the customer changes wood / polish / fabric.
 
 ### Sub-category assignment
 
@@ -43,6 +134,7 @@ Use a sub-category ID from [categories.md](./categories.md). Example after seed:
 | `POST /products/bulk-upload` | `create-products` | Yes | Yes | No |
 | `PATCH /products/:id` | `update-products` | Yes | Yes | No |
 | `PATCH /admin/cms/products/:id/tags` | `update-products` | Yes | Yes | No |
+| `GET /admin/products/:id` | `view-products` | Yes | Yes | Yes |
 | `POST /uploads/product-images` | `create-products` or `update-products` | Yes | Yes | No |
 | `GET /products` | **Public** | — | — | — |
 | `GET /products/filters` | **Public** | — | — | — |
@@ -58,6 +150,7 @@ Use a sub-category ID from [categories.md](./categories.md). Example after seed:
 | `GET` | `/api/v1/products/bulk-upload/sample` | `create-products` | `200` |
 | `POST` | `/api/v1/products/bulk-upload` | `create-products` | `201` |
 | `PATCH` | `/api/v1/products/:id` | `update-products` | `200` |
+| `GET` | `/api/v1/admin/products/:id` | `view-products` | `200` |
 | `GET` | `/api/v1/products` | **Public** | `200` |
 | `GET` | `/api/v1/products/filters` | **Public** | `200` |
 | `GET` | `/api/v1/products/:idOrSlug` | **Public** | `200` |
@@ -99,6 +192,16 @@ Authorization: Bearer <accessToken>
     "Seats 6 people",
     "1-year warranty"
   ],
+  "woods": [
+    { "woodId": 1, "isActive": true, "priceAdjustment": 3000 },
+    { "woodId": 2, "isActive": true, "priceAdjustment": 6000 }
+  ],
+  "polishes": [
+    { "woodPolishId": 5, "isActive": true, "priceAdjustment": 500 }
+  ],
+  "fabrics": [
+    { "fabricId": 3, "isActive": true, "priceAdjustment": 1500 }
+  ],
   "images": [
     {
       "url": "https://cdn.example.com/products/oak-table.webp",
@@ -127,8 +230,9 @@ Authorization: Bearer <accessToken>
 | `isMostPopular` | boolean | No | Default `false` — CMS merchandising tag |
 | `isNewArrival` | boolean | No | Default `false` — CMS merchandising tag |
 | `productFeatures` | string[] | No | Max 10 items; each string max 200 chars. Default `[]` |
-| `woods` | array | No | `{ woodId, isActive? }[]` — assign woods for this product. Pass `[]` to clear. See [woods.md](./woods.md) |
-| `fabrics` | array | No | `{ fabricId, isActive? }[]` — assign fabrics for this product. Pass `[]` to clear. See [fabrics.md](./fabrics.md) |
+| `woods` | array | No | `{ woodId, isActive?, priceAdjustment? }[]` — assign woods for this product. Pass `[]` to clear. `priceAdjustment` defaults to `0`. See [woods.md](./woods.md) |
+| `polishes` | array | No | `{ woodPolishId, isActive?, priceAdjustment? }[]` — assign polishes for this product. Each polish must belong to an assigned wood. Pass `[]` to clear. Defaults to `0` when omitted |
+| `fabrics` | array | No | `{ fabricId, isActive?, priceAdjustment? }[]` — assign fabrics for this product. Pass `[]` to clear. `priceAdjustment` defaults to `0`. See [fabrics.md](./fabrics.md) |
 | `images` | array | No | Max 5 items. Upload files first via [uploads.md](./uploads.md); include `storageKey` from upload response |
 
 ### Success response `201`
@@ -336,6 +440,9 @@ Partial update. All body fields are optional.
 | `isMostPopular` | boolean | CMS tag |
 | `isNewArrival` | boolean | CMS tag |
 | `productFeatures` | string[] | Replace entire list. Pass `[]` to clear all features |
+| `woods` | array | Replace wood assignments. `{ woodId, isActive?, priceAdjustment? }[]`. Pass `[]` to clear |
+| `polishes` | array | Replace polish assignments. `{ woodPolishId, isActive?, priceAdjustment? }[]`. Pass `[]` to clear. Must belong to assigned woods |
+| `fabrics` | array | Replace fabric assignments. `{ fabricId, isActive?, priceAdjustment? }[]`. Pass `[]` to clear |
 | `images` | array | Replaces all images when provided (max 5) |
 
 ### cURL
@@ -364,6 +471,31 @@ curl -X PATCH http://localhost:5000/api/v1/products/1 \
 
 ---
 
+## GET /api/v1/admin/products/:id
+
+| | |
+|---|---|
+| **Auth** | Bearer token + `view-products` |
+| **Status** | `200` |
+
+**Use this for the admin Add/Edit Product page.** Returns the full product payload for any product (including inactive), with no HTTP cache:
+
+- `price` and `priceWithoutDiscount` (MRP; `null` when not set)
+- `description`, `stock`, CMS flags, `productFeatures`
+- Full `images[]` (with `storageKey`)
+- `woods[]` / `polishes[]` / `fabrics[]` with `priceAdjustment` and availability
+- `subCategory` (+ parent category)
+- `ratingAverage` / `reviewCount`
+
+### cURL
+
+```bash
+curl "http://localhost:5000/api/v1/admin/products/7" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+---
+
 ## GET /api/v1/products/:idOrSlug
 
 | | |
@@ -371,7 +503,7 @@ curl -X PATCH http://localhost:5000/api/v1/products/1 \
 | **Auth** | Public — no Bearer token required |
 | **Status** | `200` |
 
-Returns full product details for the storefront product page. Accepts either a **numeric product ID** or a **slug**. Only **active** products (`isActive=true`) are returned; hidden products respond with `404`.
+Returns full product details for the storefront product page. Accepts either a **numeric product ID** or a **slug**. Only **active** products (`isActive=true`) are returned; hidden products respond with `404`. For admin edit screens prefer [`GET /admin/products/:id`](#get-apiv1adminproductsid).
 
 | Path value | Lookup |
 |------------|--------|
@@ -387,7 +519,7 @@ GET /api/v1/products/oak-dining-table
 
 ### Success response `200`
 
-Same shape as the create/update response: `description`, full `images` array, `productFeatures`, `subCategory`, etc.
+Same shape as the create/update response: `description`, full `images` array, `productFeatures`, `woods` / `polishes` / `fabrics` (with `priceAdjustment`), `subCategory`, etc.
 
 ```json
 {
@@ -567,6 +699,7 @@ GET /api/v1/products?minPrice=1000&maxPrice=50000&sortBy=price&sortOrder=asc
 | `subCategoryId` | Sub-category ID |
 | `subCategory` | Nested sub-category + parent category |
 | `productFeatures` | Array of feature strings (empty array if none) |
+| `woods` / `polishes` / `fabrics` | Assigned customizations with `priceAdjustment` (list returns available only) |
 | `isBestSeller` / `isFeaturedProduct` / `isMostPopular` / `isNewArrival` | CMS merchandising flags |
 | `primaryImage` | Lowest `sortOrder` image, or `null` |
 

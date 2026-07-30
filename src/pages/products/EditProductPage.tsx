@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { ProductForm } from "@/components/products/ProductForm";
+import { ProductFormSkeleton } from "@/components/products/ProductPageSkeletons";
 import { usePermission } from "@/hooks/usePermission";
 import { ApiError } from "@/lib/api";
 import {
@@ -11,7 +12,7 @@ import {
   productToFormValues,
 } from "@/lib/product-utils";
 import {
-  getProductForEdit,
+  getAdminProduct,
   updateProduct,
 } from "@/services/products.service";
 import type { ProductFormValues } from "@/types/product";
@@ -42,7 +43,7 @@ export function EditProductPage() {
     setIsLoading(true);
     setLoadError(null);
 
-    getProductForEdit(productId)
+    getAdminProduct(productId)
       .then((product) => setDefaultValues(productToFormValues(product)))
       .catch((err) => {
         setLoadError(
@@ -80,17 +81,12 @@ export function EditProductPage() {
   }
 
   if (isLoading) {
-    return (
-      <div className="flex flex-col gap-4">
-        <PageHeader title="Edit product" />
-        <p className="text-muted-foreground">Loading product...</p>
-      </div>
-    );
+    return <ProductFormSkeleton />;
   }
 
   if (loadError || !defaultValues) {
     return (
-      <div className="flex flex-col gap-4">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-4">
         <PageHeader title="Edit product" />
         <p className="text-destructive">{loadError ?? "Product not found"}</p>
         <Button variant="outline" render={<Link to="/products">Back to products</Link>} />
@@ -99,17 +95,17 @@ export function EditProductPage() {
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
       <PageHeader
         title="Edit product"
-        description="Update product details and inventory."
+        description="Update details, inventory, and customization pricing."
         action={
           <Button
             variant="outline"
             render={
-              <Link to="/products">
+              <Link to={`/products/${productId}`}>
                 <ArrowLeft className="size-4" />
-                Back to products
+                Back
               </Link>
             }
           />
@@ -124,8 +120,6 @@ export function EditProductPage() {
         error={error}
         submitLabel="Update product"
       />
-
-      <Button variant="outline" render={<Link to="/products">Cancel</Link>} />
     </div>
   );
 }

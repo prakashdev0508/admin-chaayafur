@@ -1,6 +1,11 @@
 import type { SubCategory } from "@/types/category";
 import type { ProductFabric } from "@/types/fabric";
-import type { ProductWood } from "@/types/wood";
+import type {
+  ProductPolish,
+  ProductPolishAssignment,
+  ProductWood,
+  ProductWoodAssignment,
+} from "@/types/wood";
 
 export type ProductImage = {
   id?: number;
@@ -23,6 +28,12 @@ export type ProductMerchandisingTag =
   | "isMostPopular"
   | "isNewArrival";
 
+export type ProductFabricAssignment = {
+  fabricId: number;
+  isActive?: boolean;
+  priceAdjustment?: number;
+};
+
 export type Product = {
   id: number;
   name: string;
@@ -38,6 +49,8 @@ export type Product = {
   isNewArrival: boolean;
   productFeatures: string[];
   woods?: ProductWood[];
+  /** Flat polish assignments (also nested under each wood). */
+  polishes?: ProductPolish[];
   fabrics?: ProductFabric[];
   subCategoryId: number;
   subCategory: SubCategory;
@@ -62,6 +75,7 @@ export type ProductListItem = {
   isNewArrival: boolean;
   productFeatures: string[];
   woods?: ProductWood[];
+  polishes?: ProductPolish[];
   fabrics?: ProductFabric[];
   subCategoryId: number;
   subCategory: SubCategory;
@@ -103,8 +117,9 @@ export type CreateProductPayload = {
   isMostPopular?: boolean;
   isNewArrival?: boolean;
   productFeatures?: string[];
-  woods?: { woodId: number; isActive?: boolean }[];
-  fabrics?: { fabricId: number; isActive?: boolean }[];
+  woods?: ProductWoodAssignment[];
+  polishes?: ProductPolishAssignment[];
+  fabrics?: ProductFabricAssignment[];
   images?: ProductImageInput[];
 };
 
@@ -126,11 +141,20 @@ export type ProductBulkUploadResult = {
 export type ProductWoodFormEntry = {
   woodId: number;
   isActive: boolean;
+  /** Form string; empty or "0" → 0 on submit. */
+  priceAdjustment: string;
+};
+
+export type ProductPolishFormEntry = {
+  woodPolishId: number;
+  isActive: boolean;
+  priceAdjustment: string;
 };
 
 export type ProductFabricFormEntry = {
   fabricId: number;
   isActive: boolean;
+  priceAdjustment: string;
 };
 
 export type ProductFormValues = {
@@ -148,6 +172,7 @@ export type ProductFormValues = {
   isNewArrival: boolean;
   productFeatures: string[];
   woods: ProductWoodFormEntry[];
+  polishes: ProductPolishFormEntry[];
   fabrics: ProductFabricFormEntry[];
   images: ProductImageInput[];
 };

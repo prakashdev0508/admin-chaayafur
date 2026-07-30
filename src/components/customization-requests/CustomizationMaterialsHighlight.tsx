@@ -4,6 +4,8 @@ export type MaterialChip = {
   label: string;
   name: string;
   color?: string | null;
+  /** Formatted adjustment e.g. "+₹500" when > 0. */
+  priceAdjustmentLabel?: string | null;
 };
 
 type CustomizationMaterialsHighlightProps = {
@@ -63,6 +65,11 @@ export function CustomizationMaterialsHighlight({
               {material.label}
             </span>
             <span>{material.name}</span>
+            {material.priceAdjustmentLabel && (
+              <span className="text-xs font-normal text-muted-foreground">
+                {material.priceAdjustmentLabel}
+              </span>
+            )}
           </span>
         ))}
       </div>
@@ -74,6 +81,7 @@ export function materialChip(
   label: string,
   name: string,
   color?: string | null,
+  priceAdjustmentLabel?: string | null,
 ): MaterialChip {
-  return { label, name, color };
+  return { label, name, color, priceAdjustmentLabel };
 }

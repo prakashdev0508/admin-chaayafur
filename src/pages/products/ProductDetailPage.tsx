@@ -1,17 +1,11 @@
-import { useEffect, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, Pencil } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Separator } from "@/components/ui/separator";
+import { StarRating } from "@/components/reviews/StarRating";
 import { usePermission } from "@/hooks/usePermission";
 import { PERMISSIONS } from "@/lib/roles";
 import { ApiError } from "@/lib/api";
@@ -20,10 +14,17 @@ import {
   getActiveProductTags,
   getStockStatus,
   productTagLabels,
-  productTagVariants,
 } from "@/lib/product-utils";
-import { getProductDetail } from "@/services/products.service";
+import {
+  computeCustomizationUnitPrice,
+  formatPriceAdjustment,
+  parseMoney,
+} from "@/lib/customization-pricing";
+import { cn } from "@/lib/utils";
+import { getAdminProduct } from "@/services/products.service";
+import { ProductDetailSkeleton } from "@/components/products/ProductPageSkeletons";
 import type { Product } from "@/types/product";
+import type { ProductPolish } from "@/types/wood";
 
 const stockLabels = {
   in_stock: "In stock",
@@ -43,10 +44,15 @@ export function ProductDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { hasPermission } = usePermission();
   const canUpdate = hasPermission(PERMISSIONS.UPDATE_PRODUCTS);
+  const canView = hasPermission(PERMISSIONS.VIEW_PRODUCTS);
 
   const [product, setProduct] = useState<Product | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [selectedWoodId, setSelectedWoodId] = useState<number | null>(null);
+  const [selectedPolishId, setSelectedPolishId] = useState<number | null>(null);
+  const [selectedFabricId, setSelectedFabricId] = useState<number | null>(null);
 
   const productId = Number(id);
 
@@ -57,49 +63,106 @@ export function ProductDetailPage() {
       return;
     }
 
+    if (!canView) {
+      setError("You do not have permission to view products");
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
-    getProductDetail(productId, canUpdate)
-      .then(setProduct)
+    getAdminProduct(productId)
+      .then((data) => {
+        setProduct(data);
+        setActiveImageIndex(0);
+        setSelectedWoodId(null);
+        setSelectedPolishId(null);
+        setSelectedFabricId(null);
+      })
       .catch((err) => {
         setError(
           err instanceof ApiError ? err.message : "Failed to load product",
         );
       })
       .finally(() => setIsLoading(false));
-  }, [productId, canUpdate]);
+  }, [productId, canView]);
+
+  const sortedImages = useMemo(
+    () =>
+      [...(product?.images ?? [])].sort((a, b) => a.sortOrder - b.sortOrder),
+    [product?.images],
+  );
+
+  const activeImage = sortedImages[activeImageIndex] ?? sortedImages[0];
 
   if (isLoading) {
-    return (
-      <div className="flex flex-col gap-4">
-        <PageHeader title="Product details" />
-        <p className="text-muted-foreground">Loading product...</p>
-      </div>
-    );
+    return <ProductDetailSkeleton />;
   }
 
   if (error || !product) {
     return (
-      <div className="flex flex-col gap-4">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-4">
         <PageHeader title="Product not found" />
         <p className="text-destructive">{error ?? "Product not found"}</p>
-        <Button variant="outline" render={<Link to="/products">Back to products</Link>} />
+        <Button
+          variant="outline"
+          render={<Link to="/products">Back to products</Link>}
+        />
       </div>
     );
   }
 
   const stockStatus = getStockStatus(product);
   const activeTags = getActiveProductTags(product);
-  const sortedImages = [...product.images].sort(
-    (a, b) => a.sortOrder - b.sortOrder,
+  const woods = product.woods ?? [];
+  const fabrics = product.fabrics ?? [];
+  const selectedWood = woods.find((w) => w.id === selectedWoodId);
+  const woodPolishes = (selectedWood?.polishes ?? []).filter(
+    (p: ProductPolish) => p.isAvailable !== false,
   );
+  const selectedPolish =
+    woodPolishes.find((p) => p.id === selectedPolishId) ?? null;
+  const selectedFabric = fabrics.find((f) => f.id === selectedFabricId) ?? null;
+
+  const mrp = product.priceWithoutDiscount
+    ? parseMoney(product.priceWithoutDiscount)
+    : null;
+  const unitPrice = computeCustomizationUnitPrice(product.price, {
+    wood: selectedWood,
+    polish: selectedPolish,
+    fabric: selectedFabric,
+  });
+  const showMrp = mrp != null && mrp > unitPrice;
+  const ratingAverage = product.ratingAverage ?? null;
+  const reviewCount = product.reviewCount ?? 0;
+
+  const maxWoodAdj = Math.max(
+    0,
+    ...woods.filter((w) => w.isAvailable).map((w) => parseMoney(w.priceAdjustment)),
+  );
+  const maxFabricAdj = Math.max(
+    0,
+    ...fabrics
+      .filter((f) => f.isAvailable)
+      .map((f) => parseMoney(f.priceAdjustment)),
+  );
+  const maxPolishAdj = Math.max(
+    0,
+    ...woods.flatMap((w) =>
+      (w.polishes ?? [])
+        .filter((p) => p.isAvailable !== false)
+        .map((p) => parseMoney(p.priceAdjustment)),
+    ),
+  );
+  const priceCeiling =
+    parseMoney(product.price) + maxWoodAdj + maxPolishAdj + maxFabricAdj;
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
       <PageHeader
-        title={product.name}
-        description={product.slug}
+        title="Product preview"
+        description="How this item appears to customers, plus admin status"
         action={
           <div className="flex items-center gap-2">
             {canUpdate && (
@@ -117,7 +180,7 @@ export function ProductDetailPage() {
               render={
                 <Link to="/products">
                   <ArrowLeft className="size-4" />
-                  Back to products
+                  Back
                 </Link>
               }
             />
@@ -125,264 +188,379 @@ export function ProductDetailPage() {
         }
       />
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <div className="space-y-4 lg:col-span-2">
-          {sortedImages.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Images</CardTitle>
-                <CardDescription>
-                  {sortedImages.length} image{sortedImages.length !== 1 ? "s" : ""}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {sortedImages.map((image) => (
-                    <div
-                      key={image.id ?? image.url}
-                      className="overflow-hidden rounded-lg border"
-                    >
-                      <img
-                        src={image.url}
-                        alt={image.altText}
-                        className="aspect-square w-full object-cover"
-                      />
-                      <div className="space-y-1 p-3 text-sm">
-                        <p className="font-medium">{image.altText || "No alt text"}</p>
-                        <p className="text-xs text-muted-foreground">
-                          Sort order: {image.sortOrder}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+      <div className="grid gap-8 lg:grid-cols-2 lg:gap-10">
+        {/* Gallery — storefront style */}
+        <div className="space-y-3">
+          <div className="aspect-square overflow-hidden rounded-2xl border bg-muted/30">
+            {activeImage ? (
+              <img
+                src={activeImage.url}
+                alt={activeImage.altText || product.name}
+                className="size-full object-cover"
+              />
+            ) : (
+              <div className="flex size-full items-center justify-center text-sm text-muted-foreground">
+                No image available
+              </div>
+            )}
+          </div>
+          {sortedImages.length > 1 && (
+            <div className="grid grid-cols-4 gap-2 sm:grid-cols-5">
+              {sortedImages.map((image, index) => (
+                <button
+                  key={image.id ?? image.url}
+                  type="button"
+                  onClick={() => setActiveImageIndex(index)}
+                  className={cn(
+                    "aspect-square overflow-hidden rounded-xl border bg-muted/20 transition-shadow",
+                    index === activeImageIndex
+                      ? "ring-2 ring-foreground/80 ring-offset-2"
+                      : "hover:border-foreground/20",
+                  )}
+                >
+                  <img
+                    src={image.url}
+                    alt={image.altText || product.name}
+                    className="size-full object-cover"
+                  />
+                </button>
+              ))}
+            </div>
           )}
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Description</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm leading-relaxed text-muted-foreground">
-                {product.description || "No description provided."}
-              </p>
-            </CardContent>
-          </Card>
-
-          {product.productFeatures.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Features</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ul className="list-inside list-disc space-y-1 text-sm text-muted-foreground">
-                  {product.productFeatures.map((feature) => (
-                    <li key={feature}>{feature}</li>
-                  ))}
-                </ul>
-              </CardContent>
-            </Card>
+          {activeImage?.altText && (
+            <p className="text-xs text-muted-foreground">{activeImage.altText}</p>
           )}
         </div>
 
-        <div className="space-y-4">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Status</CardTitle>
-                <StatusBadge variant={stockVariants[stockStatus]}>
-                  {stockLabels[stockStatus]}
-                </StatusBadge>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Visibility</span>
-                <span>{product.isActive ? "Active" : "Inactive"}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Stock</span>
-                <span>{product.stock} units</span>
-              </div>
-              <Separator />
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Selling price</span>
-                <span className="font-semibold">{formatCurrency(product.price)}</span>
-              </div>
-              {product.priceWithoutDiscount && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Compare-at / MRP</span>
-                  <span className="text-muted-foreground line-through">
-                    {formatCurrency(product.priceWithoutDiscount)}
-                  </span>
-                </div>
-              )}
-              <Separator />
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Rating</span>
-                <span>
-                  {product.ratingAverage != null
-                    ? `${product.ratingAverage.toFixed(1)} / 5`
-                    : "—"}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Reviews</span>
-                <span>{product.reviewCount ?? 0}</span>
-              </div>
-            </CardContent>
-          </Card>
+        {/* Details — storefront style + admin cues */}
+        <div className="space-y-6">
+          <div>
+            <p className="text-xs font-medium tracking-[0.14em] text-muted-foreground uppercase">
+              {product.subCategory.category.name} · {product.subCategory.name}
+            </p>
+            <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">
+              {product.name}
+            </h1>
+            <p className="mt-1 font-mono text-xs text-muted-foreground">
+              {product.slug}
+            </p>
 
-          {(product.woods?.length ?? 0) > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Woods</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {product.woods!.map((wood) => (
-                  <div key={wood.id} className="space-y-2 text-sm">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="flex items-center gap-2">
-                        <span
-                          className="size-3.5 rounded-full border border-border"
-                          style={{ backgroundColor: wood.color }}
-                          aria-hidden
-                        />
-                        {wood.name}
-                      </span>
-                      <div className="flex flex-wrap items-center justify-end gap-1">
-                        <StatusBadge
-                          variant={wood.isActive ? "success" : "neutral"}
-                        >
-                          {wood.isActive ? "Assigned active" : "Assigned off"}
-                        </StatusBadge>
-                        <StatusBadge
-                          variant={wood.isAvailable ? "success" : "warning"}
-                        >
-                          {wood.isAvailable ? "Selectable" : "Unavailable"}
-                        </StatusBadge>
-                      </div>
-                    </div>
-                    {(wood.polishes?.length ?? 0) > 0 && (
-                      <div className="flex flex-wrap gap-1.5 pl-5">
-                        {wood.polishes!.map((polish) => (
-                          <span
-                            key={polish.id}
-                            className="inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs text-muted-foreground"
-                          >
-                            <span
-                              className="size-2.5 rounded-full border border-border"
-                              style={{ backgroundColor: polish.color }}
-                              aria-hidden
-                            />
-                            {polish.name}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <StatusBadge variant={stockVariants[stockStatus]}>
+                {stockLabels[stockStatus]}
+              </StatusBadge>
+              <StatusBadge variant={product.isActive ? "success" : "neutral"}>
+                {product.isActive ? "Active" : "Inactive"}
+              </StatusBadge>
+              {activeTags.map((tag) => (
+                <span
+                  key={tag}
+                  className="rounded-full border bg-muted/40 px-2.5 py-0.5 text-xs font-medium"
+                >
+                  {productTagLabels[tag]}
+                </span>
+              ))}
+            </div>
+
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              {ratingAverage != null ? (
+                <>
+                  <StarRating value={ratingAverage} size="sm" />
+                  <span className="text-sm text-muted-foreground">
+                    {ratingAverage.toFixed(1)} · {reviewCount} review
+                    {reviewCount === 1 ? "" : "s"}
+                  </span>
+                </>
+              ) : (
+                <span className="text-sm text-muted-foreground">
+                  No reviews yet
+                </span>
+              )}
+            </div>
+
+            <div className="mt-4 flex flex-wrap items-baseline gap-2">
+              <p className="text-3xl font-semibold tabular-nums">
+                {formatCurrency(unitPrice)}
+              </p>
+              {showMrp && (
+                <p className="text-base text-muted-foreground line-through tabular-nums">
+                  {formatCurrency(mrp)}
+                </p>
+              )}
+            </div>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {product.stock} in stock
+              {priceCeiling > parseMoney(product.price) && (
+                <>
+                  {" "}
+                  · options up to{" "}
+                  <span className="font-medium text-foreground tabular-nums">
+                    {formatCurrency(priceCeiling)}
+                  </span>
+                </>
+              )}
+            </p>
+            {(selectedWood || selectedPolish || selectedFabric) && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Preview includes selected customizations
+              </p>
+            )}
+          </div>
+
+          {product.description && (
+            <p className="leading-7 text-muted-foreground">
+              {product.description}
+            </p>
           )}
 
-          {(product.fabrics?.length ?? 0) > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Fabrics</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {product.fabrics!.map((fabric) => (
-                  <div
-                    key={fabric.id}
-                    className="flex items-center justify-between gap-2 text-sm"
+          {product.productFeatures.length > 0 && (
+            <ul className="space-y-2 text-sm">
+              {product.productFeatures.map((feature) => (
+                <li key={feature} className="flex gap-2">
+                  <span className="text-muted-foreground">•</span>
+                  <span>{feature}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {woods.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-medium">
+                  Wood
+                  <span className="ml-1 font-normal text-muted-foreground">
+                    (optional)
+                  </span>
+                </p>
+                {selectedWoodId != null && (
+                  <button
+                    type="button"
+                    className="text-xs text-muted-foreground underline-offset-2 hover:underline"
+                    onClick={() => {
+                      setSelectedWoodId(null);
+                      setSelectedPolishId(null);
+                    }}
                   >
-                    <span className="flex items-center gap-2">
+                    Clear
+                  </button>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {woods.map((wood) => {
+                  const available = wood.isAvailable;
+                  const selected = selectedWoodId === wood.id;
+                  const adj = formatPriceAdjustment(wood.priceAdjustment);
+                  return (
+                    <button
+                      key={wood.id}
+                      type="button"
+                      disabled={!available}
+                      onClick={() => {
+                        if (!available) return;
+                        setSelectedWoodId(wood.id);
+                        setSelectedPolishId(null);
+                      }}
+                      className={cn(
+                        "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition-colors",
+                        !available &&
+                          "cursor-not-allowed border-dashed opacity-50",
+                        available &&
+                          selected &&
+                          "border-foreground bg-muted text-foreground",
+                        available &&
+                          !selected &&
+                          "border-border bg-background text-muted-foreground hover:border-foreground/30 hover:text-foreground",
+                      )}
+                    >
                       <span
-                        className="size-3.5 rounded-full border border-border"
+                        className="size-3.5 rounded-full border border-black/10"
+                        style={{ backgroundColor: wood.color }}
+                        aria-hidden
+                      />
+                      <span>{wood.name}</span>
+                      {adj && (
+                        <span className="text-xs text-muted-foreground">
+                          {adj}
+                        </span>
+                      )}
+                      {!wood.isActive && (
+                        <span className="text-[10px] uppercase tracking-wide">
+                          Off
+                        </span>
+                      )}
+                      {!available && wood.isActive && (
+                        <span className="text-[10px] uppercase tracking-wide">
+                          N/A
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {woodPolishes.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">
+                    Polish
+                    <span className="ml-1 font-normal text-muted-foreground">
+                      (optional)
+                    </span>
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {woodPolishes.map((polish) => {
+                      const selected = selectedPolishId === polish.id;
+                      const adj = formatPriceAdjustment(polish.priceAdjustment);
+                      return (
+                        <button
+                          key={polish.id}
+                          type="button"
+                          onClick={() =>
+                            setSelectedPolishId(selected ? null : polish.id)
+                          }
+                          className={cn(
+                            "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition-colors",
+                            selected
+                              ? "border-foreground bg-muted text-foreground"
+                              : "border-border bg-background text-muted-foreground hover:border-foreground/30 hover:text-foreground",
+                          )}
+                        >
+                          <span
+                            className="size-3.5 rounded-full border border-black/10"
+                            style={{ backgroundColor: polish.color }}
+                            aria-hidden
+                          />
+                          {polish.name}
+                          {adj && (
+                            <span className="text-xs text-muted-foreground">
+                              {adj}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {fabrics.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-medium">
+                  Fabric
+                  <span className="ml-1 font-normal text-muted-foreground">
+                    (optional)
+                  </span>
+                </p>
+                {selectedFabricId != null && (
+                  <button
+                    type="button"
+                    className="text-xs text-muted-foreground underline-offset-2 hover:underline"
+                    onClick={() => setSelectedFabricId(null)}
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {fabrics.map((fabric) => {
+                  const available = fabric.isAvailable;
+                  const selected = selectedFabricId === fabric.id;
+                  const adj = formatPriceAdjustment(fabric.priceAdjustment);
+                  return (
+                    <button
+                      key={fabric.id}
+                      type="button"
+                      disabled={!available}
+                      onClick={() => {
+                        if (!available) return;
+                        setSelectedFabricId(selected ? null : fabric.id);
+                      }}
+                      className={cn(
+                        "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition-colors",
+                        !available &&
+                          "cursor-not-allowed border-dashed opacity-50",
+                        available &&
+                          selected &&
+                          "border-foreground bg-muted text-foreground",
+                        available &&
+                          !selected &&
+                          "border-border bg-background text-muted-foreground hover:border-foreground/30 hover:text-foreground",
+                      )}
+                    >
+                      <span
+                        className="size-3.5 rounded-full border border-black/10"
                         style={{ backgroundColor: fabric.color }}
                         aria-hidden
                       />
-                      {fabric.name}
-                    </span>
-                    <div className="flex flex-wrap items-center justify-end gap-1">
-                      <StatusBadge
-                        variant={fabric.isActive ? "success" : "neutral"}
-                      >
-                        {fabric.isActive ? "Assigned active" : "Assigned off"}
-                      </StatusBadge>
-                      <StatusBadge
-                        variant={fabric.isAvailable ? "success" : "warning"}
-                      >
-                        {fabric.isAvailable ? "Selectable" : "Unavailable"}
-                      </StatusBadge>
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
+                      <span>{fabric.name}</span>
+                      {adj && (
+                        <span className="text-xs text-muted-foreground">
+                          {adj}
+                        </span>
+                      )}
+                      {!fabric.isActive && (
+                        <span className="text-[10px] uppercase tracking-wide">
+                          Off
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           )}
 
-          {activeTags.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Merchandising</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap gap-1.5">
-                  {activeTags.map((tag) => (
-                    <StatusBadge key={tag} variant={productTagVariants[tag]}>
-                      {productTagLabels[tag]}
-                    </StatusBadge>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
+          <Separator />
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Category</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Parent</span>
-                <span>{product.subCategory.category.name}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Sub-category</span>
-                <span>{product.subCategory.name}</span>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Metadata</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Product ID</span>
-                <span>{product.id}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Created</span>
-                <span>
-                  {new Date(product.createdAt).toLocaleString("en-IN")}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Updated</span>
-                <span>
-                  {new Date(product.updatedAt).toLocaleString("en-IN")}
-                </span>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="rounded-xl border bg-muted/20 p-4 text-sm">
+            <p className="mb-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+              Admin details
+            </p>
+            <dl className="grid gap-2 sm:grid-cols-2">
+              <MetaRow label="Product ID" value={String(product.id)} />
+              <MetaRow
+                label="Selling price"
+                value={formatCurrency(product.price)}
+              />
+              {product.priceWithoutDiscount && (
+                <MetaRow
+                  label="MRP"
+                  value={formatCurrency(product.priceWithoutDiscount)}
+                />
+              )}
+              <MetaRow label="Stock" value={`${product.stock} units`} />
+              <MetaRow
+                label="Images"
+                value={String(sortedImages.length)}
+              />
+              <MetaRow
+                label="Woods / polishes / fabrics"
+                value={`${woods.length} / ${woods.reduce((n, w) => n + (w.polishes?.length ?? 0), 0)} / ${fabrics.length}`}
+              />
+              <MetaRow
+                label="Created"
+                value={new Date(product.createdAt).toLocaleString("en-IN")}
+              />
+              <MetaRow
+                label="Updated"
+                value={new Date(product.updatedAt).toLocaleString("en-IN")}
+              />
+            </dl>
+          </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function MetaRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd className="font-medium tabular-nums">{value}</dd>
     </div>
   );
 }

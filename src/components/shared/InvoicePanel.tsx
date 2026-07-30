@@ -1,4 +1,5 @@
 import { formatCurrency, formatDate } from "@/lib/format";
+import { formatPriceAdjustment } from "@/lib/customization-pricing";
 import type { Invoice } from "@/types/invoice";
 import {
   Table,
@@ -14,6 +15,23 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Download, FileText, Mail, RefreshCw } from "lucide-react";
+
+function invoiceLineCustomizationLabel(item: Invoice["lineItems"][number]) {
+  const parts: string[] = [];
+  if (item.woodName) {
+    const adj = formatPriceAdjustment(item.woodPriceAdjustment);
+    parts.push(adj ? `${item.woodName} (${adj})` : item.woodName);
+  }
+  if (item.polishName) {
+    const adj = formatPriceAdjustment(item.polishPriceAdjustment);
+    parts.push(adj ? `${item.polishName} (${adj})` : item.polishName);
+  }
+  if (item.fabricName) {
+    const adj = formatPriceAdjustment(item.fabricPriceAdjustment);
+    parts.push(adj ? `${item.fabricName} (${adj})` : item.fabricName);
+  }
+  return parts.length > 0 ? parts.join(" / ") : null;
+}
 
 type InvoicePanelProps = {
   invoice?: Invoice;
@@ -222,9 +240,18 @@ export function InvoicePanel({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {invoice.lineItems.map((item) => (
+            {invoice.lineItems.map((item) => {
+              const customization = invoiceLineCustomizationLabel(item);
+              return (
               <TableRow key={`${item.productId}-${item.name}`}>
-                <TableCell>{item.name}</TableCell>
+                <TableCell>
+                  <div>{item.name}</div>
+                  {customization && (
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {customization}
+                    </p>
+                  )}
+                </TableCell>
                 <TableCell className="text-right">{item.quantity}</TableCell>
                 <TableCell className="text-right">
                   {formatCurrency(item.unitPrice)}
@@ -233,7 +260,8 @@ export function InvoicePanel({
                   {formatCurrency(item.lineTotal)}
                 </TableCell>
               </TableRow>
-            ))}
+              );
+            })}
           </TableBody>
         </Table>
       </div>

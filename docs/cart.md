@@ -1,6 +1,6 @@
 # Cart API
 
-Persistent server-side cart for logged-in customers. Line keys are `productId` + optional `woodId` + `polishId` + `fabricId`; **all prices are computed from live product data** on every read and at checkout. See [woods.md](./woods.md) and [fabrics.md](./fabrics.md).
+Persistent server-side cart for logged-in customers. Line keys are `productId` + optional `woodId` + `polishId` + `fabricId`; **all prices are computed from live product + product-level customization adjustments** on every read and at checkout. See [woods.md](./woods.md), [fabrics.md](./fabrics.md), and [products.md](./products.md#product-level-customization-pricing).
 
 [← Back to index](./README.md) · [Customers](./customers.md) · [Orders](./orders.md) · [Coupons](./coupons.md) · [Products](./products.md)
 
@@ -14,15 +14,34 @@ Persistent server-side cart for logged-in customers. Line keys are `productId` +
 | Logged-in customer | `GET/POST/PATCH/DELETE /api/v1/cart` — one cart per customer |
 | Staff | `GET/POST /api/v1/carts` — list, detail, seed/add items for any customer |
 
-- **No prices in the database** on cart rows — `unitPrice`, `lineTotal`, and `subtotalAmount` are derived from `Product.price` when you fetch the cart.
+- **No prices stored on cart rows** — `unitPrice`, `lineTotal`, and `subtotalAmount` are derived on every read from:
+  - `Product.price` (base)
+  - `ProductWood.priceAdjustment` for the selected wood
+  - `ProductPolish.priceAdjustment` for the selected polish
+  - `ProductFabric.priceAdjustment` for the selected fabric
 - **Stock and availability** are checked when adding/updating lines and again at checkout.
+- **Customization validation** — `woodId` / `polishId` / `fabricId` must be assigned and active for that product (not merely present in the global catalog).
 - **Coupons** are not stored on the cart; pass `couponCode` on `POST /orders` at checkout (see [orders.md](./orders.md)).
 - After a **successful** checkout with `useCart: true`, cart lines are cleared automatically.
+
+### Pricing formula
+
+```text
+unitPrice = Product.price
+          + woodPriceAdjustment
+          + polishPriceAdjustment
+          + fabricPriceAdjustment
+
+lineTotal = unitPrice × quantity
+subtotalAmount = sum(lineTotal)
+```
+
+Missing customizations contribute `0`.
 
 ### Typical flow
 
 ```text
-Login (OTP) → POST /cart/items (add products) → GET /cart (review totals)
+Login (OTP) → POST /cart/items (add products + customizations) → GET /cart (review totals)
 → POST /coupons/validate (optional) → POST /orders { useCart: true, ... } → Razorpay
 ```
 
@@ -60,7 +79,7 @@ Customer routes require `@CustomerOnly()`. Staff routes use permissions above (O
 
 ## GET /api/v1/cart
 
-Returns the current cart with server-computed pricing.
+Returns the current cart with server-computed pricing (including customization adjustments).
 
 ### Success response `200`
 
@@ -72,27 +91,39 @@ Returns the current cart with server-computed pricing.
       {
         "productId": 1,
         "woodId": 2,
-        "woodName": "Peak",
+        "woodName": "Sheesham",
         "woodColor": "#8B5E3C",
+        "woodPriceAdjustment": "3000.00",
+        "polishId": 5,
+        "polishName": "Matte",
+        "polishColor": "#E8E8E8",
+        "polishPriceAdjustment": "500.00",
+        "fabricId": 3,
+        "fabricName": "Linen Beige",
+        "fabricColor": "#D4C4A8",
+        "fabricPriceAdjustment": "1500.00",
         "quantity": 2,
-        "unitPrice": "24999.99",
-        "lineTotal": "49999.98",
-        "name": "Oak Dining Table",
-        "slug": "oak-dining-table",
+        "basePrice": "25000.00",
+        "unitPrice": "30000.00",
+        "lineTotal": "60000.00",
+        "name": "Dining Table",
+        "slug": "dining-table",
         "stock": 5,
         "imageUrl": "https://cdn.example.com/products/1.jpg",
         "isAvailable": true
       }
     ],
     "itemCount": 2,
-    "subtotalAmount": "49999.98"
+    "subtotalAmount": "60000.00"
   }
 }
 ```
 
 | Field | Description |
 |-------|-------------|
-| `unitPrice` | Current `Product.price` (string, 2 decimals) |
+| `basePrice` | Current `Product.price` (string) |
+| `woodPriceAdjustment` / `polishPriceAdjustment` / `fabricPriceAdjustment` | Product-level adjustments for the selected options (`"0"` when omitted) |
+| `unitPrice` | `basePrice + wood + polish + fabric` adjustments |
 | `lineTotal` | `unitPrice × quantity` |
 | `isAvailable` | `false` if product inactive or `stock < quantity` |
 | `itemCount` | Sum of line quantities |
@@ -131,8 +162,8 @@ Add a product or replace quantity if the line already exists (upsert).
   "productId": 1,
   "quantity": 2,
   "woodId": 2,
-  "polishId": 3,
-  "fabricId": 4
+  "polishId": 5,
+  "fabricId": 3
 }
 ```
 
@@ -140,15 +171,15 @@ Add a product or replace quantity if the line already exists (upsert).
 |-------|-------|
 | `productId` | Integer ≥ 1, must exist |
 | `quantity` | Integer ≥ 1, max per app validation constant |
-| `woodId` | Optional; must be an active wood assigned to the product |
-| `polishId` | Optional; requires `woodId`; must belong to that wood |
-| `fabricId` | Optional; must be an active fabric assigned to the product |
+| `woodId` | Optional; must be an active wood **assigned to the product** |
+| `polishId` | Optional; requires `woodId`; must be an active polish **assigned to the product** and belonging to that wood |
+| `fabricId` | Optional; must be an active fabric **assigned to the product** |
 
 ### Validation
 
 - Product must exist and `isActive: true`
 - `quantity` must not exceed current `stock`
-- If `woodId` is provided, it must be available for that product
+- Selected customizations must be product-assigned and active (global catalog alone is not enough)
 
 ### Response
 
@@ -158,14 +189,14 @@ Same shape as `GET /cart` (full cart after the change).
 curl -X POST "http://localhost:5000/api/v1/cart/items" \
   -H "Authorization: Bearer $CUSTOMER_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"productId":1,"quantity":2,"woodId":2}'
+  -d '{"productId":1,"quantity":2,"woodId":2,"polishId":5,"fabricId":3}'
 ```
 
 ---
 
 ## PATCH /api/v1/cart/items/:productId
 
-Set quantity for an existing line.
+Set quantity for an existing line. Pass the same `woodId` / `polishId` / `fabricId` query params used when the line was created.
 
 ### Request body
 
@@ -175,13 +206,13 @@ Set quantity for an existing line.
 }
 ```
 
-Returns `404` if the product is not in the cart.
+Returns `404` if the product line is not in the cart.
 
 ---
 
 ## DELETE /api/v1/cart/items/:productId
 
-Remove a line. Returns `404` if not present.
+Remove a line. Pass matching customization query params. Returns `404` if not present.
 
 ---
 
@@ -199,6 +230,7 @@ Use `POST /api/v1/orders` with `useCart: true`. The `items` array in the body is
 ```
 
 - Line items and subtotal are built from the server cart at checkout time (same pricing rules as `GET /cart`).
+- Order items snapshot customization names/colors **and** price adjustments.
 - Cart is cleared only after the order and Razorpay payment link are created successfully.
 - If payment-link creation fails, checkout is compensated (stock/coupon restored) and the **cart is left unchanged**.
 
@@ -208,7 +240,7 @@ See [orders.md](./orders.md) for full checkout and payment flow.
 
 ## Legacy / guest checkout
 
-Guests and older clients can still send `items: [{ productId, quantity }]` on `POST /orders` without `useCart`. Only `productId` and `quantity` are trusted; prices are always taken from the database.
+Guests and older clients can still send `items: [{ productId, quantity, woodId?, polishId?, fabricId? }]` on `POST /orders` without `useCart`. Only IDs and quantities are trusted; prices (including customization adjustments) are always taken from the database.
 
 ---
 
@@ -220,6 +252,7 @@ Guests and older clients can still send `items: [{ productId, quantity }]` on `P
 | Product not found | `404` | Product not found |
 | Inactive product | `400` | Product … is not available |
 | Insufficient stock | `400` | Insufficient stock for product … |
+| Wood / polish / fabric not available for product | `400` | … is not available for product … |
 | Cart line missing (PATCH/DELETE) | `404` | Cart item not found |
 | Empty cart at checkout | `400` | Cart is empty |
 
@@ -229,6 +262,7 @@ Guests and older clients can still send `items: [{ productId, quantity }]` on `P
 
 - One `Cart` row per `customerId` (created on first add).
 - `CartItem` rows: unique `(cartId, productId, woodId, polishId, fabricId)` (`NULLS NOT DISTINCT`), quantity only — no stored price.
+- Adjustments are read live from `ProductWood` / `ProductPolish` / `ProductFabric`.
 
 ---
 
@@ -267,7 +301,7 @@ Paginated list.
         "customerPhone": "9876543210",
         "itemCount": 2,
         "lineCount": 1,
-        "subtotalAmount": "49999.98",
+        "subtotalAmount": "60000.00",
         "updatedAt": "2026-07-21T12:00:00.000Z",
         "createdAt": "2026-07-20T10:00:00.000Z"
       }
@@ -305,7 +339,8 @@ Get-or-create the customer's cart, then upsert a line (use when the customer has
 {
   "customerId": 5,
   "productId": 1,
-  "quantity": 2
+  "quantity": 2,
+  "woodId": 2
 }
 ```
 
@@ -318,13 +353,16 @@ Upsert a line on an **existing** cart (`404` if cart id unknown).
 ```json
 {
   "productId": 1,
-  "quantity": 2
+  "quantity": 2,
+  "woodId": 2,
+  "polishId": 5,
+  "fabricId": 3
 }
 ```
 
 ### PATCH /api/v1/carts/:cartId/items/:productId
 
-Set absolute quantity for an existing line (`404` if cart or product line missing).
+Set absolute quantity for an existing line (`404` if cart or product line missing). Pass matching customization query params.
 
 ```json
 {
