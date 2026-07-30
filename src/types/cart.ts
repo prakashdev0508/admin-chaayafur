@@ -14,15 +14,19 @@ export type CartItem = {
   slug?: string;
   stock?: number;
   isAvailable?: boolean;
+  basePrice?: string | null;
   woodId?: number | null;
   woodName?: string | null;
   woodColor?: string | null;
+  woodPriceAdjustment?: string | null;
   polishId?: number | null;
   polishName?: string | null;
   polishColor?: string | null;
+  polishPriceAdjustment?: string | null;
   fabricId?: number | null;
   fabricName?: string | null;
   fabricColor?: string | null;
+  fabricPriceAdjustment?: string | null;
 };
 
 export type CartOrderItem = {
@@ -44,15 +48,20 @@ export type ServerCartLine = {
   stock: number;
   imageUrl: string | null;
   isAvailable: boolean;
+  /** Current Product.price before customization adjustments. */
+  basePrice?: string | null;
   woodId?: number | null;
   woodName?: string | null;
   woodColor?: string | null;
+  woodPriceAdjustment?: string | null;
   polishId?: number | null;
   polishName?: string | null;
   polishColor?: string | null;
+  polishPriceAdjustment?: string | null;
   fabricId?: number | null;
   fabricName?: string | null;
   fabricColor?: string | null;
+  fabricPriceAdjustment?: string | null;
 };
 
 export type CartResponse = {
@@ -121,15 +130,19 @@ export function serverCartLineToCartItem(line: ServerCartLine): CartItem {
     imageUrl: line.imageUrl ?? undefined,
     stock: line.stock,
     isAvailable: line.isAvailable,
+    basePrice: line.basePrice ?? null,
     woodId: line.woodId ?? null,
     woodName: line.woodName ?? null,
     woodColor: line.woodColor ?? null,
+    woodPriceAdjustment: line.woodPriceAdjustment ?? null,
     polishId: line.polishId ?? null,
     polishName: line.polishName ?? null,
     polishColor: line.polishColor ?? null,
+    polishPriceAdjustment: line.polishPriceAdjustment ?? null,
     fabricId: line.fabricId ?? null,
     fabricName: line.fabricName ?? null,
     fabricColor: line.fabricColor ?? null,
+    fabricPriceAdjustment: line.fabricPriceAdjustment ?? null,
   };
 }
 
@@ -194,6 +207,8 @@ export type CartMaterialChip = {
   label: string;
   name: string;
   color?: string | null;
+  /** Formatted adjustment label e.g. "+₹500", when > 0. */
+  priceAdjustmentLabel?: string | null;
 };
 
 /** Display chips for wood / polish / fabric on a cart line. */
@@ -202,21 +217,30 @@ export function getCartLineMaterialChips(
     CartItem,
     | "woodName"
     | "woodColor"
+    | "woodPriceAdjustment"
     | "polishName"
     | "polishColor"
+    | "polishPriceAdjustment"
     | "fabricName"
     | "fabricColor"
+    | "fabricPriceAdjustment"
   >,
 ): CartMaterialChip[] {
   const chips: CartMaterialChip[] = [];
   if (item.woodName) {
-    chips.push({ label: "Wood", name: item.woodName, color: item.woodColor });
+    chips.push({
+      label: "Wood",
+      name: item.woodName,
+      color: item.woodColor,
+      priceAdjustmentLabel: formatAdj(item.woodPriceAdjustment),
+    });
   }
   if (item.polishName) {
     chips.push({
       label: "Polish",
       name: item.polishName,
       color: item.polishColor,
+      priceAdjustmentLabel: formatAdj(item.polishPriceAdjustment),
     });
   }
   if (item.fabricName) {
@@ -224,7 +248,19 @@ export function getCartLineMaterialChips(
       label: "Fabric",
       name: item.fabricName,
       color: item.fabricColor,
+      priceAdjustmentLabel: formatAdj(item.fabricPriceAdjustment),
     });
   }
   return chips;
+}
+
+function formatAdj(value: string | null | undefined): string | null {
+  if (value == null || value === "") return null;
+  const n = parseFloat(value);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return `+${new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0,
+  }).format(n)}`;
 }

@@ -6,6 +6,7 @@ import {
   materialChip,
   type MaterialChip,
 } from "@/components/customization-requests/CustomizationMaterialsHighlight";
+import { formatPriceAdjustment } from "@/lib/customization-pricing";
 
 type CatalogJoin = {
   name: string;
@@ -15,13 +16,34 @@ type CatalogJoin = {
 function fromSnapshots(item: OrderItem): MaterialChip[] {
   const chips: MaterialChip[] = [];
   if (item.woodName) {
-    chips.push(materialChip("Wood", item.woodName, item.woodColor));
+    chips.push(
+      materialChip(
+        "Wood",
+        item.woodName,
+        item.woodColor,
+        formatPriceAdjustment(item.woodPriceAdjustment),
+      ),
+    );
   }
   if (item.polishName) {
-    chips.push(materialChip("Polish", item.polishName, item.polishColor));
+    chips.push(
+      materialChip(
+        "Polish",
+        item.polishName,
+        item.polishColor,
+        formatPriceAdjustment(item.polishPriceAdjustment),
+      ),
+    );
   }
   if (item.fabricName) {
-    chips.push(materialChip("Fabric", item.fabricName, item.fabricColor));
+    chips.push(
+      materialChip(
+        "Fabric",
+        item.fabricName,
+        item.fabricColor,
+        formatPriceAdjustment(item.fabricPriceAdjustment),
+      ),
+    );
   }
   return chips;
 }

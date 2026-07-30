@@ -6,6 +6,20 @@ export type WoodPolish = {
   isActive: boolean;
 };
 
+/** Polish option as returned on a product payload (nested under wood or top-level). */
+export type ProductPolish = {
+  id: number;
+  name: string;
+  slug: string;
+  color: string;
+  isActive: boolean;
+  isAvailable: boolean;
+  /** Product-level adjustment added to base price when selected. */
+  priceAdjustment?: string;
+  /** Present on top-level `product.polishes` responses. */
+  woodId?: number;
+};
+
 export type WoodPolishInput = {
   name: string;
   slug: string;
@@ -38,8 +52,10 @@ export type ProductWood = {
    * List responses only include available woods.
    */
   isAvailable: boolean;
-  /** Active polishes for storefront browsing (not persisted on cart yet). */
-  polishes?: WoodPolish[];
+  /** Product-level adjustment added to base price when selected. */
+  priceAdjustment?: string;
+  /** Product-assigned polishes nested under this wood. */
+  polishes?: ProductPolish[];
 };
 
 /** True when the wood can be chosen for cart/checkout. */
@@ -67,6 +83,13 @@ export function productRequiresWood(
 export type ProductWoodAssignment = {
   woodId: number;
   isActive?: boolean;
+  priceAdjustment?: number;
+};
+
+export type ProductPolishAssignment = {
+  woodPolishId: number;
+  isActive?: boolean;
+  priceAdjustment?: number;
 };
 
 export type ListWoodsParams = {

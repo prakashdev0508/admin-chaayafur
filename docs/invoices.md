@@ -16,6 +16,8 @@ JSON invoice snapshots for confirmed orders, plus downloadable PDF stored on Clo
 - Logo comes from **site settings** (`logoStorageKey` / `logoUrl`); WebP logos are converted to PNG for PDFKit; brand contact/GSTIN/support email also come from settings
 - Theme colors are brown (`#8B5E3C`) + charcoal — not yellow
 - Invoice data is a **snapshot** at generation time (billing address, line items, prices)
+- Line items include customization names and **product-level price adjustments** snapped from the order (`woodPriceAdjustment`, `polishPriceAdjustment`, `fabricPriceAdjustment`)
+- PDF secondary line shows wood / polish / fabric with `+₹` when an adjustment is non-zero
 - `totalAmount` = subtotal − discount + shipping + tax
 - Invoice numbers follow the format `INV-YYYYMMDD-XXXX` (sequential per day)
 
@@ -155,11 +157,20 @@ Get the JSON invoice for an order.
     "lineItems": [
       {
         "productId": 1,
-        "name": "Oak Dining Table",
-        "slug": "oak-dining-table",
+        "name": "Dining Table (Sheesham / Matte / Linen Beige)",
+        "slug": "dining-table",
         "quantity": 2,
-        "unitPrice": "24999.99",
-        "lineTotal": "49999.98"
+        "unitPrice": "30000.00",
+        "lineTotal": "60000.00",
+        "woodName": "Sheesham",
+        "woodColor": "#8B5E3C",
+        "woodPriceAdjustment": "3000.00",
+        "polishName": "Matte",
+        "polishColor": "#E8E8E8",
+        "polishPriceAdjustment": "500.00",
+        "fabricName": "Linen Beige",
+        "fabricColor": "#D4C4A8",
+        "fabricPriceAdjustment": "1500.00"
       }
     ],
     "createdAt": "2026-07-10T12:30:00.000Z",
@@ -174,6 +185,15 @@ Get the JSON invoice for an order.
   }
 }
 ```
+
+### Line item fields
+
+| Field | Description |
+|-------|-------------|
+| `name` | Product name with selected customizations in parentheses when present |
+| `unitPrice` | Captured order line unit price (base + adjustments) |
+| `woodName` / `polishName` / `fabricName` | Selected option names (or `null`) |
+| `woodPriceAdjustment` / `polishPriceAdjustment` / `fabricPriceAdjustment` | Snapshotted product-level adjustments |
 
 ---
 

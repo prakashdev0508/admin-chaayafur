@@ -1,4 +1,4 @@
-import { apiBlobRequest, apiFormRequest, apiRequest, ApiError } from "@/lib/api";
+import { apiBlobRequest, apiFormRequest, apiRequest } from "@/lib/api";
 import type { PaginatedResponse } from "@/types/api";
 import type {
   CreateProductPayload,
@@ -31,8 +31,31 @@ export function listProducts(params: ListProductsParams = {}) {
   );
 }
 
-export function getProduct(id: number) {
-  return apiRequest<Product>(`/products/${id}`, {}, false);
+/** Public storefront product detail (active products only). */
+export function getProduct(idOrSlug: number | string) {
+  return apiRequest<Product>(`/products/${idOrSlug}`, {}, false);
+}
+
+/**
+ * Admin product detail for view/edit screens.
+ * Returns inactive products too; requires `view-products`.
+ * @see docs/products.md — GET /api/v1/admin/products/:id
+ */
+export function getAdminProduct(id: number) {
+  return apiRequest<Product>(`/admin/products/${id}`);
+}
+
+/** @deprecated Prefer getAdminProduct — kept as an alias for edit pages. */
+export function getProductForEdit(id: number) {
+  return getAdminProduct(id);
+}
+
+/**
+ * Admin product detail page loader.
+ * @deprecated Prefer getAdminProduct directly.
+ */
+export function getProductDetail(id: number, _canUseStaffFallback?: boolean) {
+  return getAdminProduct(id);
 }
 
 export function createProduct(payload: CreateProductPayload) {
@@ -70,23 +93,4 @@ export function updateProductCmsTags(
     method: "PATCH",
     body: JSON.stringify(payload),
   });
-}
-
-export async function getProductForEdit(id: number) {
-  return getProductDetail(id, true);
-}
-
-export async function getProductDetail(id: number, canUseStaffFallback: boolean) {
-  try {
-    return await getProduct(id);
-  } catch (error) {
-    if (
-      canUseStaffFallback &&
-      error instanceof ApiError &&
-      error.statusCode === 404
-    ) {
-      return updateProduct(id, {});
-    }
-    throw error;
-  }
 }

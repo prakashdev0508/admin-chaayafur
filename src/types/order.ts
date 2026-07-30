@@ -45,12 +45,15 @@ export type OrderItem = {
   woodId?: number | null;
   woodName?: string | null;
   woodColor?: string | null;
+  woodPriceAdjustment?: string | null;
   polishId?: number | null;
   polishName?: string | null;
   polishColor?: string | null;
+  polishPriceAdjustment?: string | null;
   fabricId?: number | null;
   fabricName?: string | null;
   fabricColor?: string | null;
+  fabricPriceAdjustment?: string | null;
   wood?: OrderCatalogMaterial | null;
   polish?: OrderCatalogMaterial | null;
   fabric?: OrderCatalogMaterial | null;

@@ -5,6 +5,15 @@ export type InvoiceLineItem = {
   quantity: number;
   unitPrice: string;
   lineTotal: string;
+  woodName?: string | null;
+  woodColor?: string | null;
+  woodPriceAdjustment?: string | null;
+  polishName?: string | null;
+  polishColor?: string | null;
+  polishPriceAdjustment?: string | null;
+  fabricName?: string | null;
+  fabricColor?: string | null;
+  fabricPriceAdjustment?: string | null;
 };
 
 export type Invoice = {

@@ -1,6 +1,6 @@
 # Woods API
 
-Global wood catalog for product wood selection (Sonic, Peak, Engineering, etc.), with optional polish options nested under each wood.
+Global wood catalog for product wood selection (Sonic, Peak, Engineering, etc.), with optional polish options nested under each wood. **Product-specific price adjustments** live on the product assignment, not on the global catalog.
 
 [← Back to index](./README.md) · [Fabrics](./fabrics.md) · [Products](./products.md) · [Cart](./cart.md) · [Orders](./orders.md)
 
@@ -8,12 +8,14 @@ Global wood catalog for product wood selection (Sonic, Peak, Engineering, etc.),
 
 ## Overview
 
-- Woods are a **global catalog** (`name`, `slug`, `color`, `isActive`)
+- Woods are a **global catalog** (`name`, `slug`, `color`, `isActive`) — no global price
 - Each wood can have nested **polishes** (`name`, `slug`, `color`, `isActive`) unique per wood (`woodId` + `slug`)
-- Products opt into woods via `woods: [{ woodId, isActive }]` on create/update
-- Per-product `isActive` can disable a wood for one product without deleting the catalog entry
+- Products opt into woods via `woods: [{ woodId, isActive?, priceAdjustment? }]` on create/update
+- Products opt into polishes via `polishes: [{ woodPolishId, isActive?, priceAdjustment? }]` (must belong to an assigned wood)
+- Per-product `isActive` can disable a wood/polish for one product without deleting the catalog entry
+- Per-product `priceAdjustment` (default `0`) is added to the product base price when that option is selected
 - Seeded defaults: **Sonic**, **Peak**, **Engineering**
-- Cart/checkout `woodId` is an **optional customization** — omit freely; if sent, it must be an active wood assigned to that product
+- Cart/checkout `woodId` / `polishId` are **optional customizations** — omit freely; if sent, they must be active options assigned to that product
 
 ### Who can access?
 
@@ -21,10 +23,10 @@ Global wood catalog for product wood selection (Sonic, Peak, Engineering, etc.),
 |----------|------------|
 | `POST /woods` | `create-products` |
 | `PATCH /woods/:id` | `update-products` |
-| `GET /woods` | `view-products` |
-| `GET /woods/:id` | `view-products` |
+| `GET /woods` | Public (no auth); defaults to `isActive=true` |
+| `GET /woods/:id` | Public (no auth) |
 
-Storefront reads woods (with polishes) from **product** payloads (`woods` array), not from this admin list.
+Use `GET /woods` for admin catalog pickers. Product detail exposes per-product `woods` (with nested polishes + `priceAdjustment`) when assigned — that is what the storefront should use.
 
 ---
 
@@ -33,8 +35,8 @@ Storefront reads woods (with polishes) from **product** payloads (`woods` array)
 | Method | Endpoint | Auth | Status |
 |--------|----------|------|--------|
 | `POST` | `/api/v1/woods` | Staff | `201` |
-| `GET` | `/api/v1/woods` | Staff | `200` |
-| `GET` | `/api/v1/woods/:id` | Staff | `200` |
+| `GET` | `/api/v1/woods` | Public | `200` |
+| `GET` | `/api/v1/woods/:id` | Public | `200` |
 | `PATCH` | `/api/v1/woods/:id` | Staff | `200` |
 
 ---
@@ -97,30 +99,53 @@ On `POST /products` or `PATCH /products/:id`:
 ```json
 {
   "woods": [
-    { "woodId": 1, "isActive": true },
-    { "woodId": 2, "isActive": false }
+    { "woodId": 1, "isActive": true, "priceAdjustment": 3000 },
+    { "woodId": 2, "isActive": false, "priceAdjustment": 0 }
+  ],
+  "polishes": [
+    { "woodPolishId": 5, "isActive": true, "priceAdjustment": 500 }
   ]
 }
 ```
 
-- Omitting `woods` leaves existing assignments unchanged (update) / none (create)
-- Passing `[]` clears all product woods
-- Product **detail** responses include all assigned woods with `isAvailable` (`true` only when both the product assignment and the global wood are active). Use `isAvailable: false` on the storefront to show “we offer this wood but it’s currently unavailable.”
-- Product **list** responses include only available woods (`isAvailable: true`)
-- Each wood entry includes **active** `polishes` for storefront selection
+| Field | Rules |
+|-------|-------|
+| `woods[].woodId` | Must exist in the wood catalog |
+| `woods[].isActive` | Optional; default `true` |
+| `woods[].priceAdjustment` | Optional; min `0`; default `0` |
+| `polishes[].woodPolishId` | Must exist; must belong to a wood assigned to this product |
+| `polishes[].isActive` | Optional; default `true` |
+| `polishes[].priceAdjustment` | Optional; min `0`; default `0` |
+
+- Omitting `woods` / `polishes` leaves existing assignments unchanged (update) / none (create)
+- Passing `[]` clears that assignment list
+- When `woods` is updated **without** `polishes`, active polishes of the assigned woods are synced at `priceAdjustment: 0` (existing prices for still-valid polishes are preserved; orphaned polishes are removed)
+- Product **detail** responses include all assigned woods/polishes with `isAvailable` and `priceAdjustment`
+- Product **list** responses include only available options
+- Each wood entry nests only **product-assigned** polishes (not every global polish on that wood)
+- Top-level `polishes` array is also returned for admin forms
 
 Example detail wood entry:
 
 ```json
 {
   "id": 1,
-  "name": "CSUM",
-  "slug": "csum",
-  "color": "#C4A574",
+  "name": "Sheesham",
+  "slug": "sheesham",
+  "color": "#8B5E3C",
   "isActive": true,
   "isAvailable": true,
+  "priceAdjustment": "3000.00",
   "polishes": [
-    { "id": 1, "name": "Matte", "slug": "matte", "color": "#E8E8E8", "isActive": true }
+    {
+      "id": 5,
+      "name": "Matte",
+      "slug": "matte",
+      "color": "#E8E8E8",
+      "isActive": true,
+      "isAvailable": true,
+      "priceAdjustment": "500.00"
+    }
   ]
 }
 ```
@@ -131,10 +156,13 @@ Example detail wood entry:
 
 | Situation | Rule |
 |-----------|------|
-| `woodId` omitted | Always OK (optional customization) |
-| `woodId` provided and available for product | Accepted; snapshots `woodName` / `woodColor` |
-| `woodId` provided but not available | `400` |
+| `woodId` omitted | Always OK (optional customization); wood adj = `0` |
+| `woodId` provided and assigned + active for product | Accepted; uses that product's `priceAdjustment` |
+| `woodId` provided but not available for product | `400` |
+| `polishId` omitted | Always OK; polish adj = `0` |
+| `polishId` provided | Requires `woodId`; polish must be assigned to the product and belong to that wood |
+| `polishId` provided but not available | `400` |
 
-Order line items store `woodId` plus snapshots `woodName` / `woodColor` when selected.
+**Unit price** = `Product.price + woodPriceAdjustment + polishPriceAdjustment + fabricPriceAdjustment`.
 
-Polish and fabric selection on cart/order lines is not persisted in this phase (catalog + product assignment only).
+Order line items snapshot `woodId` / `woodName` / `woodColor` / `woodPriceAdjustment` and the same for polish when selected. See [cart.md](./cart.md) and [orders.md](./orders.md).

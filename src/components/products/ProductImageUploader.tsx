@@ -289,8 +289,8 @@ export function ProductImageUploader({
   }, [isUploading, onUploadingChange]);
 
   return (
-    <Card>
-      <CardHeader className="pb-4">
+    <Card className="overflow-hidden shadow-xs">
+      <CardHeader className="border-b bg-muted/20 pb-4">
         <div className="flex items-start justify-between gap-4">
           <div>
             <CardTitle>Product images</CardTitle>
@@ -299,7 +299,7 @@ export function ProductImageUploader({
               cover on the storefront.
             </CardDescription>
           </div>
-          <div className="rounded-md border bg-muted/40 px-2.5 py-1 text-xs text-muted-foreground">
+          <div className="rounded-md border bg-background px-2.5 py-1 text-xs tabular-nums text-muted-foreground">
             {readyCount} / {MAX_IMAGES}
           </div>
         </div>

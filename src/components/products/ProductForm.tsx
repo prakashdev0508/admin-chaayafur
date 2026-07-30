@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { X } from "lucide-react";
+import { Layers, Package, Tag, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,18 +20,19 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import { fetchCategoriesTree } from "@/services/categories.service";
 import { listFabrics } from "@/services/fabrics.service";
 import { listWoods } from "@/services/woods.service";
 import { ProductImageUploader } from "@/components/products/ProductImageUploader";
+import { ProductCustomizationEditor } from "@/components/products/ProductCustomizationEditor";
 import { queryKeys } from "@/lib/query-keys";
+import { formatCurrency } from "@/lib/format";
+import { parseMoney } from "@/lib/customization-pricing";
 import { slugify } from "@/lib/product-utils";
+import { cn } from "@/lib/utils";
 import type { CategoryTreeItem } from "@/types/category";
-import type {
-  ProductFabricFormEntry,
-  ProductFormValues,
-  ProductWoodFormEntry,
-} from "@/types/product";
+import type { ProductFormValues } from "@/types/product";
 
 export const emptyProductFormValues: ProductFormValues = {
   name: "",
@@ -48,9 +49,17 @@ export const emptyProductFormValues: ProductFormValues = {
   isNewArrival: false,
   productFeatures: [],
   woods: [],
+  polishes: [],
   fabrics: [],
   images: [],
 };
+
+const MERCH_TAGS = [
+  { key: "isFeaturedProduct" as const, label: "Featured" },
+  { key: "isBestSeller" as const, label: "Best seller" },
+  { key: "isMostPopular" as const, label: "Most popular" },
+  { key: "isNewArrival" as const, label: "New arrival" },
+];
 
 type ProductFormProps = {
   mode: "create" | "edit";
@@ -165,74 +174,66 @@ export function ProductForm({
     );
   };
 
-  const assignedWoodIds = new Set(values.woods.map((w) => w.woodId));
+  const basePrice = parseMoney(values.price);
+  const maxWoodAdj = Math.max(
+    0,
+    ...values.woods
+      .filter((w) => w.isActive)
+      .map((w) => parseMoney(w.priceAdjustment)),
+  );
+  const maxPolishAdj = Math.max(
+    0,
+    ...values.polishes
+      .filter((p) => p.isActive)
+      .map((p) => parseMoney(p.priceAdjustment)),
+  );
+  const maxFabricAdj = Math.max(
+    0,
+    ...values.fabrics
+      .filter((f) => f.isActive)
+      .map((f) => parseMoney(f.priceAdjustment)),
+  );
+  const maxUnitPrice = basePrice + maxWoodAdj + maxPolishAdj + maxFabricAdj;
+  const hasCustomizationPremium = maxUnitPrice > basePrice;
 
-  const toggleWoodAssignment = (woodId: number, assigned: boolean) => {
-    if (assigned) {
-      const next: ProductWoodFormEntry[] = [
-        ...values.woods,
-        { woodId, isActive: true },
-      ];
-      updateField("woods", next);
-      return;
-    }
-    updateField(
-      "woods",
-      values.woods.filter((w) => w.woodId !== woodId),
-    );
-  };
-
-  const setWoodActive = (woodId: number, isActive: boolean) => {
-    updateField(
-      "woods",
-      values.woods.map((w) =>
-        w.woodId === woodId ? { ...w, isActive } : w,
-      ),
-    );
-  };
-
-  const assignedFabricIds = new Set(values.fabrics.map((f) => f.fabricId));
-
-  const toggleFabricAssignment = (fabricId: number, assigned: boolean) => {
-    if (assigned) {
-      const next: ProductFabricFormEntry[] = [
-        ...values.fabrics,
-        { fabricId, isActive: true },
-      ];
-      updateField("fabrics", next);
-      return;
-    }
-    updateField(
-      "fabrics",
-      values.fabrics.filter((f) => f.fabricId !== fabricId),
-    );
-  };
-
-  const setFabricActive = (fabricId: number, isActive: boolean) => {
-    updateField(
-      "fabrics",
-      values.fabrics.map((f) =>
-        f.fabricId === fabricId ? { ...f, isActive } : f,
-      ),
-    );
-  };
+  const activeMerchCount = MERCH_TAGS.filter((t) => values[t.key]).length;
 
   const validate = () => {
     if (!values.name.trim()) return "Product name is required";
     if (!values.slug.trim()) return "Slug is required";
     if (!categoryId) return "Category is required";
     if (!values.subCategoryId) return "Sub-category is required";
-    if (!values.price || parseFloat(values.price) < 0) return "Valid price is required";
+    if (!values.price || parseFloat(values.price) < 0)
+      return "Valid price is required";
     if (
       values.priceWithoutDiscount.trim() &&
       parseFloat(values.priceWithoutDiscount) < 0
     ) {
       return "Compare-at price must be ≥ 0";
     }
-    if (!values.stock || parseInt(values.stock, 10) < 0) return "Valid stock is required";
+    if (!values.stock || parseInt(values.stock, 10) < 0)
+      return "Valid stock is required";
     if (isImageUploading) return "Wait for image uploads to finish";
     if (values.images.length > 10) {
       return "Maximum 10 images allowed";
+    }
+    for (const wood of values.woods) {
+      const adj = parseFloat(wood.priceAdjustment);
+      if (wood.priceAdjustment.trim() && (!Number.isFinite(adj) || adj < 0)) {
+        return "Wood price adjustments must be ≥ 0";
+      }
+    }
+    for (const polish of values.polishes) {
+      const adj = parseFloat(polish.priceAdjustment);
+      if (polish.priceAdjustment.trim() && (!Number.isFinite(adj) || adj < 0)) {
+        return "Polish price adjustments must be ≥ 0";
+      }
+    }
+    for (const fabric of values.fabrics) {
+      const adj = parseFloat(fabric.priceAdjustment);
+      if (fabric.priceAdjustment.trim() && (!Number.isFinite(adj) || adj < 0)) {
+        return "Fabric price adjustments must be ≥ 0";
+      }
     }
     return null;
   };
@@ -251,107 +252,132 @@ export function ProductForm({
   const displayError = validationError ?? error;
 
   return (
-    <form onSubmit={handleSubmit} className="grid gap-4 lg:grid-cols-3">
-      <div className="space-y-4 lg:col-span-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Product details</CardTitle>
-            <CardDescription>Basic information about the product</CardDescription>
+    <form
+      onSubmit={handleSubmit}
+      className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_19rem] xl:grid-cols-[minmax(0,1fr)_21rem]"
+    >
+      <div className="min-w-0 space-y-5">
+        <Card className="overflow-hidden shadow-xs">
+          <CardHeader className="border-b bg-muted/20 pb-4">
+            <div className="flex items-start gap-3">
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border bg-background">
+                <Package className="size-4 text-muted-foreground" />
+              </div>
+              <div>
+                <CardTitle>Product details</CardTitle>
+                <CardDescription>
+                  Name, category, and storefront copy
+                </CardDescription>
+              </div>
+            </div>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Product name</Label>
-              <Input
-                id="name"
-                value={values.name}
-                onChange={(e) => updateField("name", e.target.value)}
-                onBlur={handleNameBlur}
-                placeholder="e.g. Warmly Lounge Chair"
-              />
+          <CardContent className="space-y-5 pt-5">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="name">Product name</Label>
+                <Input
+                  id="name"
+                  value={values.name}
+                  onChange={(e) => updateField("name", e.target.value)}
+                  onBlur={handleNameBlur}
+                  placeholder="e.g. Warmly Lounge Chair"
+                  className="h-10"
+                />
+              </div>
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="slug">Slug</Label>
+                <Input
+                  id="slug"
+                  value={values.slug}
+                  onChange={(e) => {
+                    setSlugTouched(true);
+                    updateField("slug", e.target.value);
+                  }}
+                  placeholder="e.g. warmly-lounge-chair"
+                  className="h-10 font-mono text-sm"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Unique URL identifier across all products
+                </p>
+              </div>
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  rows={4}
+                  value={values.description}
+                  onChange={(e) => updateField("description", e.target.value)}
+                  placeholder="Describe materials, craftsmanship, and key features..."
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Category</Label>
+                <Select
+                  value={categoryId || null}
+                  onValueChange={(value) => {
+                    if (!value) return;
+                    setCategoryId(value);
+                    updateField("subCategoryId", "");
+                  }}
+                  items={categoryItems}
+                >
+                  <SelectTrigger className="h-10 w-full">
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categoriesTree.map((category) => (
+                      <SelectItem key={category.id} value={String(category.id)}>
+                        {category.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Sub-category</Label>
+                <Select
+                  value={values.subCategoryId || null}
+                  onValueChange={(value) => {
+                    if (value) updateField("subCategoryId", value);
+                  }}
+                  disabled={!categoryId}
+                  items={subCategoryItems}
+                >
+                  <SelectTrigger className="h-10 w-full">
+                    <SelectValue
+                      placeholder={
+                        categoryId
+                          ? "Select sub-category"
+                          : "Select a category first"
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {subCategories.map((sub) => (
+                      <SelectItem key={sub.id} value={String(sub.id)}>
+                        {sub.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="slug">Slug</Label>
-              <Input
-                id="slug"
-                value={values.slug}
-                onChange={(e) => {
-                  setSlugTouched(true);
-                  updateField("slug", e.target.value);
-                }}
-                placeholder="e.g. warmly-lounge-chair"
-              />
-              <p className="text-xs text-muted-foreground">
-                Unique URL identifier across all products
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                rows={4}
-                value={values.description}
-                onChange={(e) => updateField("description", e.target.value)}
-                placeholder="Describe materials, craftsmanship, and key features..."
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Category</Label>
-              <Select
-                value={categoryId || null}
-                onValueChange={(value) => {
-                  if (!value) return;
-                  setCategoryId(value);
-                  updateField("subCategoryId", "");
-                }}
-                items={categoryItems}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categoriesTree.map((category) => (
-                    <SelectItem key={category.id} value={String(category.id)}>
-                      {category.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Sub-category</Label>
-              <Select
-                value={values.subCategoryId || null}
-                onValueChange={(value) => {
-                  if (value) updateField("subCategoryId", value);
-                }}
-                disabled={!categoryId}
-                items={subCategoryItems}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue
-                    placeholder={
-                      categoryId
-                        ? "Select sub-category"
-                        : "Select a category first"
-                    }
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  {subCategories.map((sub) => (
-                    <SelectItem key={sub.id} value={String(sub.id)}>
-                      {sub.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Product features</Label>
+
+            <Separator />
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <Label>Product features</Label>
+                <span className="text-xs tabular-nums text-muted-foreground">
+                  {values.productFeatures.length}/50
+                </span>
+              </div>
               <div className="flex gap-2">
                 <Input
                   value={featureInput}
                   onChange={(e) => setFeatureInput(e.target.value)}
                   placeholder="e.g. 1-year warranty"
+                  className="h-10"
                   onKeyDown={(e) =>
                     e.key === "Enter" && (e.preventDefault(), addFeature())
                   }
@@ -360,22 +386,26 @@ export function ProductForm({
                   Add
                 </Button>
               </div>
-              <div className="flex flex-wrap gap-2">
-                {values.productFeatures.map((feature, index) => (
-                  <span
-                    key={`${feature}-${index}`}
-                    className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs"
-                  >
-                    {feature}
-                    <button type="button" onClick={() => removeFeature(index)}>
-                      <X className="size-3" />
-                    </button>
-                  </span>
-                ))}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Max 50 features, 200 characters each
-              </p>
+              {values.productFeatures.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {values.productFeatures.map((feature, index) => (
+                    <span
+                      key={`${feature}-${index}`}
+                      className="inline-flex items-center gap-1.5 rounded-full border bg-muted/40 px-2.5 py-1 text-xs"
+                    >
+                      {feature}
+                      <button
+                        type="button"
+                        onClick={() => removeFeature(index)}
+                        className="rounded-full p-0.5 text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+                        aria-label={`Remove ${feature}`}
+                      >
+                        <X className="size-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -388,101 +418,89 @@ export function ProductForm({
           disabled={isSubmitting}
           onUploadingChange={setIsImageUploading}
         />
-      </div>
 
-      <div className="space-y-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>Status</CardTitle>
-          </CardHeader>
-          <CardContent className="flex items-center justify-between">
-            <div>
-              <Label htmlFor="active">Active</Label>
-              <p className="text-xs text-muted-foreground">
-                Visible on storefront when active
-              </p>
+        <Card className="overflow-hidden shadow-xs">
+          <CardHeader className="border-b bg-muted/20 pb-4">
+            <div className="flex items-start gap-3">
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border bg-background">
+                <Layers className="size-4 text-muted-foreground" />
+              </div>
+              <div>
+                <CardTitle>Customization & pricing</CardTitle>
+                <CardDescription>
+                  Assign woods, polishes, and fabrics with per-product
+                  adjustments
+                </CardDescription>
+              </div>
             </div>
-            <Switch
-              id="active"
-              checked={values.isActive}
-              onCheckedChange={(checked) => updateField("isActive", checked)}
+          </CardHeader>
+          <CardContent className="pt-5">
+            <ProductCustomizationEditor
+              catalogWoods={catalogWoods}
+              catalogFabrics={catalogFabrics}
+              woodsLoading={woodsQuery.isLoading}
+              fabricsLoading={fabricsQuery.isLoading}
+              woods={values.woods}
+              polishes={values.polishes}
+              fabrics={values.fabrics}
+              onWoodsChange={(woods) => updateField("woods", woods)}
+              onPolishesChange={(polishes) => updateField("polishes", polishes)}
+              onFabricsChange={(fabrics) => updateField("fabrics", fabrics)}
             />
           </CardContent>
         </Card>
+      </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Merchandising</CardTitle>
-            <CardDescription>
-              CMS tags for storefront sections
-            </CardDescription>
+      <aside className="space-y-4 lg:sticky lg:top-4 lg:self-start">
+        <Card className="overflow-hidden shadow-xs">
+          <CardHeader className="border-b bg-muted/20 pb-3">
+            <CardTitle className="text-base">Publish</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            {(
-              [
-                {
-                  key: "isFeaturedProduct" as const,
-                  label: "Featured product",
-                  description: "Show in Featured section",
-                },
-                {
-                  key: "isBestSeller" as const,
-                  label: "Best seller",
-                  description: "Show in Best sellers section",
-                },
-                {
-                  key: "isMostPopular" as const,
-                  label: "Most popular",
-                  description: "Show in Most popular section",
-                },
-                {
-                  key: "isNewArrival" as const,
-                  label: "New arrival",
-                  description: "Show in New arrivals section",
-                },
-              ] as const
-            ).map((tag) => (
-              <div
-                key={tag.key}
-                className="flex items-center justify-between gap-3"
-              >
-                <div>
-                  <Label htmlFor={tag.key}>{tag.label}</Label>
-                  <p className="text-xs text-muted-foreground">
-                    {tag.description}
-                  </p>
-                </div>
-                <Switch
-                  id={tag.key}
-                  checked={values[tag.key]}
-                  onCheckedChange={(checked) =>
-                    updateField(tag.key, checked)
-                  }
-                />
+          <CardContent className="space-y-4 pt-4">
+            <div className="flex items-center justify-between gap-3 rounded-lg border bg-muted/20 px-3 py-2.5">
+              <div>
+                <p className="text-sm font-medium">Storefront</p>
+                <p className="text-xs text-muted-foreground">
+                  {values.isActive ? "Visible when saved" : "Hidden from shop"}
+                </p>
               </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Pricing</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="price">Selling price (INR)</Label>
-              <Input
-                id="price"
-                type="number"
-                value={values.price}
-                onChange={(e) => updateField("price", e.target.value)}
-                placeholder="0"
-                min="0"
-                step="0.01"
+              <Switch
+                id="active"
+                checked={values.isActive}
+                onCheckedChange={(checked) => updateField("isActive", checked)}
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="priceWithoutDiscount">Compare-at / MRP (INR)</Label>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="price">Selling ₹</Label>
+                <Input
+                  id="price"
+                  type="number"
+                  value={values.price}
+                  onChange={(e) => updateField("price", e.target.value)}
+                  placeholder="0"
+                  min="0"
+                  step="0.01"
+                  className="h-9 tabular-nums"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="stock">Stock</Label>
+                <Input
+                  id="stock"
+                  type="number"
+                  value={values.stock}
+                  onChange={(e) => updateField("stock", e.target.value)}
+                  placeholder="0"
+                  min="0"
+                  className="h-9 tabular-nums"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="priceWithoutDiscount">Compare-at / MRP</Label>
               <Input
                 id="priceWithoutDiscount"
                 type="number"
@@ -493,179 +511,122 @@ export function ProductForm({
                 placeholder="Optional"
                 min="0"
                 step="0.01"
+                className="h-9 tabular-nums"
               />
-              <p className="text-xs text-muted-foreground">
-                Display-only strikethrough price. Leave blank if unused.
-              </p>
+            </div>
+
+            {basePrice > 0 && (
+              <div className="rounded-lg border bg-muted/30 px-3 py-2.5 text-sm">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-muted-foreground">Base</span>
+                  <span className="font-medium tabular-nums">
+                    {formatCurrency(basePrice)}
+                  </span>
+                </div>
+                {hasCustomizationPremium && (
+                  <div className="mt-1.5 flex items-center justify-between gap-2 border-t pt-1.5">
+                    <span className="text-muted-foreground">
+                      Up to (with options)
+                    </span>
+                    <span className="font-semibold tabular-nums">
+                      {formatCurrency(maxUnitPrice)}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="overflow-hidden shadow-xs">
+          <CardHeader className="border-b bg-muted/20 pb-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Tag className="size-3.5 text-muted-foreground" />
+                <CardTitle className="text-base">Merchandising</CardTitle>
+              </div>
+              {activeMerchCount > 0 && (
+                <span className="text-xs tabular-nums text-muted-foreground">
+                  {activeMerchCount} on
+                </span>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent className="pt-4">
+            <div className="flex flex-wrap gap-2">
+              {MERCH_TAGS.map((tag) => {
+                const on = values[tag.key];
+                return (
+                  <button
+                    key={tag.key}
+                    type="button"
+                    onClick={() => updateField(tag.key, !on)}
+                    className={cn(
+                      "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors active:scale-[0.97]",
+                      on
+                        ? "border-foreground/15 bg-foreground text-background"
+                        : "border-border bg-background text-muted-foreground hover:border-foreground/20 hover:text-foreground",
+                    )}
+                  >
+                    {tag.label}
+                  </button>
+                );
+              })}
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Woods</CardTitle>
-            <CardDescription>
-              Optional wood options for the storefront (customers may skip)
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {woodsQuery.isLoading && (
-              <p className="text-sm text-muted-foreground">Loading woods…</p>
-            )}
-            {!woodsQuery.isLoading && catalogWoods.length === 0 && (
-              <p className="text-sm text-muted-foreground">
-                No woods in the catalog yet. Create them under Customization →
-                Woods.
-              </p>
-            )}
-            {catalogWoods.map((wood) => {
-              const assigned = assignedWoodIds.has(wood.id);
-              const entry = values.woods.find((w) => w.woodId === wood.id);
-              return (
-                <div
-                  key={wood.id}
-                  className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2"
-                >
-                  <label className="flex min-w-0 flex-1 items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={assigned}
-                      onChange={(e) =>
-                        toggleWoodAssignment(wood.id, e.target.checked)
-                      }
-                      className="size-4"
-                    />
-                    <span
-                      className="size-3.5 shrink-0 rounded-full border border-border"
-                      style={{ backgroundColor: wood.color }}
-                      aria-hidden
-                    />
-                    <span className="truncate font-medium">{wood.name}</span>
-                    {(wood.polishes?.length ?? 0) > 0 && (
-                      <span className="text-xs text-muted-foreground">
-                        · {wood.polishes!.length} polish
-                        {wood.polishes!.length === 1 ? "" : "es"}
-                      </span>
-                    )}
-                    {!wood.isActive && (
-                      <span className="text-xs text-muted-foreground">
-                        (catalog inactive)
-                      </span>
-                    )}
-                  </label>
-                  {assigned && (
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">
-                        Active
-                      </span>
-                      <Switch
-                        checked={entry?.isActive ?? true}
-                        onCheckedChange={(checked) =>
-                          setWoodActive(wood.id, checked)
-                        }
-                      />
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Fabrics</CardTitle>
-            <CardDescription>
-              Assign fabric options shown on the product page
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {fabricsQuery.isLoading && (
-              <p className="text-sm text-muted-foreground">Loading fabrics…</p>
-            )}
-            {!fabricsQuery.isLoading && catalogFabrics.length === 0 && (
-              <p className="text-sm text-muted-foreground">
-                No fabrics in the catalog yet. Create them under Customization →
-                Fabrics.
-              </p>
-            )}
-            {catalogFabrics.map((fabric) => {
-              const assigned = assignedFabricIds.has(fabric.id);
-              const entry = values.fabrics.find((f) => f.fabricId === fabric.id);
-              return (
-                <div
-                  key={fabric.id}
-                  className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2"
-                >
-                  <label className="flex min-w-0 flex-1 items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={assigned}
-                      onChange={(e) =>
-                        toggleFabricAssignment(fabric.id, e.target.checked)
-                      }
-                      className="size-4"
-                    />
-                    <span
-                      className="size-3.5 shrink-0 rounded-full border border-border"
-                      style={{ backgroundColor: fabric.color }}
-                      aria-hidden
-                    />
-                    <span className="truncate font-medium">{fabric.name}</span>
-                    {!fabric.isActive && (
-                      <span className="text-xs text-muted-foreground">
-                        (catalog inactive)
-                      </span>
-                    )}
-                  </label>
-                  {assigned && (
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">
-                        Active
-                      </span>
-                      <Switch
-                        checked={entry?.isActive ?? true}
-                        onCheckedChange={(checked) =>
-                          setFabricActive(fabric.id, checked)
-                        }
-                      />
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Inventory</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="stock">Stock quantity</Label>
-              <Input
-                id="stock"
-                type="number"
-                value={values.stock}
-                onChange={(e) => updateField("stock", e.target.value)}
-                placeholder="0"
-                min="0"
-              />
-            </div>
+        <Card className="overflow-hidden shadow-xs">
+          <CardContent className="space-y-2 pt-4 text-xs text-muted-foreground">
+            <SummaryRow
+              label="Images"
+              value={String(values.images.length)}
+            />
+            <SummaryRow
+              label="Woods"
+              value={String(values.woods.length)}
+            />
+            <SummaryRow
+              label="Polishes"
+              value={String(values.polishes.length)}
+            />
+            <SummaryRow
+              label="Fabrics"
+              value={String(values.fabrics.length)}
+            />
+            <SummaryRow
+              label="Features"
+              value={String(values.productFeatures.length)}
+            />
           </CardContent>
         </Card>
 
         {displayError && (
-          <p className="text-sm text-destructive">{displayError}</p>
+          <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+            {displayError}
+          </div>
         )}
 
-        <Button type="submit" disabled={isSubmitting || isImageUploading} className="w-full">
+        <Button
+          type="submit"
+          disabled={isSubmitting || isImageUploading}
+          className="h-11 w-full text-sm font-medium"
+        >
           {isSubmitting
             ? "Saving..."
-            : submitLabel ?? (mode === "create" ? "Save product" : "Update product")}
+            : submitLabel ??
+              (mode === "create" ? "Save product" : "Update product")}
         </Button>
-      </div>
+      </aside>
     </form>
+  );
+}
+
+function SummaryRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <span>{label}</span>
+      <span className="font-medium tabular-nums text-foreground">{value}</span>
+    </div>
   );
 }

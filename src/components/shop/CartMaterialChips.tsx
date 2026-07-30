@@ -44,6 +44,11 @@ export function CartMaterialChips({
           )}
           <span className="text-muted-foreground">{chip.label}:</span>
           {chip.name}
+          {chip.priceAdjustmentLabel && (
+            <span className="text-muted-foreground">
+              {chip.priceAdjustmentLabel}
+            </span>
+          )}
         </span>
       ))}
     </div>
