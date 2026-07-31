@@ -14,6 +14,7 @@ import { ProductBulkPreparePage } from "@/pages/products/ProductBulkPreparePage"
 import { AddProductPage } from "@/pages/products/AddProductPage";
 import { EditProductPage } from "@/pages/products/EditProductPage";
 import { ProductDetailPage } from "@/pages/products/ProductDetailPage";
+import { UploadJobListPage } from "@/pages/upload-jobs/UploadJobListPage";
 import { WoodListPage } from "@/pages/woods/WoodListPage";
 import { AddWoodPage } from "@/pages/woods/AddWoodPage";
 import { EditWoodPage } from "@/pages/woods/EditWoodPage";
@@ -135,6 +136,7 @@ const App = () => {
           >
             <Route path="products" element={<ProductListPage />} />
             <Route path="products/:id" element={<ProductDetailPage />} />
+            <Route path="upload-jobs" element={<UploadJobListPage />} />
           </Route>
           <Route
             element={

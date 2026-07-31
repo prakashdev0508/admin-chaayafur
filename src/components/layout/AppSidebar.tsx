@@ -19,6 +19,7 @@ import {
   Globe,
   Shield,
   Mail,
+  FileClock,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -150,6 +151,12 @@ const navMore: NavItem[] = [
     url: "/reviews",
     icon: MessageSquareQuote,
     permission: PERMISSIONS.VIEW_REVIEWS,
+  },
+  {
+    title: "Upload jobs",
+    url: "/upload-jobs",
+    icon: FileClock,
+    permission: PERMISSIONS.VIEW_PRODUCTS,
   },
   {
     title: "Contact",

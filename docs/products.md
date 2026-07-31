@@ -11,7 +11,7 @@ Create, update, and list furniture products.
 - **No delete endpoint** — use `isActive: false` to soft-hide products
 - **Product images** — upload via [uploads.md](./uploads.md) (Cloudflare R2), then attach URLs in product create/update (max **5** per product)
 - **`productFeatures`** — optional array of feature strings (e.g. `"Solid oak wood"`, `"1-year warranty"`) for product detail bullets; max **10** items, 200 chars each
-- **Bulk Excel upload** — download a sample template, upload images first to get URLs, then import products via `.xlsx` (see [Bulk upload](#bulk-upload))
+- **Bulk Excel upload** — stage images via ZIP (`{productSlug}__{sortOrder}.{ext}`), download a sample template with dropdowns, then enqueue an Excel job that matches staged images by slug (see [Bulk upload](#bulk-upload) and [upload-jobs.md](./upload-jobs.md))
 - **CMS tags** — optional booleans `isBestSeller`, `isFeaturedProduct`, `isMostPopular`, `isNewArrival` for storefront sections; filter with `GET /products?tag=isFeaturedProduct`, or assign via `PATCH /admin/cms/products/:id/tags` (see [home.md](./home.md))
 - Aggregated home sections: [home.md](./home.md) (`GET /home`)
 - Default list shows only **active** products (`isActive=true`)
@@ -131,7 +131,13 @@ Use a sub-category ID from [categories.md](./categories.md). Example after seed:
 |----------|------------|:-----------:|:-----:|:-------------:|
 | `POST /products` | `create-products` | Yes | Yes | No |
 | `GET /products/bulk-upload/sample` | `create-products` | Yes | Yes | No |
+| `POST /products/bulk-upload/images` | `create-products` | Yes | Yes | No |
+| `GET /products/bulk-upload/staged-images` | `view-products` | Yes | Yes | Yes |
+| `DELETE /products/bulk-upload/staged-images/:id` | `create-products` | Yes | Yes | No |
 | `POST /products/bulk-upload` | `create-products` | Yes | Yes | No |
+| `GET /upload-jobs` / `GET /upload-jobs/:id` | `view-products` | Yes | Yes | Yes |
+| `GET /upload-jobs/:id/download/uploaded` | `view-products` | Yes | Yes | Yes |
+| `GET /upload-jobs/:id/download/result` | `view-products` | Yes | Yes | Yes |
 | `PATCH /products/:id` | `update-products` | Yes | Yes | No |
 | `PATCH /admin/cms/products/:id/tags` | `update-products` | Yes | Yes | No |
 | `GET /admin/products/:id` | `view-products` | Yes | Yes | Yes |
@@ -148,7 +154,14 @@ Use a sub-category ID from [categories.md](./categories.md). Example after seed:
 |--------|----------|------------|--------|
 | `POST` | `/api/v1/products` | `create-products` | `201` |
 | `GET` | `/api/v1/products/bulk-upload/sample` | `create-products` | `200` |
-| `POST` | `/api/v1/products/bulk-upload` | `create-products` | `201` |
+| `POST` | `/api/v1/products/bulk-upload/images` | `create-products` | `202` |
+| `GET` | `/api/v1/products/bulk-upload/staged-images` | `view-products` | `200` |
+| `DELETE` | `/api/v1/products/bulk-upload/staged-images/:id` | `create-products` | `200` |
+| `POST` | `/api/v1/products/bulk-upload` | `create-products` | `202` |
+| `GET` | `/api/v1/upload-jobs` | `view-products` | `200` |
+| `GET` | `/api/v1/upload-jobs/:id` | `view-products` | `200` |
+| `GET` | `/api/v1/upload-jobs/:id/download/uploaded` | `view-products` | `200` |
+| `GET` | `/api/v1/upload-jobs/:id/download/result` | `view-products` | `200` |
 | `PATCH` | `/api/v1/products/:id` | `update-products` | `200` |
 | `GET` | `/api/v1/admin/products/:id` | `view-products` | `200` |
 | `GET` | `/api/v1/products` | **Public** | `200` |
@@ -323,39 +336,67 @@ curl -X POST http://localhost:5000/api/v1/products \
 
 ## Bulk upload
 
-Import many products from an Excel (`.xlsx`) sheet. Failed rows do not stop the batch; each row gets a `status` in a result workbook stored on R2.
+Two-step async flow (DB-backed queue on the EC2 worker). Full job APIs: [upload-jobs.md](./upload-jobs.md).
 
 ### Workflow
 
-1. Download the sample template: `GET /api/v1/products/bulk-upload/sample`
-2. Upload product images via [uploads.md](./uploads.md) (`POST /uploads/product-images`) and copy the returned `url` values into the sheet `images` column
-3. Fill one product per row and upload: `POST /api/v1/products/bulk-upload`
+1. **Stage images** — name files `{productSlug}__{sortOrder}.{jpg|jpeg|png|webp}` (e.g. `oak-dining-table__0.jpg`, `oak-dining-table__1.png`), zip them, upload: `POST /api/v1/products/bulk-upload/images` → returns `{ jobId }`
+2. Poll `GET /api/v1/upload-jobs/:jobId` until `COMPLETED` / `COMPLETED_WITH_ERRORS`. Optionally inspect staged rows: `GET /api/v1/products/bulk-upload/staged-images?slug=oak-dining-table&unconsumed=true`
+3. Download the sample template: `GET /api/v1/products/bulk-upload/sample` (includes a `Lookups` sheet + dropdowns for `subCategoryId` and boolean columns)
+4. Fill one product per row (**no images column required**) and upload: `POST /api/v1/products/bulk-upload` → returns `{ jobId }`
+5. Poll the sheet job. When done, download the result workbook via `GET /api/v1/upload-jobs/:id/download/result` (columns include `imagesAttached` + `status`)
+
+During sheet processing, for each row the worker looks up unconsumed staged images matching the product `slug` (ordered by `sortOrder`, max 5) and attaches them. If none are found, the product is still created and status is `Success (no images found for slug "…")`.
+
+Legacy sheets may still include an `images` column of public URLs; when present it overrides staged matching.
+
+### Image filename convention
+
+| Part | Rule |
+|------|------|
+| `productSlug` | lowercase kebab-case matching the Excel `slug` |
+| `sortOrder` | integer `0`–`4` (max 5 images per product) |
+| extension | `jpg`, `jpeg`, `png`, or `webp` |
+| separator | double underscore `__` |
+
+Invalid names are recorded as failed rows in the image-staging result workbook (they do not abort the job).
 
 ### Excel columns
 
-Header names must match exactly (case-insensitive). Backend appends **`status`** only on the result file.
+Header names are case-insensitive. Backend appends **`imagesAttached`** and **`status`** on the result file.
 
 | Column | Required | Format |
 |--------|----------|--------|
 | `name` | Yes | string |
-| `slug` | Yes | unique slug |
+| `slug` | Yes | unique slug (must match staged image filenames) |
 | `description` | No | string |
 | `price` | Yes | number |
 | `priceWithoutDiscount` | No | number |
 | `stock` | Yes | integer ≥ 0 |
-| `subCategoryId` | Yes | integer |
-| `isActive` | No | `true` / `false` (default true) |
+| `subCategoryId` | Yes | integer **or** dropdown label `12 - Living Room > Sofas` |
+| `isActive` | No | `true` / `false` (dropdown; default true) |
 | `isBestSeller` | No | `true` / `false` |
 | `isFeaturedProduct` | No | `true` / `false` |
 | `isMostPopular` | No | `true` / `false` |
 | `isNewArrival` | No | `true` / `false` |
 | `productFeatures` | No | pipe-separated, max 10: `Solid oak\|Seats 6\|1-year warranty` |
-| `images` | No | comma-separated public URLs, max 5 |
-| `woods` | No | comma-separated wood IDs: `1,2` |
-| `fabrics` | No | comma-separated fabric IDs: `3,4` |
-| `status` | Backend-only | `Success` or error message |
+| `images` | No (legacy) | comma-separated public URLs, max 5 — overrides staged images when present |
+| `woods` | No | comma-separated: `id` or `id:priceAdjustment`. Examples: `1,2` or `1:3000,2:6000` |
+| `polishes` | No | same format; each polish must belong to an assigned wood |
+| `fabrics` | No | same format |
+| `imagesAttached` | Backend-only | count of images attached for the row |
+| `status` | Backend-only | `Success`, `Success (no images found for slug "…")`, or error message |
 
-Limits: max **500** data rows per file, max **5 MB** `.xlsx`.
+Limits: max **500** data rows per sheet (5 MB `.xlsx`); max **50 MB** / **200** files per image ZIP.
+
+The sample workbook includes a **`Lookups`** sheet listing sub-categories, woods, polishes, and fabrics as `{id} - {label}` for reference. Excel has no native multi-select, so woods/polishes/fabrics remain free-text `id:price` lists.
+
+**Customization pricing notes**
+
+- Format: `optionId:priceAdjustment` per entry, comma-separated
+- Omit `:price` to default `priceAdjustment` to `0` (backward compatible with older sheets)
+- Prices are product-specific (same wood ID can have different prices on different product rows)
+- If `woods` is set and `polishes` is empty/omitted, active polishes of those woods are synced automatically at price `0`
 
 ---
 
@@ -365,7 +406,7 @@ Limits: max **500** data rows per file, max **5 MB** `.xlsx`.
 |---|---|
 | **Auth** | Bearer token + `create-products` |
 | **Status** | `200` |
-| **Response** | Excel file download (`product-bulk-upload-sample.xlsx`) |
+| **Response** | Excel file download (`product-bulk-upload-sample.xlsx`) with `Products` + `Lookups` sheets |
 
 ### cURL
 
@@ -376,6 +417,60 @@ curl -OJ http://localhost:5000/api/v1/products/bulk-upload/sample \
 
 ---
 
+## POST /api/v1/products/bulk-upload/images
+
+| | |
+|---|---|
+| **Auth** | Bearer token + `create-products` |
+| **Content-Type** | `multipart/form-data` |
+| **Field** | `file` (`.zip`) |
+| **Status** | `202` |
+
+Enqueues a `BULK_PRODUCT_IMAGES` job. Images are compressed to WebP and stored in R2; DB rows land in `staged_product_images` keyed by `(productSlug, sortOrder)`.
+
+### Success response `202`
+
+```json
+{
+  "success": true,
+  "data": {
+    "jobId": 12,
+    "status": "PENDING"
+  }
+}
+```
+
+### cURL
+
+```bash
+curl -X POST http://localhost:5000/api/v1/products/bulk-upload/images \
+  -H "Authorization: Bearer $TOKEN" \
+  -F "file=@./product-images.zip"
+```
+
+---
+
+## GET /api/v1/products/bulk-upload/staged-images
+
+| | |
+|---|---|
+| **Auth** | Bearer token + `view-products` |
+| **Query** | `page`, `limit`, `slug`, `unconsumed` (`true`/`false`) |
+| **Status** | `200` |
+
+---
+
+## DELETE /api/v1/products/bulk-upload/staged-images/:id
+
+| | |
+|---|---|
+| **Auth** | Bearer token + `create-products` |
+| **Status** | `200` |
+
+Deletes the staged row and its R2 object.
+
+---
+
 ## POST /api/v1/products/bulk-upload
 
 | | |
@@ -383,33 +478,32 @@ curl -OJ http://localhost:5000/api/v1/products/bulk-upload/sample \
 | **Auth** | Bearer token + `create-products` |
 | **Content-Type** | `multipart/form-data` |
 | **Field** | `file` (`.xlsx`) |
-| **Status** | `201` |
+| **Status** | `202` |
 
-Processes every non-empty data row. Partial failures are expected; use `successCount` / `failedCount` and the result document.
+Enqueues a `BULK_PRODUCT_UPLOAD` job. Processing is asynchronous — poll [upload-jobs.md](./upload-jobs.md).
 
-### Success response `201`
+### Success response `202`
 
 ```json
 {
   "success": true,
   "data": {
-    "successCount": 12,
-    "failedCount": 3,
-    "documentUrl": "https://cdn.example.com/product-bulk-imports/2026/07/8f3c2a1b-4d5e-6f70-8a9b-0c1d2e3f4a5b.xlsx"
+    "jobId": 13,
+    "status": "PENDING"
   }
 }
 ```
 
-The result workbook contains all original columns plus a final **`status`** column (`Success` or the error message).
-
-### Errors (whole request)
+### Errors (whole request / enqueue)
 
 | Status | When |
 |--------|------|
-| `400` | Missing/invalid file, wrong sheet headers, empty sheet, or more than 500 rows |
+| `400` | Missing/invalid file |
 | `401` | Missing or invalid token |
 | `403` | Missing `create-products` permission |
-| `503` | R2 storage is not configured (cannot store the result document) |
+| `503` | R2 storage is not configured |
+
+Row-level failures appear in the result workbook after the job finishes (they do not fail enqueue).
 
 ### cURL
 
@@ -486,6 +580,7 @@ curl -X PATCH http://localhost:5000/api/v1/products/1 \
 - `woods[]` / `polishes[]` / `fabrics[]` with `priceAdjustment` and availability
 - `subCategory` (+ parent category)
 - `ratingAverage` / `reviewCount`
+- `soldCount` — total pieces sold (sum of order-line quantities for orders that are not `PENDING` or `CANCELLED`)
 
 ### cURL
 
@@ -494,6 +589,25 @@ curl "http://localhost:5000/api/v1/admin/products/7" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
+Example fields unique to this admin response:
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": 7,
+    "name": "Oak Dining Table",
+    "price": "24999.99",
+    "priceWithoutDiscount": "29999.99",
+    "stock": 10,
+    "soldCount": 42,
+    "ratingAverage": 4.5,
+    "reviewCount": 12
+  }
+}
+```
+
+`soldCount` is **not** included on public product detail or list endpoints.
 ---
 
 ## GET /api/v1/products/:idOrSlug

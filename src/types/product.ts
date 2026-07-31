@@ -132,10 +132,22 @@ export type UpdateProductCmsTagsPayload = {
   isNewArrival?: boolean;
 };
 
-export type ProductBulkUploadResult = {
-  successCount: number;
-  failedCount: number;
-  documentUrl: string;
+/** Row in `staged_product_images` after a ZIP staging job. */
+export type StagedProductImage = {
+  id: number;
+  productSlug: string;
+  sortOrder: number;
+  url: string;
+  storageKey: string;
+  consumedAt: string | null;
+  createdAt: string;
+};
+
+export type ListStagedProductImagesParams = {
+  page?: number;
+  limit?: number;
+  slug?: string;
+  unconsumed?: boolean;
 };
 
 export type ProductWoodFormEntry = {
