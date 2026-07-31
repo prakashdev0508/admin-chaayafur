@@ -54,6 +54,17 @@ export const queryKeys = {
     list: (params: Record<string, unknown>) =>
       ["products", "list", params] as const,
   },
+  uploadJobs: {
+    all: ["upload-jobs"] as const,
+    list: (params: Record<string, unknown>) =>
+      ["upload-jobs", "list", params] as const,
+    detail: (id: number) => ["upload-jobs", "detail", id] as const,
+  },
+  stagedProductImages: {
+    all: ["staged-product-images"] as const,
+    list: (params: Record<string, unknown>) =>
+      ["staged-product-images", "list", params] as const,
+  },
   woods: {
     all: ["woods"] as const,
     list: (params: Record<string, unknown>) =>

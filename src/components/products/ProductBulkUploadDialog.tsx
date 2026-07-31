@@ -1,7 +1,9 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import {
   CheckCircle2,
+  Download,
   ExternalLink,
   FileSpreadsheet,
   Loader2,
@@ -9,6 +11,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
+import { FileDropzone } from "@/components/shared/FileDropzone";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -18,19 +21,29 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { useUploadJob } from "@/hooks/useUploadJob";
 import { ApiError } from "@/lib/api";
+import { triggerBrowserDownload } from "@/lib/download";
+import { queryKeys } from "@/lib/query-keys";
+import {
+  uploadJobStatusLabels,
+  uploadJobStatusVariants,
+} from "@/lib/upload-job-status";
 import { cn } from "@/lib/utils";
 import { bulkUploadProducts } from "@/services/products.service";
-import type { ProductBulkUploadResult } from "@/types/product";
+import { downloadUploadJobFile } from "@/services/upload-jobs.service";
+import type { UploadJob } from "@/types/upload-job";
+import { isTerminalUploadJobStatus } from "@/types/upload-job";
 
 const MAX_XLSX_MB = 5;
-const STEPS = ["Import", "Results"] as const;
-type StepIndex = 0 | 1;
+const STEPS = ["Upload", "Processing", "Results"] as const;
+type StepIndex = 0 | 1 | 2;
 
 type ProductBulkUploadDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onImportSuccess?: (result: ProductBulkUploadResult) => void;
+  onImportSuccess?: (job: UploadJob) => void;
 };
 
 function validateXlsxFile(file: File): string | null {
@@ -52,25 +65,46 @@ export function ProductBulkUploadDialog({
   onOpenChange,
   onImportSuccess,
 }: ProductBulkUploadDialogProps) {
-  const fileInputId = useId();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
+  const queryClient = useQueryClient();
   const [step, setStep] = useState<StepIndex>(0);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const [importing, setImporting] = useState(false);
+  const [enqueueing, setEnqueueing] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
-  const [result, setResult] = useState<ProductBulkUploadResult | null>(null);
+  const [jobId, setJobId] = useState<number | null>(null);
+  const [downloadingResult, setDownloadingResult] = useState(false);
+  const [notifiedTerminal, setNotifiedTerminal] = useState(false);
+
+  const jobQuery = useUploadJob(open ? jobId : null);
+  const job = jobQuery.data ?? null;
 
   useEffect(() => {
     if (!open) return;
     setStep(0);
     setSelectedFile(null);
-    setIsDragging(false);
-    setImporting(false);
+    setEnqueueing(false);
     setImportError(null);
-    setResult(null);
+    setJobId(null);
+    setDownloadingResult(false);
+    setNotifiedTerminal(false);
   }, [open]);
+
+  useEffect(() => {
+    if (!job || !isTerminalUploadJobStatus(job.status)) return;
+    setStep(2);
+    if (notifiedTerminal) return;
+    setNotifiedTerminal(true);
+
+    if (job.status === "FAILED") {
+      toast.error(job.errorMessage || "Import job failed");
+    } else if (job.failedCount === 0) {
+      toast.success(`Imported ${job.successCount} products`);
+    } else {
+      toast.message(
+        `${job.successCount} succeeded, ${job.failedCount} failed — download the result file for details`,
+      );
+    }
+    onImportSuccess?.(job);
+  }, [job, notifiedTerminal, onImportSuccess]);
 
   const assignFile = (file: File | null) => {
     if (!file) {
@@ -95,20 +129,16 @@ export function ProductBulkUploadDialog({
       return;
     }
 
-    setImporting(true);
+    setEnqueueing(true);
     setImportError(null);
     try {
       const data = await bulkUploadProducts(selectedFile);
-      setResult(data);
+      setJobId(data.jobId);
       setStep(1);
-      if (data.failedCount === 0) {
-        toast.success(`Imported ${data.successCount} products`);
-      } else {
-        toast.message(
-          `${data.successCount} succeeded, ${data.failedCount} failed — download the result file for details`,
-        );
-      }
-      onImportSuccess?.(data);
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.uploadJobs.all,
+      });
+      toast.message("Import queued — processing in the background");
     } catch (error) {
       const message =
         error instanceof ApiError
@@ -119,12 +149,37 @@ export function ProductBulkUploadDialog({
       setImportError(message);
       toast.error(message);
     } finally {
-      setImporting(false);
+      setEnqueueing(false);
     }
   };
 
+  const handleDownloadResult = async () => {
+    if (!job) return;
+    setDownloadingResult(true);
+    try {
+      const { blob, filename } = await downloadUploadJobFile(job.id, "result");
+      triggerBrowserDownload(
+        blob,
+        filename || "product-bulk-upload-result.xlsx",
+      );
+      toast.success("Result workbook downloaded");
+    } catch (error) {
+      const message =
+        error instanceof ApiError
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : "Failed to download result";
+      toast.error(message);
+    } finally {
+      setDownloadingResult(false);
+    }
+  };
+
+  const isBusy = enqueueing || (step === 1 && jobId != null);
+
   const handleClose = (nextOpen: boolean) => {
-    if (importing) return;
+    if (isBusy && nextOpen === false) return;
     onOpenChange(nextOpen);
   };
 
@@ -132,13 +187,13 @@ export function ProductBulkUploadDialog({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent
         className="sm:max-w-lg max-h-[min(90vh,640px)] grid-rows-[auto_auto_1fr_auto] overflow-hidden"
-        showCloseButton={!importing}
+        showCloseButton={!isBusy}
       >
         <DialogHeader>
           <DialogTitle>Bulk upload products</DialogTitle>
           <DialogDescription>
-            Upload a completed Excel file. Prepare your template, image URLs, and
-            IDs on the{" "}
+            Upload a completed Excel file. Stage images and prepare your
+            template on the{" "}
             <Link
               to="/products/bulk-prepare"
               className="font-medium text-foreground underline underline-offset-2"
@@ -191,76 +246,20 @@ export function ProductBulkUploadDialog({
                 <code className="rounded bg-muted px-1 py-0.5 text-xs">
                   .xlsx
                 </code>{" "}
-                (max {MAX_XLSX_MB} MB, 500 data rows). Failed rows do not stop
-                the batch — check the result file afterward.
+                (max {MAX_XLSX_MB} MB, 500 data rows). Images are attached from
+                staged ZIP uploads matching each product slug.
               </p>
 
-              <div
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    fileInputRef.current?.click();
-                  }
-                }}
-                onDragEnter={(e) => {
-                  e.preventDefault();
-                  setIsDragging(true);
-                }}
-                onDragLeave={(e) => {
-                  e.preventDefault();
-                  if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-                    setIsDragging(false);
-                  }
-                }}
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  setIsDragging(false);
-                  const file = e.dataTransfer.files[0];
-                  if (file) assignFile(file);
-                }}
-                onClick={() => fileInputRef.current?.click()}
-                className={cn(
-                  "flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed px-4 py-10 text-center transition-colors",
-                  isDragging
-                    ? "border-primary bg-primary/5"
-                    : "border-border bg-muted/10 hover:border-primary/40 hover:bg-muted/20",
-                )}
-              >
-                <div className="flex size-12 items-center justify-center rounded-full border bg-background">
-                  <FileSpreadsheet className="size-5 text-muted-foreground" />
-                </div>
-                <div className="space-y-1">
-                  <p className="text-sm font-medium">
-                    {selectedFile
-                      ? selectedFile.name
-                      : "Drop your .xlsx file here"}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {selectedFile
-                      ? `${(selectedFile.size / 1024).toFixed(1)} KB · click to change`
-                      : `or click to browse · max ${MAX_XLSX_MB} MB`}
-                  </p>
-                </div>
-                <Button type="button" variant="outline" size="sm" tabIndex={-1}>
-                  <Upload className="size-4" />
-                  Choose file
-                </Button>
-              </div>
-
-              <input
-                ref={fileInputRef}
-                id={fileInputId}
-                type="file"
+              <FileDropzone
                 accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                className="sr-only"
-                onChange={(e) => {
-                  assignFile(e.target.files?.[0] ?? null);
-                  e.target.value = "";
-                }}
-                disabled={importing}
+                label="Drop your .xlsx file here"
+                hint={`or click to browse · max ${MAX_XLSX_MB} MB`}
+                file={selectedFile}
+                onFile={assignFile}
+                disabled={enqueueing}
+                icon={
+                  <FileSpreadsheet className="size-5 text-muted-foreground" />
+                }
               />
 
               {importError && (
@@ -271,7 +270,39 @@ export function ProductBulkUploadDialog({
             </div>
           )}
 
-          {step === 1 && result && (
+          {step === 1 && (
+            <div className="space-y-4 py-4 text-center">
+              <Loader2 className="mx-auto size-8 animate-spin text-muted-foreground" />
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Processing import…</p>
+                {job && (
+                  <>
+                    <StatusBadge
+                      variant={uploadJobStatusVariants[job.status]}
+                    >
+                      {uploadJobStatusLabels[job.status]}
+                    </StatusBadge>
+                    {job.totalCount > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        {job.successCount + job.failedCount} of {job.totalCount}{" "}
+                        rows processed
+                        {job.failedCount > 0
+                          ? ` · ${job.failedCount} failed so far`
+                          : ""}
+                      </p>
+                    )}
+                  </>
+                )}
+                {!job && jobQuery.isLoading && (
+                  <p className="text-xs text-muted-foreground">
+                    Waiting for worker…
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {step === 2 && job && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div className="rounded-lg border bg-muted/20 p-4">
@@ -280,7 +311,7 @@ export function ProductBulkUploadDialog({
                     Succeeded
                   </div>
                   <p className="mt-1 text-2xl font-semibold tabular-nums">
-                    {result.successCount}
+                    {job.successCount}
                   </p>
                 </div>
                 <div className="rounded-lg border bg-muted/20 p-4">
@@ -289,64 +320,92 @@ export function ProductBulkUploadDialog({
                     Failed
                   </div>
                   <p className="mt-1 text-2xl font-semibold tabular-nums">
-                    {result.failedCount}
+                    {job.failedCount}
                   </p>
                 </div>
               </div>
 
-              <p className="text-sm text-muted-foreground">
-                The result workbook includes a{" "}
-                <code className="rounded bg-muted px-1 py-0.5 text-xs">
-                  status
-                </code>{" "}
-                column with Success or the error message for each row.
-              </p>
+              <StatusBadge variant={uploadJobStatusVariants[job.status]}>
+                {uploadJobStatusLabels[job.status]}
+              </StatusBadge>
 
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full justify-start gap-2"
-                render={
-                  <a
-                    href={result.documentUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <ExternalLink className="size-4" />
-                    Download result Excel
-                  </a>
-                }
-              />
+              {job.errorMessage && (
+                <p className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                  {job.errorMessage}
+                </p>
+              )}
+
+              {job.status !== "FAILED" && (
+                <p className="text-sm text-muted-foreground">
+                  The result workbook includes{" "}
+                  <code className="rounded bg-muted px-1 py-0.5 text-xs">
+                    imagesAttached
+                  </code>{" "}
+                  and{" "}
+                  <code className="rounded bg-muted px-1 py-0.5 text-xs">
+                    status
+                  </code>{" "}
+                  columns for each row.
+                </p>
+              )}
+
+              {job.resultUrl && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full justify-start gap-2"
+                  disabled={downloadingResult}
+                  onClick={() => void handleDownloadResult()}
+                >
+                  {downloadingResult ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Download className="size-4" />
+                  )}
+                  Download result Excel
+                </Button>
+              )}
             </div>
           )}
         </div>
 
         <DialogFooter>
-          {step === 1 ? (
+          {step === 2 ? (
             <Button type="button" onClick={() => onOpenChange(false)}>
               Done
             </Button>
+          ) : step === 1 ? (
+            <Button
+              type="button"
+              variant="outline"
+              render={
+                <Link to="/upload-jobs" onClick={() => onOpenChange(false)}>
+                  <ExternalLink className="size-4" />
+                  Run in background
+                </Link>
+              }
+            />
           ) : (
             <>
               <Button
                 type="button"
                 variant="outline"
-                disabled={importing}
+                disabled={enqueueing}
                 onClick={() => onOpenChange(false)}
               >
                 Cancel
               </Button>
               <Button
                 type="button"
-                disabled={importing || !selectedFile}
+                disabled={enqueueing || !selectedFile}
                 onClick={() => void handleImport()}
               >
-                {importing ? (
+                {enqueueing ? (
                   <Loader2 className="size-4 animate-spin" />
                 ) : (
                   <Upload className="size-4" />
                 )}
-                {importing ? "Importing…" : "Import products"}
+                {enqueueing ? "Queuing…" : "Import products"}
               </Button>
             </>
           )}
