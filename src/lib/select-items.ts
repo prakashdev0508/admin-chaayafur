@@ -50,6 +50,22 @@ export const REFUND_STATUS_FILTER_ITEMS: SelectOption[] = [
   { value: "CANCELLED", label: "Cancelled" },
 ];
 
+export const REFERRAL_STATUS_FILTER_ITEMS: SelectOption[] = [
+  { value: "all", label: "All statuses" },
+  { value: "PENDING", label: "Pending" },
+  { value: "CREDITED", label: "Credited" },
+  { value: "CANCELLED", label: "Cancelled" },
+];
+
+export const WALLET_WITHDRAWAL_STATUS_FILTER_ITEMS: SelectOption[] = [
+  { value: "all", label: "All statuses" },
+  { value: "PENDING", label: "Pending" },
+  { value: "PROCESSING", label: "Processing" },
+  { value: "SUCCESS", label: "Success" },
+  { value: "FAILED", label: "Failed" },
+  { value: "REJECTED", label: "Rejected" },
+];
+
 export const PAYMENT_STATUS_FILTER_ITEMS: SelectOption[] = [
   { value: "all", label: "All statuses" },
   { value: "PENDING", label: "Pending" },

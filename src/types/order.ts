@@ -218,4 +218,5 @@ export type CreateOrderPayload = {
   shippingAddressId: number;
   billingAddressId?: number;
   couponCode?: string;
+  referralCode?: string;
 };

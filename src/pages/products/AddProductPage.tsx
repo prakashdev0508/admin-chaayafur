@@ -14,6 +14,12 @@ import { createProduct } from "@/services/products.service";
 import type { ProductFormValues } from "@/types/product";
 import { PERMISSIONS } from "@/lib/roles";
 
+function getSubmitErrorMessage(err: unknown, fallback: string) {
+  if (err instanceof ApiError) return err.message;
+  if (err instanceof Error && err.message.trim()) return err.message;
+  return fallback;
+}
+
 export function AddProductPage() {
   const navigate = useNavigate();
   const { hasPermission } = usePermission();
@@ -29,9 +35,7 @@ export function AddProductPage() {
       await createProduct(formValuesToCreatePayload(values));
       navigate("/products");
     } catch (err) {
-      setError(
-        err instanceof ApiError ? err.message : "Failed to create product",
-      );
+      setError(getSubmitErrorMessage(err, "Failed to create product"));
     } finally {
       setIsSubmitting(false);
     }

@@ -134,22 +134,50 @@ function formAdjustmentToNumber(value: string): number {
   return n;
 }
 
+function requireStringField(
+  value: unknown,
+  fieldLabel: string,
+  options: { allowEmpty?: boolean } = {},
+): string {
+  if (typeof value !== "string") {
+    throw new Error(`${fieldLabel} is invalid. Please re-enter it and try again.`);
+  }
+
+  const trimmed = value.trim();
+  if (!options.allowEmpty && !trimmed) {
+    throw new Error(`${fieldLabel} is required.`);
+  }
+
+  return trimmed;
+}
+
 export function formValuesToCreatePayload(
   values: ProductFormValues,
 ): CreateProductPayload {
   const images = values.images
-    .filter((img) => img.url.trim())
     .map((img, index) => {
+      const imageUrl = requireStringField(
+        img.url,
+        `Image ${index + 1} URL`,
+        { allowEmpty: true },
+      );
+      if (!imageUrl) return null;
+
       const payload: ProductImageInput = {
-        url: img.url.trim(),
-        altText: img.altText.trim(),
+        url: imageUrl,
+        altText: requireStringField(
+          img.altText,
+          `Image ${index + 1} alt text`,
+          { allowEmpty: true },
+        ),
         sortOrder: img.sortOrder ?? index,
       };
       if (img.storageKey) {
         payload.storageKey = img.storageKey;
       }
       return payload;
-    });
+    })
+    .filter((img): img is ProductImageInput => img !== null);
 
   const mrp = values.priceWithoutDiscount.trim();
 

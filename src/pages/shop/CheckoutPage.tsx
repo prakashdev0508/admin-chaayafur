@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AddressPicker } from "@/components/shop/AddressPicker";
 import { CartMaterialChips } from "@/components/shop/CartMaterialChips";
 import { CouponInput } from "@/components/shop/CouponInput";
+import { ReferralCodeInput } from "@/components/shop/ReferralCodeInput";
 import { OTPLoginDialog } from "@/components/shop/OTPLoginDialog";
 import { Button } from "@/components/ui/button";
 import { buttonVariants } from "@/components/ui/button";
@@ -14,6 +15,10 @@ import { ApiError } from "@/lib/api";
 import { startOrderPayment } from "@/lib/razorpay";
 import { formatCurrency } from "@/lib/format";
 import { queryKeys } from "@/lib/query-keys";
+import {
+  clearStoredReferralCode,
+  getStoredReferralCode,
+} from "@/lib/referral-storage";
 import { createShopOrder } from "@/services/shop-orders.service";
 import { verifyPayment } from "@/services/shop-payments.service";
 import { listCustomerAddresses } from "@/services/shop-addresses.service";
@@ -31,6 +36,9 @@ export function CheckoutPage() {
   const [loginOpen, setLoginOpen] = useState(!isAuthenticated);
   const [selectedAddressId, setSelectedAddressId] = useState<number | null>(null);
   const [coupon, setCoupon] = useState<ValidateCouponResponse | null>(null);
+  const [referralCode, setReferralCode] = useState<string | null>(() =>
+    getStoredReferralCode(),
+  );
   const [placingOrder, setPlacingOrder] = useState(false);
 
   useEffect(() => {
@@ -103,8 +111,11 @@ export function CheckoutPage() {
         useCart: true,
         shippingAddressId: selectedAddressId,
         ...(coupon ? { couponCode: coupon.code } : {}),
+        ...(referralCode ? { referralCode } : {}),
       });
 
+      clearStoredReferralCode();
+      setReferralCode(null);
       clearCart();
       void queryClient.invalidateQueries({ queryKey: queryKeys.shop.cart });
 
@@ -200,6 +211,12 @@ export function CheckoutPage() {
           )}
 
           {isAuthenticated && <CouponInput onValidated={setCoupon} />}
+          {isAuthenticated && (
+            <ReferralCodeInput
+              value={referralCode}
+              onChange={setReferralCode}
+            />
+          )}
         </div>
 
         <aside className="h-fit space-y-4 rounded-2xl border border-[#E8DFD3] bg-white p-5">

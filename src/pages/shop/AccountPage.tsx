@@ -12,6 +12,8 @@ import {
   listCustomerAddresses,
 } from "@/services/shop-addresses.service";
 import { listShopOrders } from "@/services/shop-orders.service";
+import { getMyReferral } from "@/services/shop-referrals.service";
+import { getMyWallet } from "@/services/shop-wallet.service";
 import { getMyReviews } from "@/services/reviews.service";
 import { queryKeys } from "@/lib/query-keys";
 import { formatCurrency, formatDate, formatPhone } from "@/lib/format";
@@ -36,6 +38,16 @@ export function AccountPage() {
   const reviewsQuery = useQuery({
     queryKey: queryKeys.shop.reviews.mine,
     queryFn: getMyReviews,
+  });
+
+  const referralQuery = useQuery({
+    queryKey: queryKeys.shop.referral,
+    queryFn: getMyReferral,
+  });
+
+  const walletQuery = useQuery({
+    queryKey: queryKeys.shop.wallet,
+    queryFn: getMyWallet,
   });
 
   const createAddressMutation = useMutation({
@@ -103,6 +115,60 @@ export function AccountPage() {
           </div>
         </div>
       )}
+
+      <section className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-xl font-medium text-[#3D2B1F]">Refer & earn</h2>
+          <Link
+            to="/shop/referrals"
+            className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+          >
+            Open referrals
+          </Link>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Share your code. Earn about 5% after a friend’s order is delivered.
+        </p>
+        {referralQuery.data && (
+          <div className="rounded-2xl border border-[#E8DFD3] bg-white p-4">
+            <p className="text-sm text-muted-foreground">Your code</p>
+            <p className="mt-1 font-mono text-lg font-medium text-[#3D2B1F]">
+              {referralQuery.data.code}
+            </p>
+          </div>
+        )}
+      </section>
+
+      <section className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-xl font-medium text-[#3D2B1F]">Wallet</h2>
+          <Link
+            to="/shop/wallet"
+            className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+          >
+            Open wallet
+          </Link>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          View referral earnings and request UPI or bank withdrawals.
+        </p>
+        {walletQuery.data && (
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-2xl border border-[#E8DFD3] bg-white p-4">
+              <p className="text-sm text-muted-foreground">Available</p>
+              <p className="mt-1 text-2xl font-medium text-[#3D2B1F]">
+                {formatCurrency(walletQuery.data.availableBalance)}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-[#E8DFD3] bg-white p-4">
+              <p className="text-sm text-muted-foreground">Pending</p>
+              <p className="mt-1 text-2xl font-medium text-[#3D2B1F]">
+                {formatCurrency(walletQuery.data.pendingBalance)}
+              </p>
+            </div>
+          </div>
+        )}
+      </section>
 
       <section className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">

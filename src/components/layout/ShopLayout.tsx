@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Link, NavLink, Outlet } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ShoppingBag, User } from "lucide-react";
 import { ShopAnnouncementBar } from "@/components/shop/ShopAnnouncementBar";
@@ -11,6 +11,7 @@ import { Toaster } from "sonner";
 import { cn } from "@/lib/utils";
 import { formatPhone } from "@/lib/format";
 import { queryKeys } from "@/lib/query-keys";
+import { captureReferralCodeFromSearch } from "@/lib/referral-storage";
 import { fetchPublicSiteSettings } from "@/services/site-settings.service";
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
@@ -27,6 +28,11 @@ function whatsappHref(phone: string) {
 export function ShopLayout() {
   const { itemCount } = useCart();
   const { isAuthenticated, user } = useCustomerAuth();
+  const location = useLocation();
+
+  useEffect(() => {
+    captureReferralCodeFromSearch(location.search);
+  }, [location.search]);
 
   const siteSettingsQuery = useQuery({
     queryKey: queryKeys.shop.siteSettings,
