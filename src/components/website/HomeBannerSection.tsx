@@ -246,7 +246,7 @@ export function HomeBannerSection({
                     <div className="space-y-3 p-3">
                       <div>
                         <p className="truncate font-medium">
-                          {banner.title || "Untitled banner"}
+                          {banner.title || "---"}
                         </p>
                         <p className="truncate text-xs text-muted-foreground">
                           {banner.redirectUrl}

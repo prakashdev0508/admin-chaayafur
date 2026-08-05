@@ -89,7 +89,7 @@ export function BannerFormDialog({
     const imageChanged = image.url !== originalImageUrl;
     const payload: CreateBannerPayload | UpdateBannerPayload = {
       type,
-      title: title.trim() || undefined,
+      title: title.trim() || null,
       redirectUrl: redirectUrl.trim(),
       sortOrder: Number.parseInt(sortOrder, 10) || 0,
       isActive,
