@@ -34,7 +34,7 @@ export type HomePayload = {
 
 export type CreateBannerPayload = {
   type: BannerType;
-  title?: string;
+  title?: string | null;
   imageUrl: string;
   imageStorageKey?: string;
   redirectUrl: string;

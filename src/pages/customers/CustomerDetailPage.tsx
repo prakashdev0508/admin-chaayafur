@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { AdminCartItemsPanel } from "@/components/carts/AdminCartItemsPanel";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -41,6 +41,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatCurrency, formatDate, formatPhone } from "@/lib/format";
 import { queryKeys } from "@/lib/query-keys";
+import { cn } from "@/lib/utils";
 import {
   blockCustomer,
   createCustomerAddress,
@@ -56,6 +57,7 @@ import {
 } from "@/components/shared/ProductWoodPicker";
 import { seedAdminCart } from "@/services/admin-carts.service";
 import { listCustomerAuditLogs } from "@/services/audit-logs.service";
+import { getAdminWallet } from "@/services/wallets.service";
 import { usePermission } from "@/hooks/usePermission";
 import type {
   CreateAddressPayload,
@@ -70,6 +72,7 @@ export function CustomerDetailPage() {
   const queryClient = useQueryClient();
   const { hasPermission } = usePermission();
   const canEdit = hasPermission(PERMISSIONS.UPDATE_CUSTOMERS);
+  const canViewWallet = hasPermission(PERMISSIONS.VIEW_WALLETS);
 
   const [showAddressForm, setShowAddressForm] = useState(false);
   const [editingAddress, setEditingAddress] = useState<CustomerAddress | null>(
@@ -104,6 +107,12 @@ export function CustomerDetailPage() {
     queryKey: queryKeys.customers.auditLogs(customerId),
     queryFn: () => listCustomerAuditLogs(customerId, { limit: 50 }),
     enabled: Number.isFinite(customerId),
+  });
+
+  const walletQuery = useQuery({
+    queryKey: queryKeys.wallets.detail(customerId),
+    queryFn: () => getAdminWallet(customerId),
+    enabled: Number.isFinite(customerId) && canViewWallet,
   });
 
   const invalidate = () => {
@@ -295,6 +304,7 @@ export function CustomerDetailPage() {
           <TabsTrigger value="cart">Cart</TabsTrigger>
           <TabsTrigger value="addresses">Addresses</TabsTrigger>
           <TabsTrigger value="orders">Orders</TabsTrigger>
+          {canViewWallet && <TabsTrigger value="wallet">Wallet</TabsTrigger>}
           <TabsTrigger value="activity">Activity</TabsTrigger>
         </TabsList>
 
@@ -435,6 +445,69 @@ export function CustomerDetailPage() {
             </p>
           )}
         </TabsContent>
+
+        {canViewWallet && (
+          <TabsContent value="wallet" className="mt-4">
+            <Card>
+              <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
+                <div>
+                  <CardTitle>Referral wallet</CardTitle>
+                  <CardDescription>
+                    Credits from delivered referral orders.
+                  </CardDescription>
+                </div>
+                <Link
+                  to={`/wallet-withdrawals?customerId=${customerId}`}
+                  className={cn(
+                    buttonVariants({ variant: "outline", size: "sm" }),
+                  )}
+                >
+                  View withdrawals
+                </Link>
+              </CardHeader>
+              <CardContent>
+                {walletQuery.isLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="size-5 animate-spin text-muted-foreground" />
+                  </div>
+                ) : walletQuery.isError ? (
+                  <p className="text-sm text-destructive">
+                    {walletQuery.error instanceof Error
+                      ? walletQuery.error.message
+                      : "Failed to load wallet"}
+                  </p>
+                ) : walletQuery.data ? (
+                  <div className="grid gap-4 sm:grid-cols-3">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Balance</p>
+                      <p className="mt-1 text-lg font-medium">
+                        {formatCurrency(walletQuery.data.balance)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">
+                        Available
+                      </p>
+                      <p className="mt-1 text-lg font-medium">
+                        {formatCurrency(walletQuery.data.availableBalance)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Pending</p>
+                      <p className="mt-1 text-lg font-medium">
+                        {formatCurrency(walletQuery.data.pendingBalance)}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    No wallet data for this customer.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
 
         <TabsContent value="activity" className="mt-4">
           <AuditLogTable

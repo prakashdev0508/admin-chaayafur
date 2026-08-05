@@ -12,7 +12,7 @@ Customer OTP authentication and profile for the Chaaya Furnitures storefront.
 - **Phone is the unique login identifier** — stored as 10-digit Indian mobile
 - **Name, email, and contact details live on addresses** — not on the customer record
 - Customer record stores only: `id`, `phone`, `lastLogin`, `isActive`, timestamps
-- **Cart lives on the frontend** (`localStorage`) — no backend cart API
+- **Cart lives on the frontend** (`localStorage`) for guests — after login, use [cart.md](./cart.md) (`/api/v1/cart`) for a persistent server cart
 
 ### Phone format
 
@@ -35,15 +35,15 @@ POST /auth/customer/verify-otp →  JWT returned (auto-register if new)
 | OTP expiry | `OTP_TTL_MS` | `300000` (5 min) |
 | Max verify attempts | `OTP_MAX_ATTEMPTS` | `5` |
 | Resend cooldown | `OTP_RESEND_COOLDOWN_MS` | `60000` (1 min) |
-| SMS provider API key | `2FA_API_KEY` | — (required in production) |
+| SMS provider API key | `OPT_API_KEY` | — (required in production) |
 | SMS API base URL | `2FA_BASE_URL` | `https://2factor.in/API/V1` |
 | SMS template (optional) | `2FA_OTP_TEMPLATE` | — (DLT template name if required) |
 
-OTP SMS is sent via [2factor.in](https://2factor.in/) when `2FA_API_KEY` is set. The app generates the code, stores it for verification, and delivers it with:
+OTP SMS is sent via [2factor.in](https://2factor.in/) when `OPT_API_KEY` is set. The app generates the code, stores it for verification, and delivers it with:
 
-`GET {2FA_BASE_URL}/{2FA_API_KEY}/SMS/91{phone}/{otp}[/{template}]`
+`GET {2FA_BASE_URL}/{OPT_API_KEY}/SMS/91{phone}/{otp}[/{template}]`
 
-In non-production, the OTP is also printed to the server console. Without `2FA_API_KEY`, development still logs the OTP; production returns `503`.
+In non-production, the OTP is also printed to the server console. Without `OPT_API_KEY`, development still logs the OTP; production returns `503`.
 
 ### JWT payload (customer)
 
@@ -69,6 +69,14 @@ In non-production, the OTP is also printed to the server console. Without `2FA_A
 | `GET` | `/api/v1/users/me/tickets/:ticketId` | Bearer (customer) | Own ticket |
 | `GET` | `/api/v1/users/me/addresses` | Bearer (customer) | Own addresses |
 | `GET` | `/api/v1/users/me/reviews` | Bearer (customer) | Own reviews |
+| `GET` | `/api/v1/users/me/referral` | Bearer (customer) | Referral code ([referrals.md](./referrals.md)) |
+| `GET` | `/api/v1/users/me/referrals` | Bearer (customer) | Referrals made |
+| `GET` | `/api/v1/users/me/wallet` | Bearer (customer) | Wallet balances ([wallet.md](./wallet.md)) |
+| `GET` | `/api/v1/users/me/wallet/transactions` | Bearer (customer) | Wallet ledger |
+| `GET` | `/api/v1/users/me/wallet/payout-methods` | Bearer (customer) | Saved UPI/bank prefs |
+| `POST` | `/api/v1/users/me/wallet/withdrawals` | Bearer (customer) | Request UPI or bank withdrawal |
+| `GET` | `/api/v1/users/me/wallet/withdrawals` | Bearer (customer) | Withdrawal history |
+| `GET` | `/api/v1/users/me/wallet/withdrawals/:id` | Bearer (customer) | Withdrawal detail |
 
 These `/users/me/*` routes are **customer-only** (separate from staff `/customers` and dual-mode `/orders`). Every lookup is scoped to the JWT customer id — never trust a client-supplied customer id.
 
@@ -102,6 +110,8 @@ Send a one-time password to the customer's mobile number.
   }
 }
 ```
+
+If the phone belongs to a **blocked** customer (`isActive: false`), the API returns `401` with `Customer account is inactive` and no SMS is sent.
 
 If resent too soon:
 
@@ -215,12 +225,16 @@ Get the authenticated customer's profile.
       "openTickets": 1,
       "productReviews": 2,
       "orderReviews": 1,
-      "reviews": 3
+      "reviews": 3,
+      "cartProductCount": 4
     },
+    "cartProductCount": 4,
     "addressCount": 2
   }
 }
 ```
+
+`cartProductCount` is the number of distinct products in the cart (line count), not the sum of quantities. Example: one product with qty 5 → `cartProductCount: 1`.
 
 > Use [addresses.md](./addresses.md) to manage name, email, and delivery contact per address (max 5).
 
@@ -228,7 +242,7 @@ Get the authenticated customer's profile.
 
 ## GET /api/v1/users/me/orders
 
-List the authenticated customer's own orders (same payload shape as customer `GET /orders`). Optional query: `status`, `page`, `limit`.
+List the authenticated customer's own orders (same slim list shape as customer `GET /orders`: `id`, `orderNumber`, `totalAmount`, `customerPhone`, `status`, `createdAt`). Optional query: `status`, `page`, `limit`, `orderNumber`, `createdFrom`, `createdTo`.
 
 ## GET /api/v1/users/me/orders/:orderId
 

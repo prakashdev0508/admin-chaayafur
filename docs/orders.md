@@ -77,9 +77,10 @@ Status events are recorded automatically when:
 ```
 Frontend localStorage cart
         ↓
-POST /orders (items, shippingAddressId, billingAddressId?, couponCode?)
+POST /orders (items, shippingAddressId, billingAddressId?, couponCode?, referralCode?)
         ↓
 Order (PENDING) + Payment (PENDING) + stock decremented + Razorpay link
+(+ optional Referral PENDING when referralCode is valid)
         ↓
 Customer pays via paymentLinkUrl
         ↓
@@ -173,7 +174,8 @@ Create an order from frontend cart items. Creates a Razorpay Payment Link for th
   ],
   "shippingAddressId": 1,
   "billingAddressId": 2,
-  "couponCode": "SAVE500"
+  "couponCode": "SAVE500",
+  "referralCode": "CHAYAAB12CD"
 }
 ```
 
@@ -188,6 +190,7 @@ Create an order from frontend cart items. Creates a Razorpay Payment Link for th
 | `shippingAddressId` | integer | Yes | Customer's own address |
 | `billingAddressId` | integer | No | Defaults to `shippingAddressId` |
 | `couponCode` | string | No | Max 32 chars; validated server-side |
+| `referralCode` | string | No | Another customer's code; tracking only (no discount). See [referrals.md](./referrals.md) |
 
 ### Validation rules
 

@@ -27,6 +27,9 @@ import { PaymentListPage } from "@/pages/payments/PaymentListPage";
 import { PaymentDetailPage } from "@/pages/payments/PaymentDetailPage";
 import { RefundListPage } from "@/pages/refunds/RefundListPage";
 import { RefundDetailPage } from "@/pages/refunds/RefundDetailPage";
+import { ReferralListPage } from "@/pages/referrals/ReferralListPage";
+import { WalletWithdrawalListPage } from "@/pages/wallet/WalletWithdrawalListPage";
+import { WalletWithdrawalDetailPage } from "@/pages/wallet/WalletWithdrawalDetailPage";
 import { CartListPage } from "@/pages/carts/CartListPage";
 import { CartDetailPage } from "@/pages/carts/CartDetailPage";
 import { CouponListPage } from "@/pages/coupons/CouponListPage";
@@ -66,6 +69,8 @@ import { AccountPage } from "@/pages/shop/AccountPage";
 import { ShopCustomizePage } from "@/pages/shop/ShopCustomizePage";
 import { ShopCustomizationRequestsPage } from "@/pages/shop/ShopCustomizationRequestsPage";
 import { ShopCustomizationRequestDetailPage } from "@/pages/shop/ShopCustomizationRequestDetailPage";
+import { ShopReferralsPage } from "@/pages/shop/ShopReferralsPage";
+import { ShopWalletPage } from "@/pages/shop/ShopWalletPage";
 import { SuperAdminRoute } from "@/components/auth/SuperAdminRoute";
 import { StaffHomeRedirect } from "@/components/auth/StaffHomeRedirect";
 import { PERMISSIONS } from "@/lib/roles";
@@ -83,6 +88,8 @@ const App = () => {
           <Route path="/shop/checkout" element={<CheckoutPage />} />
           <Route path="/shop/orders/:id" element={<ShopOrderPage />} />
           <Route path="/shop/account" element={<AccountPage />} />
+          <Route path="/shop/referrals" element={<ShopReferralsPage />} />
+          <Route path="/shop/wallet" element={<ShopWalletPage />} />
           <Route path="/shop/customize" element={<ShopCustomizePage />} />
           <Route
             path="/shop/customize/requests"
@@ -233,6 +240,25 @@ const App = () => {
           >
             <Route path="refunds" element={<RefundListPage />} />
             <Route path="refunds/:id" element={<RefundDetailPage />} />
+          </Route>
+          <Route
+            element={<PermissionRoute permission={PERMISSIONS.VIEW_WALLETS} />}
+          >
+            <Route
+              path="wallet-withdrawals"
+              element={<WalletWithdrawalListPage />}
+            />
+            <Route
+              path="wallet-withdrawals/:id"
+              element={<WalletWithdrawalDetailPage />}
+            />
+          </Route>
+          <Route
+            element={
+              <PermissionRoute permission={PERMISSIONS.VIEW_REFERRALS} />
+            }
+          >
+            <Route path="referrals" element={<ReferralListPage />} />
           </Route>
           <Route
             element={<PermissionRoute permission={PERMISSIONS.VIEW_COUPONS} />}

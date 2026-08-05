@@ -20,6 +20,8 @@ import {
   Shield,
   Mail,
   FileClock,
+  Gift,
+  Wallet,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -125,6 +127,12 @@ const navMain: NavItem[] = [
     icon: RotateCcw,
     permissions: [PERMISSIONS.VIEW_PAYMENTS, PERMISSIONS.VIEW_ORDERS],
   },
+  {
+    title: "Withdrawals",
+    url: "/wallet-withdrawals",
+    icon: Wallet,
+    permission: PERMISSIONS.VIEW_WALLETS,
+  },
 ];
 
 const navMore: NavItem[] = [
@@ -133,6 +141,12 @@ const navMore: NavItem[] = [
     url: "/coupons",
     icon: Ticket,
     permission: PERMISSIONS.VIEW_COUPONS,
+  },
+  {
+    title: "Referrals",
+    url: "/referrals",
+    icon: Gift,
+    permission: PERMISSIONS.VIEW_REFERRALS,
   },
   {
     title: "Customers",

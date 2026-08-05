@@ -43,6 +43,9 @@ export const PERMISSIONS = {
   VIEW_DASHBOARD: "view-dashboard",
   VIEW_CUSTOMIZATION_REQUESTS: "view-customization-requests",
   UPDATE_CUSTOMIZATION_REQUESTS: "update-customization-requests",
+  VIEW_WALLETS: "view-wallets",
+  UPDATE_WALLETS: "update-wallets",
+  VIEW_REFERRALS: "view-referrals",
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];

@@ -179,6 +179,26 @@ export const queryKeys = {
       product: (productId: number, params?: Record<string, unknown>) =>
         ["shop", "reviews", "product", productId, params] as const,
     },
+    referral: ["shop", "referral"] as const,
+    referrals: {
+      all: ["shop", "referrals"] as const,
+      list: (params: Record<string, unknown>) =>
+        ["shop", "referrals", "list", params] as const,
+    },
+    wallet: ["shop", "wallet"] as const,
+    walletTransactions: {
+      all: ["shop", "wallet-transactions"] as const,
+      list: (params: Record<string, unknown>) =>
+        ["shop", "wallet-transactions", "list", params] as const,
+    },
+    walletWithdrawals: {
+      all: ["shop", "wallet-withdrawals"] as const,
+      list: (params: Record<string, unknown>) =>
+        ["shop", "wallet-withdrawals", "list", params] as const,
+      detail: (id: number) =>
+        ["shop", "wallet-withdrawals", "detail", id] as const,
+    },
+    payoutMethods: ["shop", "payout-methods"] as const,
   },
   reviews: {
     all: ["reviews"] as const,
@@ -196,5 +216,19 @@ export const queryKeys = {
     list: (params: Record<string, unknown>) =>
       ["customization-requests", "list", params] as const,
     detail: (id: number) => ["customization-requests", "detail", id] as const,
+  },
+  referrals: {
+    all: ["referrals"] as const,
+    list: (params: Record<string, unknown>) =>
+      ["referrals", "list", params] as const,
+  },
+  wallets: {
+    detail: (customerId: number) => ["wallets", "detail", customerId] as const,
+  },
+  walletWithdrawals: {
+    all: ["wallet-withdrawals"] as const,
+    list: (params: Record<string, unknown>) =>
+      ["wallet-withdrawals", "list", params] as const,
+    detail: (id: number) => ["wallet-withdrawals", "detail", id] as const,
   },
 };

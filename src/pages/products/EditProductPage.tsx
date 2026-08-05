@@ -18,6 +18,12 @@ import {
 import type { ProductFormValues } from "@/types/product";
 import { PERMISSIONS } from "@/lib/roles";
 
+function getSubmitErrorMessage(err: unknown, fallback: string) {
+  if (err instanceof ApiError) return err.message;
+  if (err instanceof Error && err.message.trim()) return err.message;
+  return fallback;
+}
+
 export function EditProductPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -60,9 +66,7 @@ export function EditProductPage() {
       await updateProduct(productId, formValuesToCreatePayload(values));
       navigate(`/products/${productId}`);
     } catch (err) {
-      setError(
-        err instanceof ApiError ? err.message : "Failed to update product",
-      );
+      setError(getSubmitErrorMessage(err, "Failed to update product"));
     } finally {
       setIsSubmitting(false);
     }
