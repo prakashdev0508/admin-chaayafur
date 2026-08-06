@@ -13,7 +13,7 @@ Storefront branding, contact info, announcement bar, GSTIN, and shipping fee def
 - **Admin** — `GET` / `PUT /admin/site-settings` to read and partially update
 - Upload logo/favicon via [uploads.md](./uploads.md), then save returned `url` + `key` on settings
 - Announcement bar fields live on the same singleton (`announcementText`, `announcementLinkUrl`, `announcementIsActive`)
-- Shipping fee fields (`flatShippingFee`, `freeShippingMinAmount`) are edited here; pincode allowlists are in [shipping.md](./shipping.md)
+- Shipping fee fields (`flatShippingFee`, `freeShippingMinAmount`, `floorDeliveryChargePerFloor`) are edited here; pincode allowlists are in [shipping.md](./shipping.md)
 
 ### Who can access?
 
@@ -60,7 +60,8 @@ Storefront branding, contact info, announcement bar, GSTIN, and shipping fee def
     },
     "shipping": {
       "flatShippingFee": "499",
-      "freeShippingMinAmount": "10000"
+      "freeShippingMinAmount": "10000",
+      "floorDeliveryChargePerFloor": "300"
     }
   }
 }
@@ -114,11 +115,12 @@ Returns the full row including `logoStorageKey`, `faviconStorageKey`, and flat a
   "announcementLinkUrl": "/products?tag=isNewArrival",
   "announcementIsActive": true,
   "flatShippingFee": 499,
-  "freeShippingMinAmount": 10000
+  "freeShippingMinAmount": 10000,
+  "floorDeliveryChargePerFloor": 300
 }
 ```
 
-Set `freeShippingMinAmount` to `null` to disable the free-shipping threshold. Replacing logo/favicon with a new storage key deletes the previous R2 object when one was stored.
+Set `freeShippingMinAmount` to `null` to disable the free-shipping threshold. `floorDeliveryChargePerFloor` is the per-floor carry-up rate (ground floor = ₹0; Nth floor = N × rate). Replacing logo/favicon with a new storage key deletes the previous R2 object when one was stored.
 
 ### cURL
 

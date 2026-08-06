@@ -18,7 +18,8 @@ JSON invoice snapshots for confirmed orders, plus downloadable PDF stored on Clo
 - Invoice data is a **snapshot** at generation time (billing address, line items, prices)
 - Line items include customization names and **product-level price adjustments** snapped from the order (`woodPriceAdjustment`, `polishPriceAdjustment`, `fabricPriceAdjustment`)
 - PDF secondary line shows wood / polish / fabric with `+₹` when an adjustment is non-zero
-- `totalAmount` = subtotal − discount + shipping + tax
+- `totalAmount` = subtotal − discount + shipping + floor delivery + tax
+- Floor delivery charge (`floorDeliveryAmount`) is snapshotted from the order (`deliveryFloor ×` site rate) and shown on the PDF totals
 - Invoice numbers follow the format `INV-YYYYMMDD-XXXX` (sequential per day)
 
 ### When is an invoice created?
@@ -151,8 +152,10 @@ Get the JSON invoice for an order.
     "subtotal": "5000.00",
     "discountAmount": "500.00",
     "shippingAmount": "499.00",
+    "deliveryFloor": 3,
+    "floorDeliveryAmount": "900.00",
     "taxAmount": "0.00",
-    "totalAmount": "4999.00",
+    "totalAmount": "5899.00",
     "pdfUrl": "https://cdn.example.com/invoices/2026/07/uuid.pdf",
     "lineItems": [
       {

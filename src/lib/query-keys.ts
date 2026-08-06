@@ -137,8 +137,11 @@ export const queryKeys = {
   },
   shop: {
     siteSettings: ["shop", "site-settings"] as const,
-    shippingQuote: (params: { pincode: string; subtotal: number }) =>
-      ["shop", "shipping-quote", params] as const,
+    shippingQuote: (params: {
+      pincode: string;
+      subtotal: number;
+      deliveryFloor?: number;
+    }) => ["shop", "shipping-quote", params] as const,
     home: ["shop", "home"] as const,
     search: (params: Record<string, unknown>) =>
       ["shop", "search", params] as const,

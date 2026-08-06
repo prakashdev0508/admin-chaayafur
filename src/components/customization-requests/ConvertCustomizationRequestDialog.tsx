@@ -52,6 +52,7 @@ export function ConvertCustomizationRequestDialog({
   const [quantity, setQuantity] = useState(String(request.quantity));
   const [useReferenceImage, setUseReferenceImage] = useState(false);
   const [shippingAmount, setShippingAmount] = useState("0");
+  const [deliveryFloor, setDeliveryFloor] = useState("0");
   const [woodId, setWoodId] = useState<number | null>(
     request.woodId ?? null,
   );
@@ -101,6 +102,7 @@ export function ConvertCustomizationRequestDialog({
     setSubCategoryId("");
     setUseReferenceImage(false);
     setShippingAmount("0");
+    setDeliveryFloor("0");
   }, [open, request]);
 
   const categoryItems = useMemo(
@@ -133,12 +135,18 @@ export function ConvertCustomizationRequestDialog({
       toast.error("Enter a valid shipping amount");
       return;
     }
+    const parsedFloor = parseInt(deliveryFloor, 10);
+    if (!Number.isFinite(parsedFloor) || parsedFloor < 0 || parsedFloor > 100) {
+      toast.error("Delivery floor must be between 0 and 100");
+      return;
+    }
 
     const payload: ConvertCustomizationRequestPayload = {
       price: parsedPrice,
       subCategoryId: parsedSubCategoryId,
       useReferenceImageAsProductImage: useReferenceImage,
       shippingAmount: parsedShipping,
+      deliveryFloor: parsedFloor,
     };
 
     const trimmedName = productName.trim();
@@ -269,6 +277,23 @@ export function ConvertCustomizationRequestDialog({
               value={shippingAmount}
               onChange={(event) => setShippingAmount(event.target.value)}
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="convert-delivery-floor">Delivery floor</Label>
+            <Input
+              id="convert-delivery-floor"
+              type="number"
+              min={0}
+              max={100}
+              step={1}
+              value={deliveryFloor}
+              onChange={(event) => setDeliveryFloor(event.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Ground = 0. Floor delivery labor is calculated from site settings
+              (N × per-floor rate).
+            </p>
           </div>
 
           <CustomizationMaterialFields

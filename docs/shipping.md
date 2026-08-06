@@ -1,6 +1,6 @@
 # Shipping API
 
-Pincode serviceability and shipping fee quotes. Flat fee and free-shipping threshold come from [site settings](./site-settings.md).
+Pincode serviceability, shipping fee quotes, and floor delivery carry-up charges. Flat fee, free-shipping threshold, and per-floor rate come from [site settings](./site-settings.md).
 
 [← Back to index](./README.md) · [Site Settings](./site-settings.md) · [Orders](./orders.md)
 
@@ -11,10 +11,14 @@ Pincode serviceability and shipping fee quotes. Flat fee and free-shipping thres
 - **Fee formula**
   - If `freeShippingMinAmount` is set and cart (after discount) ≥ threshold → `shippingAmount = 0`
   - Else → `shippingAmount = flatShippingFee` from site settings
+- **Floor delivery**
+  - `floorDeliveryAmount = deliveryFloor × floorDeliveryChargePerFloor`
+  - Ground floor (`deliveryFloor = 0`) → ₹0
+  - Not waived by free shipping
 - **Pincode policy**
   - If the allowlist table is **empty** → all valid 6-digit Indian pincodes are serviceable
   - If any rows exist → only pincodes with `isServiceable: true` are allowed
-- Checkout (`POST /orders`) validates the shipping address `zipCode` and adds `shippingAmount` to the order total
+- Checkout (`POST /orders`) validates the shipping address `zipCode` and adds `shippingAmount` + `floorDeliveryAmount` to the order total
 
 ### Who can access?
 
@@ -33,7 +37,7 @@ Pincode serviceability and shipping fee quotes. Flat fee and free-shipping thres
 |---|---|
 | **Auth** | Public |
 | **Status** | `200` |
-| **Query** | `pincode` (6-digit), `subtotal` (INR amount after discount) |
+| **Query** | `pincode` (6-digit), `subtotal` (INR after discount), `deliveryFloor` (optional, default `0`) |
 
 ### Success response (serviceable)
 
@@ -44,6 +48,9 @@ Pincode serviceability and shipping fee quotes. Flat fee and free-shipping thres
     "pincode": "560001",
     "serviceable": true,
     "shippingAmount": "499",
+    "deliveryFloor": 3,
+    "floorDeliveryChargePerFloor": "300",
+    "floorDeliveryAmount": "900",
     "message": "Shipping fee applies"
   }
 }
@@ -58,6 +65,9 @@ Pincode serviceability and shipping fee quotes. Flat fee and free-shipping thres
     "pincode": "999999",
     "serviceable": false,
     "shippingAmount": "0",
+    "deliveryFloor": 0,
+    "floorDeliveryChargePerFloor": "300",
+    "floorDeliveryAmount": "0",
     "message": "Delivery is not available for pincode 999999"
   }
 }
@@ -66,7 +76,7 @@ Pincode serviceability and shipping fee quotes. Flat fee and free-shipping thres
 ### cURL
 
 ```bash
-curl "http://localhost:5000/api/v1/shipping/quote?pincode=560001&subtotal=15000"
+curl "http://localhost:5000/api/v1/shipping/quote?pincode=560001&subtotal=15000&deliveryFloor=3"
 ```
 
 ---

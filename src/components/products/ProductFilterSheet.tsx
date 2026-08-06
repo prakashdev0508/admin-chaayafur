@@ -51,7 +51,7 @@ export const defaultProductFilters: ProductFilters = {
   maxPrice: "",
   category: "all",
   subCategoryId: "all",
-  active: "all",
+  active: "active",
   stock: "all",
   tag: "all",
   sortBy: "createdAt",

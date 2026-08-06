@@ -52,42 +52,72 @@ export function AuditLogTable({ logs, loading }: AuditLogTableProps) {
   }
 
   return (
-    <div className="overflow-x-auto rounded-lg border">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Field</TableHead>
-            <TableHead>Change</TableHead>
-            <TableHead>By</TableHead>
-            <TableHead>When</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {logs.map((log) => (
-            <TableRow key={log.id}>
-              <TableCell className="font-medium">
-                <span className="text-xs uppercase tracking-wide text-muted-foreground">
+    <>
+      <div className="space-y-3 md:hidden">
+        {logs.map((log) => (
+          <div key={log.id} className="rounded-xl border p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
                   {log.entityType}
-                </span>
-                <div>{log.fieldName}</div>
-              </TableCell>
-              <TableCell>
-                <span className="text-muted-foreground line-through">
-                  {formatValue(log.oldValue)}
-                </span>
-                <span className="mx-2 text-muted-foreground">→</span>
-                <span>{formatValue(log.newValue)}</span>
-              </TableCell>
-              <TableCell className="text-sm">
-                {formatStaffName(log.changedBy)}
-              </TableCell>
-              <TableCell className="text-sm text-muted-foreground">
+                </p>
+                <p className="font-medium">{log.fieldName}</p>
+              </div>
+              <p className="text-xs text-muted-foreground">
                 {formatDate(log.createdAt)}
-              </TableCell>
+              </p>
+            </div>
+            <p className="mt-2 text-sm wrap-break-word">
+              <span className="text-muted-foreground line-through">
+                {formatValue(log.oldValue)}
+              </span>
+              <span className="mx-2 text-muted-foreground">→</span>
+              <span>{formatValue(log.newValue)}</span>
+            </p>
+            <p className="mt-2 text-xs text-muted-foreground">
+              {formatStaffName(log.changedBy)}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      <div className="hidden overflow-x-auto rounded-lg border md:block">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Field</TableHead>
+              <TableHead>Change</TableHead>
+              <TableHead>By</TableHead>
+              <TableHead>When</TableHead>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
+          </TableHeader>
+          <TableBody>
+            {logs.map((log) => (
+              <TableRow key={log.id}>
+                <TableCell className="font-medium">
+                  <span className="text-xs tracking-wide text-muted-foreground uppercase">
+                    {log.entityType}
+                  </span>
+                  <div>{log.fieldName}</div>
+                </TableCell>
+                <TableCell>
+                  <span className="text-muted-foreground line-through">
+                    {formatValue(log.oldValue)}
+                  </span>
+                  <span className="mx-2 text-muted-foreground">→</span>
+                  <span>{formatValue(log.newValue)}</span>
+                </TableCell>
+                <TableCell className="text-sm">
+                  {formatStaffName(log.changedBy)}
+                </TableCell>
+                <TableCell className="text-sm text-muted-foreground">
+                  {formatDate(log.createdAt)}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </>
   );
 }

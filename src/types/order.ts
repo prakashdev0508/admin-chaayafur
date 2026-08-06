@@ -150,6 +150,8 @@ export type Order = {
   subtotalAmount: string;
   discountAmount: string;
   shippingAmount?: string;
+  deliveryFloor?: number;
+  floorDeliveryAmount?: string;
   totalAmount: string;
   paymentMethod: string;
   shippingAddress: string;
@@ -207,6 +209,7 @@ export type UpdateOrderPayload = {
   status?: OrderStatus;
   shippingAddressId?: number;
   billingAddressId?: number;
+  deliveryFloor?: number;
   items?: { productId: number; quantity: number; woodId?: number }[];
   payment?: { notes: string };
 };
@@ -219,4 +222,5 @@ export type CreateOrderPayload = {
   billingAddressId?: number;
   couponCode?: string;
   referralCode?: string;
+  deliveryFloor: number;
 };

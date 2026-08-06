@@ -5,8 +5,6 @@ import {
   FolderTree,
   ShoppingCart,
   ShoppingBag,
-  CreditCard,
-  RotateCcw,
   LifeBuoy,
   Ticket,
   Users,
@@ -21,7 +19,10 @@ import {
   Mail,
   FileClock,
   Gift,
-  Wallet,
+  Search,
+  Megaphone,
+  Server,
+  KeyRound,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -37,6 +38,7 @@ import {
   SidebarMenuItem,
   SidebarRail,
   SidebarTrigger,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import {
   DropdownMenu,
@@ -47,9 +49,12 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermission } from "@/hooks/usePermission";
+import { ADMIN_SEARCH_PERMISSIONS } from "@/components/layout/AdminSearchOverlay";
 import { PERMISSIONS } from "@/lib/roles";
 import { formatRoleLabel, isSuperAdminSlug } from "@/lib/staff-utils";
+import { CollapsibleSidebarNav } from "@/components/layout/CollapsibleSidebarNav";
 import { CustomizationSidebarNav } from "@/components/layout/CustomizationSidebarNav";
+import { FinanceSidebarNav } from "@/components/layout/FinanceSidebarNav";
 import { ReportsSidebarNav } from "@/components/layout/ReportsSidebarNav";
 
 function getInitials(firstName: string | null, lastName: string | null, email: string) {
@@ -73,9 +78,14 @@ type NavItem = {
   url: string;
   icon: LucideIcon;
   permission?: string | null;
-  /** Any of these permissions grants access (OR). */
   permissions?: string[];
   superAdminOnly?: boolean;
+};
+
+type MoreDropdown = {
+  label: string;
+  icon: LucideIcon;
+  items: NavItem[];
 };
 
 const navMain: NavItem[] = [
@@ -115,94 +125,107 @@ const navMain: NavItem[] = [
     icon: LifeBuoy,
     permission: PERMISSIONS.VIEW_ORDER_SUPPORT,
   },
-  {
-    title: "Payments",
-    url: "/payments",
-    icon: CreditCard,
-    permission: PERMISSIONS.VIEW_PAYMENTS,
-  },
-  {
-    title: "Refunds",
-    url: "/refunds",
-    icon: RotateCcw,
-    permissions: [PERMISSIONS.VIEW_PAYMENTS, PERMISSIONS.VIEW_ORDERS],
-  },
-  {
-    title: "Withdrawals",
-    url: "/wallet-withdrawals",
-    icon: Wallet,
-    permission: PERMISSIONS.VIEW_WALLETS,
-  },
 ];
 
-const navMore: NavItem[] = [
+const moreDropdowns: MoreDropdown[] = [
   {
-    title: "Coupons",
-    url: "/coupons",
-    icon: Ticket,
-    permission: PERMISSIONS.VIEW_COUPONS,
+    label: "Promotions",
+    icon: Megaphone,
+    items: [
+      {
+        title: "Coupons",
+        url: "/coupons",
+        icon: Ticket,
+        permission: PERMISSIONS.VIEW_COUPONS,
+      },
+      {
+        title: "Referrals",
+        url: "/referrals",
+        icon: Gift,
+        permission: PERMISSIONS.VIEW_REFERRALS,
+      },
+    ],
   },
   {
-    title: "Referrals",
-    url: "/referrals",
-    icon: Gift,
-    permission: PERMISSIONS.VIEW_REFERRALS,
-  },
-  {
-    title: "Customers",
-    url: "/customers",
+    label: "Customers",
     icon: Users,
-    permission: PERMISSIONS.VIEW_CUSTOMERS,
+    items: [
+      {
+        title: "Customers",
+        url: "/customers",
+        icon: Users,
+        permission: PERMISSIONS.VIEW_CUSTOMERS,
+      },
+      {
+        title: "Carts",
+        url: "/carts",
+        icon: ShoppingBag,
+        permission: PERMISSIONS.VIEW_CUSTOMERS,
+      },
+      {
+        title: "Reviews",
+        url: "/reviews",
+        icon: MessageSquareQuote,
+        permission: PERMISSIONS.VIEW_REVIEWS,
+      },
+      {
+        title: "Contact",
+        url: "/contact",
+        icon: Mail,
+        permission: PERMISSIONS.VIEW_SETTINGS,
+      },
+    ],
   },
   {
-    title: "Carts",
-    url: "/carts",
-    icon: ShoppingBag,
-    permission: PERMISSIONS.VIEW_CUSTOMERS,
+    label: "System",
+    icon: Server,
+    items: [
+      {
+        title: "Audit logs",
+        url: "/audit-logs",
+        icon: ScrollText,
+        permission: PERMISSIONS.VIEW_ORDERS,
+      },
+      {
+        title: "Upload jobs",
+        url: "/upload-jobs",
+        icon: FileClock,
+        permission: PERMISSIONS.VIEW_PRODUCTS,
+      },
+    ],
   },
   {
-    title: "Reviews",
-    url: "/reviews",
-    icon: MessageSquareQuote,
-    permission: PERMISSIONS.VIEW_REVIEWS,
-  },
-  {
-    title: "Upload jobs",
-    url: "/upload-jobs",
-    icon: FileClock,
-    permission: PERMISSIONS.VIEW_PRODUCTS,
-  },
-  {
-    title: "Contact",
-    url: "/contact",
-    icon: Mail,
-    permission: PERMISSIONS.VIEW_SETTINGS,
-  },
-  {
-    title: "Audit Logs",
-    url: "/audit-logs",
-    icon: ScrollText,
-    permission: PERMISSIONS.VIEW_ORDERS,
-  },
-  {
-    title: "Staff",
-    url: "/staff",
-    icon: UserPlus,
-    permission: PERMISSIONS.VIEW_STAFF,
-  },
-  {
-    title: "Roles",
-    url: "/roles",
-    icon: Shield,
-    superAdminOnly: true,
+    label: "Access",
+    icon: KeyRound,
+    items: [
+      {
+        title: "Staff",
+        url: "/staff",
+        icon: UserPlus,
+        permission: PERMISSIONS.VIEW_STAFF,
+      },
+      {
+        title: "Roles",
+        url: "/roles",
+        icon: Shield,
+        superAdminOnly: true,
+      },
+    ],
   },
 ];
 
-export function AppSidebar() {
+type AppSidebarProps = {
+  onOpenSearch?: () => void;
+};
+
+export function AppSidebar({ onOpenSearch }: AppSidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout, myPermissions } = useAuth();
   const { hasPermission, hasAnyPermission, defaultHomePath } = usePermission();
+  const { state, toggleSidebar } = useSidebar();
+  const isCollapsed = state === "collapsed";
+  const canSearch = hasAnyPermission(ADMIN_SEARCH_PERMISSIONS);
   const isSuperAdmin = isSuperAdminSlug(
     myPermissions?.roleSlug ?? myPermissions?.role,
   );
@@ -219,30 +242,53 @@ export function AppSidebar() {
       return !item.permission || hasPermission(item.permission);
     });
 
+  const visibleMoreDropdowns = moreDropdowns
+    .map((section) => ({
+      ...section,
+      items: filterNav(section.items).map((item) => ({
+        label: item.title,
+        path: item.url,
+        icon: item.icon,
+      })),
+    }))
+    .filter((section) => section.items.length > 0);
+
+  const brandContent = (
+    <>
+      <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+        <span className="text-sm font-semibold">CF</span>
+      </div>
+      <div className="grid flex-1 text-left text-sm leading-tight">
+        <span className="truncate font-semibold">Chaya Furnitures</span>
+        <span className="truncate text-xs text-muted-foreground">
+          Admin panel
+        </span>
+      </div>
+    </>
+  );
+
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader>
         <div className="flex items-center gap-1">
           <SidebarMenu className="min-w-0 flex-1">
             <SidebarMenuItem>
-              <SidebarMenuButton
-                size="lg"
-                render={
-                  <Link to={defaultHomePath}>
-                    <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                      <span className="text-sm font-semibold">CF</span>
-                    </div>
-                    <div className="grid flex-1 text-left text-sm leading-tight">
-                      <span className="truncate font-semibold">
-                        Chaya Furnitures
-                      </span>
-                      <span className="truncate text-xs text-muted-foreground">
-                        Admin panel
-                      </span>
-                    </div>
-                  </Link>
-                }
-              />
+              {isCollapsed ? (
+                <SidebarMenuButton
+                  size="lg"
+                  tooltip="Expand sidebar"
+                  onClick={toggleSidebar}
+                >
+                  {brandContent}
+                </SidebarMenuButton>
+              ) : (
+                <SidebarMenuButton
+                  size="lg"
+                  render={
+                    <Link to={defaultHomePath}>{brandContent}</Link>
+                  }
+                />
+              )}
             </SidebarMenuItem>
           </SidebarMenu>
           <SidebarTrigger className="shrink-0 group-data-[collapsible=icon]:hidden" />
@@ -268,39 +314,47 @@ export function AppSidebar() {
                   />
                 </SidebarMenuItem>
               ))}
+              <FinanceSidebarNav />
               <CustomizationSidebarNav />
               <ReportsSidebarNav />
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {filterNav(navMore).length > 0 && (
+        {visibleMoreDropdowns.length > 0 ? (
           <SidebarGroup>
             <SidebarGroupLabel>More</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {filterNav(navMore).map((item) => (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton
-                      isActive={isActive(item.url)}
-                      tooltip={item.title}
-                      render={
-                        <Link to={item.url}>
-                          <item.icon />
-                          <span>{item.title}</span>
-                        </Link>
-                      }
-                    />
-                  </SidebarMenuItem>
+                {visibleMoreDropdowns.map((section) => (
+                  <CollapsibleSidebarNav
+                    key={section.label}
+                    label={section.label}
+                    icon={section.icon}
+                    items={section.items}
+                  />
                 ))}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
-        )}
+        ) : null}
       </SidebarContent>
 
       <SidebarFooter>
         <SidebarMenu>
+          {canSearch && onOpenSearch && (
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                tooltip="Search"
+                render={
+                  <button type="button" onClick={onOpenSearch}>
+                    <Search />
+                    <span>Search</span>
+                  </button>
+                }
+              />
+            </SidebarMenuItem>
+          )}
           {hasPermission(PERMISSIONS.VIEW_SETTINGS) && (
             <SidebarMenuItem>
               <SidebarMenuButton

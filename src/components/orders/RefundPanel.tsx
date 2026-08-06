@@ -149,11 +149,12 @@ function RefundItemCard({
       </div>
 
       {(canComplete || canCancelRequest) && (
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
           {canComplete && (
             <Button
               variant="destructive"
               size="sm"
+              className="min-h-11 w-full sm:w-auto"
               disabled={busy}
               onClick={onComplete}
             >
@@ -164,6 +165,7 @@ function RefundItemCard({
             <Button
               variant="outline"
               size="sm"
+              className="min-h-11 w-full sm:w-auto"
               disabled={busy}
               onClick={onCancel}
             >
@@ -198,7 +200,7 @@ export function RefundPanel({
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-3 rounded-lg border bg-muted/20 p-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 rounded-lg border bg-muted/20 p-4 sm:grid-cols-3">
         <div>
           <p className="text-xs text-muted-foreground">Payment total</p>
           <p className="mt-1 text-sm font-medium">

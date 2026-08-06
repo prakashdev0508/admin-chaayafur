@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { Filter, FileSpreadsheet, Loader2, Plus, RefreshCw, Upload } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -18,8 +18,115 @@ import { getStockStatus } from "@/lib/product-utils";
 import { fetchCategoriesTree } from "@/services/categories.service";
 import { listProducts, updateProduct } from "@/services/products.service";
 import type { CategoryTreeItem } from "@/types/category";
-import type { ListProductsParams, ProductListItem } from "@/types/product";
+import type {
+  ListProductsParams,
+  ProductListItem,
+  ProductMerchandisingTag,
+  ProductSortBy,
+  SortOrder,
+} from "@/types/product";
 import { PERMISSIONS } from "@/lib/roles";
+
+const VISIBILITY_VALUES = new Set(["all", "active", "inactive"]);
+const STOCK_VALUES = new Set(["all", "in_stock", "low_stock", "out_of_stock"]);
+const SORT_BY_VALUES = new Set<ProductSortBy>(["createdAt", "name", "price"]);
+const SORT_ORDER_VALUES = new Set<SortOrder>(["asc", "desc"]);
+const TAG_VALUES = new Set<ProductMerchandisingTag | "all">([
+  "all",
+  "isBestSeller",
+  "isFeaturedProduct",
+  "isMostPopular",
+  "isNewArrival",
+]);
+
+function filtersFromSearchParams(searchParams: URLSearchParams): ProductFilters {
+  const activeParam = searchParams.get("active");
+  const stockParam = searchParams.get("stock");
+  const tagParam = searchParams.get("tag");
+  const sortByParam = searchParams.get("sortBy");
+  const sortOrderParam = searchParams.get("sortOrder");
+  const subCategoryId = searchParams.get("subCategoryId");
+
+  return {
+    name: searchParams.get("name") ?? defaultProductFilters.name,
+    minPrice: searchParams.get("minPrice") ?? defaultProductFilters.minPrice,
+    maxPrice: searchParams.get("maxPrice") ?? defaultProductFilters.maxPrice,
+    category: searchParams.get("category") ?? defaultProductFilters.category,
+    subCategoryId:
+      subCategoryId && /^\d+$/.test(subCategoryId)
+        ? subCategoryId
+        : defaultProductFilters.subCategoryId,
+    active:
+      activeParam && VISIBILITY_VALUES.has(activeParam)
+        ? activeParam
+        : defaultProductFilters.active,
+    stock:
+      stockParam && STOCK_VALUES.has(stockParam)
+        ? stockParam
+        : defaultProductFilters.stock,
+    tag:
+      tagParam && TAG_VALUES.has(tagParam as ProductMerchandisingTag | "all")
+        ? (tagParam as ProductFilters["tag"])
+        : defaultProductFilters.tag,
+    sortBy:
+      sortByParam && SORT_BY_VALUES.has(sortByParam as ProductSortBy)
+        ? (sortByParam as ProductSortBy)
+        : defaultProductFilters.sortBy,
+    sortOrder:
+      sortOrderParam && SORT_ORDER_VALUES.has(sortOrderParam as SortOrder)
+        ? (sortOrderParam as SortOrder)
+        : defaultProductFilters.sortOrder,
+  };
+}
+
+function paginationFromSearchParams(searchParams: URLSearchParams) {
+  const pageRaw = Number(searchParams.get("page") ?? "1");
+  const limitRaw = Number(searchParams.get("limit") ?? "10");
+  const page = Number.isFinite(pageRaw) && pageRaw >= 1 ? pageRaw : 1;
+  const limit =
+    Number.isFinite(limitRaw) && limitRaw >= 1 && limitRaw <= 100
+      ? limitRaw
+      : 10;
+  return { pageIndex: page - 1, pageSize: limit };
+}
+
+/** Only non-default filter values + pagination (when not first page / default size). */
+function searchParamsFromState(
+  filters: ProductFilters,
+  pageIndex: number,
+  pageSize: number,
+): URLSearchParams {
+  const params = new URLSearchParams();
+
+  if (filters.name.trim()) params.set("name", filters.name.trim());
+  if (filters.minPrice.trim()) params.set("minPrice", filters.minPrice.trim());
+  if (filters.maxPrice.trim()) params.set("maxPrice", filters.maxPrice.trim());
+  if (filters.category !== defaultProductFilters.category) {
+    params.set("category", filters.category);
+  }
+  if (filters.subCategoryId !== defaultProductFilters.subCategoryId) {
+    params.set("subCategoryId", filters.subCategoryId);
+  }
+  if (filters.active !== defaultProductFilters.active) {
+    params.set("active", filters.active);
+  }
+  if (filters.stock !== defaultProductFilters.stock) {
+    params.set("stock", filters.stock);
+  }
+  if (filters.tag !== defaultProductFilters.tag) {
+    params.set("tag", filters.tag);
+  }
+  if (filters.sortBy !== defaultProductFilters.sortBy) {
+    params.set("sortBy", filters.sortBy);
+  }
+  if (filters.sortOrder !== defaultProductFilters.sortOrder) {
+    params.set("sortOrder", filters.sortOrder);
+  }
+  if (pageIndex > 0) params.set("page", String(pageIndex + 1));
+  if (pageSize !== 10) params.set("limit", String(pageSize));
+
+  return params;
+}
 
 function countActiveFilters(filters: ProductFilters) {
   return Object.entries(filters).filter(([key, value]) => {
@@ -117,24 +224,38 @@ export function ProductListPage() {
   const { hasPermission } = usePermission();
   const canCreate = hasPermission(PERMISSIONS.CREATE_PRODUCTS);
   const canUpdate = hasPermission(PERMISSIONS.UPDATE_PRODUCTS);
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [filterOpen, setFilterOpen] = useState(false);
   const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
-  const [appliedFilters, setAppliedFilters] =
-    useState<ProductFilters>(defaultProductFilters);
-  const [draftFilters, setDraftFilters] =
-    useState<ProductFilters>(defaultProductFilters);
+  const [appliedFilters, setAppliedFilters] = useState<ProductFilters>(() =>
+    filtersFromSearchParams(searchParams),
+  );
+  const [draftFilters, setDraftFilters] = useState<ProductFilters>(() =>
+    filtersFromSearchParams(searchParams),
+  );
 
+  const initialPagination = paginationFromSearchParams(searchParams);
   const [products, setProducts] = useState<ProductListItem[]>([]);
   const [categoriesTree, setCategoriesTree] = useState<CategoryTreeItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  const [pageIndex, setPageIndex] = useState(0);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageIndex, setPageIndex] = useState(initialPagination.pageIndex);
+  const [pageSize, setPageSize] = useState(initialPagination.pageSize);
   const [pageCount, setPageCount] = useState(1);
   const [totalRows, setTotalRows] = useState(0);
+
+  const syncUrl = useCallback(
+    (filters: ProductFilters, nextPageIndex: number, nextPageSize: number) => {
+      setSearchParams(
+        searchParamsFromState(filters, nextPageIndex, nextPageSize),
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
 
   const categoryId = useMemo(() => {
     if (appliedFilters.category === "all") return undefined;
@@ -247,6 +368,7 @@ export function ProductListPage() {
   const handleApply = () => {
     setAppliedFilters(draftFilters);
     setPageIndex(0);
+    syncUrl(draftFilters, 0, pageSize);
     setFilterOpen(false);
   };
 
@@ -254,6 +376,7 @@ export function ProductListPage() {
     setDraftFilters(defaultProductFilters);
     setAppliedFilters(defaultProductFilters);
     setPageIndex(0);
+    syncUrl(defaultProductFilters, 0, pageSize);
     setFilterOpen(false);
   };
 
@@ -261,6 +384,18 @@ export function ProductListPage() {
     const next = removeFilter(appliedFilters, key);
     setAppliedFilters(next);
     setPageIndex(0);
+    syncUrl(next, 0, pageSize);
+  };
+
+  const handlePageChange = (nextPage: number) => {
+    setPageIndex(nextPage);
+    syncUrl(appliedFilters, nextPage, pageSize);
+  };
+
+  const handlePageSizeChange = (size: number) => {
+    setPageSize(size);
+    setPageIndex(0);
+    syncUrl(appliedFilters, 0, size);
   };
 
   return (
@@ -367,11 +502,8 @@ export function ProductListPage() {
             manualPagination
             pageCount={pageCount}
             pageIndex={pageIndex}
-            onPageChange={setPageIndex}
-            onPageSizeChange={(size) => {
-              setPageSize(size);
-              setPageIndex(0);
-            }}
+            onPageChange={handlePageChange}
+            onPageSizeChange={handlePageSizeChange}
             totalRows={totalRows}
           />
         )}
