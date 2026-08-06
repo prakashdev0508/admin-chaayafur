@@ -125,18 +125,18 @@ function JourneyMap({
       />
 
       <div className="relative px-4 pt-4 sm:px-6">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+          <div className="min-w-0">
+            <p className="text-xs font-medium tracking-[0.14em] text-slate-500 uppercase">
               Shipment route
             </p>
-            <p className="mt-1 text-sm font-medium text-slate-700">
+            <p className="mt-1 text-sm font-medium break-words text-slate-700">
               {origin}
               <span className="mx-2 text-slate-400">→</span>
               {destination}
             </p>
           </div>
-          <div className="rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-slate-600 shadow-sm ring-1 ring-slate-200/80">
+          <div className="w-fit shrink-0 rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-slate-600 shadow-sm ring-1 ring-slate-200/80">
             {currentLabel}
           </div>
         </div>
@@ -234,15 +234,15 @@ function JourneyMap({
         )}
       </svg>
 
-      <div className="relative flex items-center justify-between gap-4 border-t border-slate-200/70 bg-white/70 px-4 py-3 text-xs text-slate-600 backdrop-blur-sm sm:px-6">
-        <div className="flex items-center gap-2">
-          <Warehouse className="size-3.5 text-slate-400" />
-          <span className="font-medium">{origin}</span>
+      <div className="relative flex flex-col gap-2 border-t border-slate-200/70 bg-white/70 px-4 py-3 text-xs text-slate-600 backdrop-blur-sm sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-6">
+        <div className="flex min-w-0 items-center gap-2">
+          <Warehouse className="size-3.5 shrink-0 text-slate-400" />
+          <span className="truncate font-medium">{origin}</span>
         </div>
         <div className="hidden h-px flex-1 bg-linear-to-r from-transparent via-slate-300 to-transparent sm:block" />
-        <div className="flex items-center gap-2">
-          <MapPin className="size-3.5 text-slate-400" />
-          <span className="font-medium">{destination}</span>
+        <div className="flex min-w-0 items-center gap-2 sm:justify-end">
+          <MapPin className="size-3.5 shrink-0 text-slate-400" />
+          <span className="truncate font-medium">{destination}</span>
         </div>
       </div>
     </div>
@@ -300,14 +300,14 @@ export function TrackingTimeline({
           }
         />
 
-        <div className="flex flex-wrap items-center gap-2 rounded-xl border bg-card px-4 py-3">
+        <div className="flex flex-col gap-2 rounded-xl border bg-card px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center">
           <StatusBadge variant={getOrderStatusVariant(tracking.currentStatus)}>
             {getOrderStatusLabel(tracking.currentStatus)}
           </StatusBadge>
           <StatusBadge variant={paymentStatusVariants[tracking.paymentStatus]}>
             Payment · {paymentStatusLabels[tracking.paymentStatus]}
           </StatusBadge>
-          <span className="ml-auto text-xs text-muted-foreground">
+          <span className="text-xs text-muted-foreground sm:ml-auto">
             Order {tracking.orderNumber}
           </span>
         </div>

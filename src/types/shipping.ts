@@ -20,11 +20,15 @@ export type UpsertPincodesPayload = {
 export type ShippingQuoteParams = {
   pincode: string;
   subtotal: number;
+  deliveryFloor?: number;
 };
 
 export type ShippingQuote = {
   pincode: string;
   serviceable: boolean;
   shippingAmount: string;
+  deliveryFloor: number;
+  floorDeliveryChargePerFloor: string;
+  floorDeliveryAmount: string;
   message: string;
 };

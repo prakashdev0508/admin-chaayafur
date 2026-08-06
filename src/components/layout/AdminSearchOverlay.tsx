@@ -5,9 +5,10 @@ import {
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, Search } from "lucide-react";
+import { Loader2, Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { StatusBadge } from "@/components/ui/status-badge";
 import {
@@ -23,7 +24,7 @@ import { usePermission } from "@/hooks/usePermission";
 import { adminSearch } from "@/services/admin-search.service";
 import type { AdminSearchHit, AdminSearchHitType } from "@/types/search";
 
-const SEARCH_PERMISSIONS = [
+export const ADMIN_SEARCH_PERMISSIONS = [
   PERMISSIONS.VIEW_PRODUCTS,
   PERMISSIONS.VIEW_CATEGORIES,
   PERMISSIONS.VIEW_ORDERS,
@@ -54,15 +55,22 @@ function useDebouncedValue<T>(value: T, delayMs: number) {
   return debounced;
 }
 
-export function AdminSearchBar() {
+type AdminSearchOverlayProps = {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+};
+
+export function AdminSearchOverlay({
+  open,
+  onOpenChange,
+}: AdminSearchOverlayProps) {
   const navigate = useNavigate();
   const { hasAnyPermission } = usePermission();
-  const canSearch = hasAnyPermission(SEARCH_PERMISSIONS);
+  const canSearch = hasAnyPermission(ADMIN_SEARCH_PERMISSIONS);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const [query, setQuery] = useState("");
-  const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const debouncedQuery = useDebouncedValue(query.trim(), 300);
   const canFetch = debouncedQuery.length >= 2;
@@ -70,7 +78,7 @@ export function AdminSearchBar() {
   const searchQuery = useQuery({
     queryKey: queryKeys.adminSearch({ q: debouncedQuery, limit: 20 }),
     queryFn: () => adminSearch({ q: debouncedQuery, limit: 20 }),
-    enabled: canSearch && canFetch,
+    enabled: canSearch && open && canFetch,
   });
 
   const items = searchQuery.data?.items ?? [];
@@ -84,18 +92,18 @@ export function AdminSearchBar() {
     return ordered;
   }, [grouped]);
 
-  const closePanel = useCallback(() => {
-    setOpen(false);
+  const close = useCallback(() => {
+    onOpenChange(false);
     setActiveIndex(-1);
-  }, []);
+    setQuery("");
+  }, [onOpenChange]);
 
   const selectHit = useCallback(
     (hit: AdminSearchHit) => {
       navigate(getAdminSearchPath(hit));
-      setQuery("");
-      closePanel();
+      close();
     },
-    [navigate, closePanel],
+    [navigate, close],
   );
 
   useEffect(() => {
@@ -104,46 +112,50 @@ export function AdminSearchBar() {
     function onKeyDown(event: KeyboardEvent) {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
-        inputRef.current?.focus();
-        setOpen(true);
+        onOpenChange(true);
       }
     }
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [canSearch]);
+  }, [canSearch, onOpenChange]);
 
   useEffect(() => {
-    function onPointerDown(event: MouseEvent) {
-      const target = event.target as Node;
-      if (
-        panelRef.current?.contains(target) ||
-        inputRef.current?.contains(target)
-      ) {
-        return;
+    if (!open) return;
+    const id = window.requestAnimationFrame(() => {
+      inputRef.current?.focus();
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        close();
       }
-      closePanel();
     }
 
-    document.addEventListener("mousedown", onPointerDown);
-    return () => document.removeEventListener("mousedown", onPointerDown);
-  }, [closePanel]);
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [open, close]);
 
   useEffect(() => {
     setActiveIndex(-1);
   }, [debouncedQuery, items]);
 
-  if (!canSearch) return null;
+  if (!canSearch || !open) return null;
 
   function onInputKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
     if (event.key === "Escape") {
       event.preventDefault();
-      closePanel();
-      inputRef.current?.blur();
+      close();
       return;
     }
 
-    if (!open || flatItems.length === 0) return;
+    if (flatItems.length === 0) return;
 
     if (event.key === "ArrowDown") {
       event.preventDefault();
@@ -167,41 +179,61 @@ export function AdminSearchBar() {
     }
   }
 
-  const showPanel =
-    open && (query.trim().length > 0 || searchQuery.isFetching);
+  const showResults = query.trim().length > 0 || searchQuery.isFetching;
 
-  return (
-    <div className="sticky top-0 z-30 border-b bg-background px-4 py-3 md:px-6">
-      <div className="relative mx-auto max-w-2xl" ref={panelRef}>
-        <Search className="pointer-events-none absolute top-2.5 left-3 size-4 text-muted-foreground" />
-        <Input
-          ref={inputRef}
-          value={query}
-          onChange={(event) => {
-            setQuery(event.target.value);
-            setOpen(true);
-          }}
-          onFocus={() => setOpen(true)}
-          onKeyDown={onInputKeyDown}
-          placeholder="Search products, orders, customers…"
-          className="h-10 pl-9 pr-16"
-          aria-label="Global admin search"
-          aria-expanded={showPanel}
-          aria-controls="admin-search-results"
-          autoComplete="off"
-        />
-        <kbd className="pointer-events-none absolute top-1/2 right-3 hidden -translate-y-1/2 rounded border bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground sm:inline-block">
-          ⌘K
-        </kbd>
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-[12vh] sm:pt-[15vh]">
+      <button
+        type="button"
+        aria-label="Close search"
+        className="absolute inset-0 bg-background/60 backdrop-blur-sm transition-opacity"
+        onClick={close}
+      />
 
-        {showPanel && (
+      <div
+        ref={panelRef}
+        className="relative z-10 w-full max-w-xl overflow-hidden rounded-2xl border bg-background shadow-2xl"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Admin search"
+      >
+        <div className="relative border-b">
+          <Search className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            ref={inputRef}
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={onInputKeyDown}
+            placeholder="Search products, orders, customers…"
+            className="h-14 rounded-none border-0 bg-transparent pr-20 pl-11 text-base shadow-none focus-visible:ring-0"
+            aria-label="Global admin search"
+            aria-expanded={showResults}
+            aria-controls="admin-search-results"
+            autoComplete="off"
+          />
+          <div className="absolute top-1/2 right-3 flex -translate-y-1/2 items-center gap-1.5">
+            <kbd className="hidden rounded border bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground sm:inline-block">
+              ⌘K
+            </kbd>
+            <button
+              type="button"
+              onClick={close}
+              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              aria-label="Close"
+            >
+              <X className="size-4" />
+            </button>
+          </div>
+        </div>
+
+        {showResults && (
           <div
             id="admin-search-results"
-            className="absolute inset-x-0 top-[calc(100%+0.5rem)] z-40 max-h-[min(28rem,70vh)] overflow-y-auto rounded-lg border bg-background shadow-lg"
+            className="max-h-[min(28rem,55vh)] overflow-y-auto"
             role="listbox"
           >
             {query.trim().length > 0 && query.trim().length < 2 && (
-              <p className="p-3 text-sm text-muted-foreground">
+              <p className="p-4 text-sm text-muted-foreground">
                 Type at least 2 characters to search.
               </p>
             )}
@@ -214,7 +246,7 @@ export function AdminSearchBar() {
             )}
 
             {canFetch && searchQuery.isError && (
-              <p className="p-3 text-sm text-destructive">
+              <p className="p-4 text-sm text-destructive">
                 {searchQuery.error instanceof Error
                   ? searchQuery.error.message
                   : "Search failed"}
@@ -225,7 +257,7 @@ export function AdminSearchBar() {
               !searchQuery.isLoading &&
               !searchQuery.isError &&
               flatItems.length === 0 && (
-                <p className="p-3 text-sm text-muted-foreground">
+                <p className="p-4 text-sm text-muted-foreground">
                   No results for “{debouncedQuery}”.
                 </p>
               )}
@@ -253,7 +285,7 @@ export function AdminSearchBar() {
                               role="option"
                               aria-selected={isActive}
                               className={cn(
-                                "flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-muted/70",
+                                "flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-muted/70",
                                 isActive && "bg-muted",
                               )}
                               onMouseEnter={() => setActiveIndex(flatIndex)}
@@ -298,7 +330,14 @@ export function AdminSearchBar() {
               })}
           </div>
         )}
+
+        {!showResults && (
+          <p className="p-4 text-sm text-muted-foreground">
+            Search products, orders, customers, and more.
+          </p>
+        )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

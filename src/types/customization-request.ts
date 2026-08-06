@@ -111,6 +111,7 @@ export type ConvertCustomizationRequestPayload = {
   polishId?: number;
   fabricId?: number;
   shippingAmount?: number;
+  deliveryFloor?: number;
 };
 
 export type ConvertCustomizationRequestResult = {

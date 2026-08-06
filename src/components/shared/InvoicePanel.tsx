@@ -149,19 +149,18 @@ export function InvoicePanel({
         </div>
 
         <Card>
-          <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
+          <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
             <div>
               <p className="text-xs text-muted-foreground">PDF</p>
               <p className="mt-1 text-sm font-medium">
                 {hasPdf ? "Available" : "Not generated"}
               </p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
               {hasPdf ? (
                 <Button
                   variant="outline"
-                  size="icon"
-                  title="Download PDF"
+                  className="min-h-11 w-full justify-start gap-2 sm:w-auto sm:justify-center sm:px-3"
                   render={
                     <a
                       href={invoice.pdfUrl ?? undefined}
@@ -170,13 +169,14 @@ export function InvoicePanel({
                       aria-label="Download invoice PDF"
                     >
                       <Download className="size-4" />
+                      <span className="sm:sr-only">Download PDF</span>
                     </a>
                   }
                 />
               ) : canGenerate && onGenerate ? (
                 <Button
                   variant="outline"
-                  size="icon"
+                  className="min-h-11 w-full justify-start gap-2 sm:w-auto sm:justify-center sm:px-3"
                   onClick={onGenerate}
                   disabled={busy}
                   title={generating ? "Generating PDF…" : "Generate PDF"}
@@ -185,13 +185,16 @@ export function InvoicePanel({
                   <RefreshCw
                     className={`size-4 ${generating ? "animate-spin" : ""}`}
                   />
+                  <span className="sm:sr-only">
+                    {generating ? "Generating…" : "Generate PDF"}
+                  </span>
                 </Button>
               ) : null}
 
               {canGenerate && onGenerate && hasPdf && (
                 <Button
                   variant="ghost"
-                  size="icon"
+                  className="min-h-11 w-full justify-start gap-2 sm:w-auto sm:justify-center sm:px-3"
                   onClick={onGenerate}
                   disabled={busy}
                   title={generating ? "Regenerating…" : "Regenerate PDF"}
@@ -200,13 +203,16 @@ export function InvoicePanel({
                   <RefreshCw
                     className={`size-4 ${generating ? "animate-spin" : ""}`}
                   />
+                  <span className="sm:sr-only">
+                    {generating ? "Regenerating…" : "Regenerate PDF"}
+                  </span>
                 </Button>
               )}
 
               {canGenerate && onEmail && (
                 <Button
                   variant="outline"
-                  size="icon"
+                  className="min-h-11 w-full justify-start gap-2 sm:w-auto sm:justify-center sm:px-3"
                   onClick={onEmail}
                   disabled={busy}
                   title={emailing ? "Sending…" : "Email invoice PDF"}
@@ -217,6 +223,9 @@ export function InvoicePanel({
                   ) : (
                     <Mail className="size-4" />
                   )}
+                  <span className="sm:sr-only">
+                    {emailing ? "Sending…" : "Email invoice"}
+                  </span>
                 </Button>
               )}
             </div>

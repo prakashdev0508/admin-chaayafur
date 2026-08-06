@@ -24,6 +24,7 @@ export type AdminSiteSettings = {
   announcementIsActive: boolean;
   flatShippingFee: string;
   freeShippingMinAmount: string | null;
+  floorDeliveryChargePerFloor: string;
   createdAt?: string;
   updatedAt?: string;
 };
@@ -46,6 +47,7 @@ export type PublicSiteSettings = {
   shipping: {
     flatShippingFee: string;
     freeShippingMinAmount: string | null;
+    floorDeliveryChargePerFloor: string;
   };
 };
 
@@ -66,4 +68,5 @@ export type UpdateSiteSettingsPayload = {
   announcementIsActive?: boolean;
   flatShippingFee?: number;
   freeShippingMinAmount?: number | null;
+  floorDeliveryChargePerFloor?: number;
 };

@@ -9,9 +9,13 @@ import type {
   UpsertPincodesPayload,
 } from "@/types/shipping";
 
-export function getShippingQuote({ pincode, subtotal }: ShippingQuoteParams) {
+export function getShippingQuote({
+  pincode,
+  subtotal,
+  deliveryFloor,
+}: ShippingQuoteParams) {
   return apiRequest<ShippingQuote>(
-    `/shipping/quote${buildQueryString({ pincode, subtotal })}`,
+    `/shipping/quote${buildQueryString({ pincode, subtotal, deliveryFloor })}`,
     {},
     false,
   );

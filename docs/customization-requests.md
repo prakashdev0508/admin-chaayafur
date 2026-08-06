@@ -182,6 +182,7 @@ Only when status is `APPROVED`.
 | `useReferenceImageAsProductImage` | boolean | No | Default `false` |
 | `woodId` / `polishId` / `fabricId` | number | No | Override catalog picks |
 | `shippingAmount` | number | No | Default `0` |
+| `deliveryFloor` | number | No | Default `0` (ground). Charge = floor × site setting rate |
 | `billingAddressId` | number | No | Defaults to request shipping address |
 
 ### Example response `data`
@@ -214,6 +215,7 @@ Share `paymentLinkUrl` with the customer. After payment, Razorpay webhooks confi
 ## Notes
 
 - Customer is already created via OTP login; convert uses `request.customerId` (no separate customer create).
+- **Catalog pickers:** `GET /woods` and `GET /fabrics` are public (active entries by default); each wood includes nested `polishes` for polish selection.
 - Inactive custom products do not appear in default public `GET /products`.
 - Convert builds the order internally (bypasses the storefront “product must be active” checkout check).
 - `OrderItem` snapshots wood name/color when wood is set; polish/fabric remain on the request and product relations.

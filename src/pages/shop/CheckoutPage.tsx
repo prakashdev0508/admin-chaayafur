@@ -8,6 +8,8 @@ import { ReferralCodeInput } from "@/components/shop/ReferralCodeInput";
 import { OTPLoginDialog } from "@/components/shop/OTPLoginDialog";
 import { Button } from "@/components/ui/button";
 import { buttonVariants } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCart } from "@/contexts/CartContext";
 import { useCustomerAuth } from "@/contexts/CustomerAuthContext";
@@ -39,6 +41,7 @@ export function CheckoutPage() {
   const [referralCode, setReferralCode] = useState<string | null>(() =>
     getStoredReferralCode(),
   );
+  const [deliveryFloor, setDeliveryFloor] = useState("0");
   const [placingOrder, setPlacingOrder] = useState(false);
 
   useEffect(() => {
@@ -60,16 +63,23 @@ export function CheckoutPage() {
 
   const quoteSubtotal = coupon ? parseFloat(coupon.totalAmount) : subtotal;
   const pincode = selectedAddress?.zipCode;
+  const parsedDeliveryFloor = (() => {
+    const n = parseInt(deliveryFloor, 10);
+    if (!Number.isFinite(n) || n < 0) return 0;
+    return Math.min(n, 100);
+  })();
 
   const shippingQuoteQuery = useQuery({
     queryKey: queryKeys.shop.shippingQuote({
       pincode: pincode ?? "",
       subtotal: quoteSubtotal,
+      deliveryFloor: parsedDeliveryFloor,
     }),
     queryFn: () =>
       getShippingQuote({
         pincode: pincode!,
         subtotal: quoteSubtotal,
+        deliveryFloor: parsedDeliveryFloor,
       }),
     enabled: Boolean(pincode && /^\d{6}$/.test(pincode) && quoteSubtotal >= 0),
   });
@@ -78,7 +88,10 @@ export function CheckoutPage() {
   const shippingAmount = shippingQuote?.serviceable
     ? parseFloat(shippingQuote.shippingAmount)
     : 0;
-  const estimatedTotal = quoteSubtotal + shippingAmount;
+  const floorDeliveryAmount = shippingQuote?.serviceable
+    ? parseFloat(shippingQuote.floorDeliveryAmount)
+    : 0;
+  const estimatedTotal = quoteSubtotal + shippingAmount + floorDeliveryAmount;
   const hasUnavailable = useMemo(
     () => items.some((item) => item.isAvailable === false),
     [items],
@@ -105,11 +118,18 @@ export function CheckoutPage() {
       return;
     }
 
+    const floor = parseInt(deliveryFloor, 10);
+    if (!Number.isFinite(floor) || floor < 0 || floor > 100) {
+      toast.error("Delivery floor must be between 0 and 100");
+      return;
+    }
+
     setPlacingOrder(true);
     try {
       const order = await placeOrderMutation.mutateAsync({
         useCart: true,
         shippingAddressId: selectedAddressId,
+        deliveryFloor: floor,
         ...(coupon ? { couponCode: coupon.code } : {}),
         ...(referralCode ? { referralCode } : {}),
       });
@@ -217,6 +237,24 @@ export function CheckoutPage() {
               onChange={setReferralCode}
             />
           )}
+          {isAuthenticated && (
+            <div className="space-y-2 rounded-xl border border-[#E8DFD3] bg-white p-5">
+              <Label htmlFor="delivery-floor">Delivery floor</Label>
+              <Input
+                id="delivery-floor"
+                type="number"
+                min={0}
+                max={100}
+                step={1}
+                value={deliveryFloor}
+                onChange={(e) => setDeliveryFloor(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Ground floor = 0 (no carry-up charge). Upper floors are charged
+                per floor for delivery labor.
+              </p>
+            </div>
+          )}
         </div>
 
         <aside className="h-fit space-y-4 rounded-2xl border border-[#E8DFD3] bg-white p-5">
@@ -262,6 +300,27 @@ export function CheckoutPage() {
                         ? "Free"
                         : formatCurrency(shippingAmount)
                       : "—"}
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground">—</span>
+                )}
+              </div>
+            )}
+            {selectedAddressId && (
+              <div className="mt-2 flex justify-between text-sm">
+                <span className="text-muted-foreground">
+                  Floor delivery
+                  {parsedDeliveryFloor > 0
+                    ? ` (floor ${parsedDeliveryFloor})`
+                    : ""}
+                </span>
+                {shippingQuoteQuery.isLoading ? (
+                  <Skeleton className="h-4 w-16" />
+                ) : shippingQuote?.serviceable ? (
+                  <span>
+                    {floorDeliveryAmount === 0
+                      ? "—"
+                      : formatCurrency(floorDeliveryAmount)}
                   </span>
                 ) : (
                   <span className="text-muted-foreground">—</span>

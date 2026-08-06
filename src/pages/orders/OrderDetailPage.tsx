@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  ArrowLeft,
   ClipboardList,
   Eye,
   FileText,
@@ -32,7 +31,7 @@ import {
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { OrderStatusForm } from "@/components/orders/OrderStatusForm";
+import { OrderStatusSelect } from "@/components/orders/OrderStatusSelect";
 import { CustomizationMaterialsHighlight } from "@/components/customization-requests/CustomizationMaterialsHighlight";
 import {
   getCustomizationRequestMaterialChips,
@@ -57,10 +56,6 @@ import type {
   RefundStatus,
 } from "@/types/refund";
 import { formatCurrency, formatDate } from "@/lib/format";
-import {
-  getOrderStatusLabel,
-  getOrderStatusVariant,
-} from "@/lib/order-status";
 import { paymentStatusLabels, paymentStatusVariants } from "@/lib/payment-status";
 import { isActiveRefund, refundStatusLabels, refundStatusVariants } from "@/lib/refund-status";
 import { queryKeys } from "@/lib/query-keys";
@@ -324,63 +319,75 @@ export function OrderDetailPage() {
     supportTicketsQuery.data?.items.length;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4 sm:gap-6">
       <PageHeader
         title={order.orderNumber}
         description={`Placed on ${formatDate(order.createdAt)}`}
         action={
-          <div className="flex items-center gap-2">
-            <StatusBadge variant={getOrderStatusVariant(order.status)}>
-              {getOrderStatusLabel(order.status)}
-            </StatusBadge>
-            <Button
-              variant="outline"
-              render={
-                <Link to="/orders">
-                  <ArrowLeft className="size-4" />
-                  Back
-                </Link>
+          <div className="flex flex-wrap items-center justify-end gap-1.5">
+            <StatusBadge
+              variant={
+                paymentStatusVariants[order.payment.status] ?? "neutral"
               }
+              className="h-7 px-2.5"
+            >
+              {paymentStatusLabels[order.payment.status] ??
+                order.payment.status}
+            </StatusBadge>
+            <OrderStatusSelect
+              status={order.status}
+              onUpdate={(payload) => updateMutation.mutateAsync(payload)}
             />
+            {latestRefund && refundStatusLabel && (
+              <StatusBadge
+                variant={refundStatusVariant}
+                className="h-7 px-2.5"
+              >
+                {refundStatusLabel}
+              </StatusBadge>
+            )}
           </div>
         }
       />
 
-      <Tabs defaultValue="details" className="gap-6">
+      <Tabs defaultValue="details" className="gap-4 sm:gap-6">
         <TabsList
           variant="line"
-          className="h-auto w-full flex-wrap justify-start gap-0 rounded-none border-b bg-transparent p-0"
+          className="h-auto w-full flex-nowrap justify-start gap-0 overflow-x-auto rounded-none border-b bg-transparent p-0 scrollbar-none [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
         >
           <TabsTrigger
             value="details"
-            className="gap-2 rounded-none px-4 py-3 after:bottom-0 data-active:after:h-0.5"
+            className="min-h-11 shrink-0 gap-2 rounded-none px-3 py-3 after:bottom-0 data-active:after:h-0.5 sm:px-4"
           >
-            <ClipboardList className="size-4" />
-            Details
+            <ClipboardList className="size-4 shrink-0" />
+            <span className="max-sm:sr-only">Details</span>
           </TabsTrigger>
           <TabsTrigger
             value="tracking"
-            className="gap-2 rounded-none px-4 py-3 after:bottom-0 data-active:after:h-0.5"
+            className="min-h-11 shrink-0 gap-2 rounded-none px-3 py-3 after:bottom-0 data-active:after:h-0.5 sm:px-4"
           >
-            <Truck className="size-4" />
-            Tracking
+            <Truck className="size-4 shrink-0" />
+            <span className="max-sm:sr-only">Tracking</span>
           </TabsTrigger>
           <TabsTrigger
             value="invoice"
-            className="gap-2 rounded-none px-4 py-3 after:bottom-0 data-active:after:h-0.5"
+            className="min-h-11 shrink-0 gap-2 rounded-none px-3 py-3 after:bottom-0 data-active:after:h-0.5 sm:px-4"
           >
-            <FileText className="size-4" />
-            Invoice
+            <FileText className="size-4 shrink-0" />
+            <span className="max-sm:sr-only">Invoice</span>
           </TabsTrigger>
           {(canViewRefund || canRefund) && (
             <TabsTrigger
               value="refund"
-              className="gap-2 rounded-none px-4 py-3 after:bottom-0 data-active:after:h-0.5"
+              className="min-h-11 shrink-0 gap-2 rounded-none px-3 py-3 after:bottom-0 data-active:after:h-0.5 sm:px-4"
             >
-              <RotateCcw className="size-4" />
-              Refund
+              <RotateCcw className="size-4 shrink-0" />
+              <span className="max-sm:sr-only">Refund</span>
               {latestRefund && refundStatusLabel && (
-                <StatusBadge variant={refundStatusVariant} className="ml-0.5">
+                <StatusBadge
+                  variant={refundStatusVariant}
+                  className="ml-0.5 max-sm:hidden"
+                >
                   {refundStatusLabel}
                 </StatusBadge>
               )}
@@ -389,10 +396,10 @@ export function OrderDetailPage() {
           {canViewSupport && (
             <TabsTrigger
               value="support"
-              className="gap-2 rounded-none px-4 py-3 after:bottom-0 data-active:after:h-0.5"
+              className="min-h-11 shrink-0 gap-2 rounded-none px-3 py-3 after:bottom-0 data-active:after:h-0.5 sm:px-4"
             >
-              <LifeBuoy className="size-4" />
-              Support
+              <LifeBuoy className="size-4 shrink-0" />
+              <span className="max-sm:sr-only">Support</span>
               {typeof ticketCount === "number" && ticketCount > 0 && (
                 <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-muted-foreground">
                   {ticketCount}
@@ -402,112 +409,343 @@ export function OrderDetailPage() {
           )}
           <TabsTrigger
             value="logs"
-            className="gap-2 rounded-none px-4 py-3 after:bottom-0 data-active:after:h-0.5"
+            className="min-h-11 shrink-0 gap-2 rounded-none px-3 py-3 after:bottom-0 data-active:after:h-0.5 sm:px-4"
           >
-            <ScrollText className="size-4" />
-            Logs
+            <ScrollText className="size-4 shrink-0" />
+            <span className="max-sm:sr-only">Logs</span>
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="details" className="mt-0">
-          <div className="grid gap-4 lg:grid-cols-3">
-            <div className="space-y-4 lg:col-span-2">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Order summary</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Customer</p>
-                      <Link
-                        to={`/customers/${order.customerId}`}
-                        className="font-medium hover:underline"
-                      >
-                        {order.customer.phone}
-                      </Link>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">
-                        Payment method
+        <TabsContent value="details" className="mt-0 space-y-4">
+          <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
+            <Card className="border-foreground/10 bg-foreground text-background shadow-sm">
+              <CardContent className="flex flex-col gap-1 px-4 pt-4 pb-3 sm:pt-5 sm:pb-4">
+                <p className="text-xs font-medium tracking-wide text-background/65 uppercase">
+                  Order total
+                </p>
+                <p className="text-2xl font-semibold tracking-tight tabular-nums">
+                  {formatCurrency(order.totalAmount)}
+                </p>
+                <p className="text-xs text-background/55">
+                  {order.items.length}{" "}
+                  {order.items.length === 1 ? "item" : "items"}
+                  {order.coupon ? ` · ${order.coupon.code}` : ""}
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="flex flex-col gap-2 px-4 pt-4 pb-3 sm:pt-5 sm:pb-4">
+                <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                  Payment
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <StatusBadge
+                    variant={
+                      paymentStatusVariants[order.payment.status] ?? "neutral"
+                    }
+                  >
+                    {paymentStatusLabels[order.payment.status] ??
+                      order.payment.status}
+                  </StatusBadge>
+                  <span className="text-sm font-medium tabular-nums">
+                    {formatCurrency(order.payment.amount)}
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {order.paymentMethod}
+                  {latestRefund && refundStatusLabel
+                    ? ` · Refund ${refundStatusLabel}`
+                    : ""}
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="flex flex-col gap-1 px-4 pt-4 pb-3 sm:pt-5 sm:pb-4">
+                <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                  Placed
+                </p>
+                <p className="text-base font-semibold tracking-tight">
+                  {formatDate(order.createdAt)}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Order date
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="flex flex-col gap-1 px-4 pt-4 pb-3 sm:pt-5 sm:pb-4">
+                <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                  Delivery floor
+                </p>
+                <p className="text-2xl font-semibold tracking-tight tabular-nums">
+                  {order.deliveryFloor ?? 0}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {(order.deliveryFloor ?? 0) === 0
+                    ? "Ground · no carry-up charge"
+                    : order.floorDeliveryAmount != null &&
+                        parseFloat(order.floorDeliveryAmount) > 0
+                      ? `Labor ${formatCurrency(order.floorDeliveryAmount)}`
+                      : "Floor delivery labor"}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2 md:items-stretch">
+            <Card className="flex h-full flex-col">
+              <CardHeader className="pb-3">
+                <CardTitle>Customer & delivery</CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-1 flex-col gap-5">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="rounded-lg border bg-muted/25 p-3">
+                    <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                      Customer
+                    </p>
+                    <Link
+                      to={`/customers/${order.customerId}`}
+                      className="mt-1 block text-base font-semibold hover:underline"
+                    >
+                      {order.customer.phone}
+                    </Link>
+                    {order.shippingAddressRef?.name && (
+                      <p className="mt-0.5 text-sm text-muted-foreground">
+                        {order.shippingAddressRef.name}
+                        {order.shippingAddressRef.phone
+                          ? ` · ${order.shippingAddressRef.phone}`
+                          : ""}
                       </p>
-                      <p className="font-medium">{order.paymentMethod}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">
-                        Shipping address
-                      </p>
-                      <p className="text-sm">{order.shippingAddress}</p>
-                    </div>
-                    {showBilling && (
-                      <div>
-                        <p className="text-sm text-muted-foreground">
-                          Billing address
-                        </p>
-                        <p className="text-sm">{order.billingAddress}</p>
-                      </div>
                     )}
                   </div>
-                  {customization && (
-                    <div className="space-y-3 rounded-lg border border-amber-200/80 bg-amber-50/40 p-4 dark:border-amber-900/50 dark:bg-amber-950/20">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <p className="text-sm font-medium">
-                          Custom order · Request #{customization.id}
-                        </p>
-                        <Link
-                          to={`/customization-requests/${customization.id}`}
-                          className="text-sm font-medium text-primary hover:underline"
-                        >
-                          View request
-                        </Link>
-                      </div>
-                      <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                        {customization.description}
+                  <div className="rounded-lg border bg-muted/25 p-3">
+                    <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                      Payment method
+                    </p>
+                    <p className="mt-1 text-base font-semibold">
+                      {order.paymentMethod}
+                    </p>
+                    {order.coupon && (
+                      <p className="mt-0.5 text-sm text-muted-foreground">
+                        Coupon{" "}
+                        <span className="font-medium text-foreground">
+                          {order.coupon.code}
+                        </span>
+                        {order.coupon.type ? ` (${order.coupon.type})` : ""}
                       </p>
-                      <CustomizationMaterialsHighlight
-                        materials={customizationMaterials}
-                        title="Wood, polish & fabric"
+                    )}
+                  </div>
+                </div>
+
+                <div
+                  className={cn(
+                    "grid gap-4",
+                    showBilling ? "sm:grid-cols-2" : "sm:grid-cols-1",
+                  )}
+                >
+                  <div>
+                    <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                      Shipping address
+                    </p>
+                    <p className="mt-1.5 text-sm leading-relaxed">
+                      {order.shippingAddress}
+                    </p>
+                  </div>
+                  {showBilling && (
+                    <div>
+                      <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                        Billing address
+                      </p>
+                      <p className="mt-1.5 text-sm leading-relaxed">
+                        {order.billingAddress}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {customization && (
+                  <div className="mt-auto space-y-3 rounded-lg border border-amber-200/80 bg-amber-50/40 p-4 dark:border-amber-900/50 dark:bg-amber-950/20">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-sm font-medium">
+                        Custom order · Request #{customization.id}
+                      </p>
+                      <Link
+                        to={`/customization-requests/${customization.id}`}
+                        className="text-sm font-medium text-primary hover:underline"
+                      >
+                        View request
+                      </Link>
+                    </div>
+                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                      {customization.description}
+                    </p>
+                    <CustomizationMaterialsHighlight
+                      materials={customizationMaterials}
+                      title="Wood, polish & fabric"
+                    />
+                    {customization.referenceImageUrl && (
+                      <img
+                        src={customization.referenceImageUrl}
+                        alt="Customization reference"
+                        className="max-h-40 rounded-lg border object-cover"
                       />
-                      {customization.referenceImageUrl && (
-                        <img
-                          src={customization.referenceImageUrl}
-                          alt="Customization reference"
-                          className="max-h-40 rounded-lg border object-cover"
-                        />
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="flex h-full flex-col">
+              <CardHeader className="pb-3">
+                <CardTitle>Payment</CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-1 flex-col gap-4">
+                <div className="flex-1">
+                  <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                    Amount charged
+                  </p>
+                  <p className="mt-1 text-2xl font-semibold tracking-tight tabular-nums">
+                    {formatCurrency(order.payment.amount)}
+                  </p>
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <StatusBadge
+                      variant={
+                        paymentStatusVariants[order.payment.status] ??
+                        "neutral"
+                      }
+                    >
+                      {paymentStatusLabels[order.payment.status] ??
+                        order.payment.status}
+                    </StatusBadge>
+                    {latestRefund && refundStatusLabel && (
+                      <StatusBadge variant={refundStatusVariant}>
+                        {refundStatusLabel}
+                      </StatusBadge>
+                    )}
+                  </div>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {order.paymentMethod}
+                  </p>
+                </div>
+                <Link
+                  to={`/payments/${order.payment.id}`}
+                  className={cn(
+                    buttonVariants({ variant: "outline" }),
+                    "mt-auto min-h-11 w-full justify-center gap-2",
+                  )}
+                >
+                  <Eye className="size-4" />
+                  View payment details
+                </Link>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle>Line items</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3 md:hidden">
+                {order.items.map((item) => {
+                  const itemMaterials = getOrderItemMaterialChips(
+                    item,
+                    customization,
+                  );
+                  const lineTotal = parseFloat(item.price) * item.quantity;
+                  return (
+                    <div
+                      key={item.id}
+                      className="rounded-xl border bg-muted/15 p-4"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <Link
+                          to={`/products/${item.productId}`}
+                          className="min-w-0 font-medium hover:underline"
+                        >
+                          {item.product.name}
+                        </Link>
+                        <span className="shrink-0 font-semibold tabular-nums">
+                          {formatCurrency(lineTotal)}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        Qty {item.quantity} × {formatCurrency(item.price)}
+                      </p>
+                      {itemMaterials.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          {itemMaterials.map((material) => (
+                            <span
+                              key={`${material.label}-${material.name}`}
+                              className="inline-flex items-center gap-1 rounded-full border border-amber-200/80 bg-amber-50/80 px-2 py-0.5 text-[11px] font-medium dark:border-amber-800 dark:bg-amber-950/40"
+                            >
+                              {material.color && (
+                                <span
+                                  className="size-2 rounded-full border border-black/10"
+                                  style={{
+                                    backgroundColor: material.color,
+                                  }}
+                                  aria-hidden
+                                />
+                              )}
+                              <span className="text-muted-foreground">
+                                {material.label}:
+                              </span>
+                              {material.name}
+                              {material.priceAdjustmentLabel && (
+                                <span className="text-muted-foreground">
+                                  {material.priceAdjustmentLabel}
+                                </span>
+                              )}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {item.review && (
+                        <div className="mt-3 space-y-1 border-t pt-3">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <StarRating
+                              value={item.review.rating}
+                              size="sm"
+                            />
+                            <StatusBadge
+                              variant={
+                                item.review.isVisible ? "success" : "neutral"
+                              }
+                            >
+                              {item.review.isVisible ? "Visible" : "Hidden"}
+                            </StatusBadge>
+                          </div>
+                          {item.review.comment && (
+                            <p className="line-clamp-2 text-xs text-muted-foreground">
+                              {item.review.comment}
+                            </p>
+                          )}
+                        </div>
                       )}
                     </div>
-                  )}
-                  {order.coupon && (
-                    <div className="rounded-lg border bg-muted/30 p-3 text-sm">
-                      Coupon applied: <strong>{order.coupon.code}</strong> (
-                      {order.coupon.type})
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                  );
+                })}
+              </div>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>Line items</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Product</TableHead>
-                        <TableHead>Qty</TableHead>
-                        <TableHead>Unit price</TableHead>
-                        <TableHead>Review</TableHead>
-                        <TableHead className="text-right">Line total</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {order.items.map((item) => {
-                        const itemMaterials = getOrderItemMaterialChips(
-                          item,
-                          customization,
-                        );
-                        return (
+              <div className="hidden overflow-x-auto md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Product</TableHead>
+                      <TableHead>Qty</TableHead>
+                      <TableHead>Unit price</TableHead>
+                      <TableHead>Review</TableHead>
+                      <TableHead className="text-right">Line total</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {order.items.map((item) => {
+                      const itemMaterials = getOrderItemMaterialChips(
+                        item,
+                        customization,
+                      );
+                      return (
                         <TableRow key={item.id}>
                           <TableCell className="font-medium">
                             <Link
@@ -550,7 +788,7 @@ export function OrderDetailPage() {
                           <TableCell>{formatCurrency(item.price)}</TableCell>
                           <TableCell>
                             {item.review ? (
-                              <div className="max-w-[220px] space-y-1">
+                              <div className="max-w-55 space-y-1">
                                 <div className="flex flex-wrap items-center gap-2">
                                   <StarRating
                                     value={item.review.rating}
@@ -580,166 +818,122 @@ export function OrderDetailPage() {
                               </span>
                             )}
                           </TableCell>
-                          <TableCell className="text-right">
+                          <TableCell className="text-right font-medium tabular-nums">
                             {formatCurrency(
                               parseFloat(item.price) * item.quantity,
                             )}
                           </TableCell>
                         </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                  <Separator className="my-4" />
-                  <div className="ml-auto max-w-xs space-y-1 text-sm">
-                    {order.subtotalAmount && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Subtotal</span>
-                        <span>{formatCurrency(order.subtotalAmount)}</span>
-                      </div>
-                    )}
-                    {order.discountAmount &&
-                      parseFloat(order.discountAmount) > 0 && (
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">
-                            Discount
-                          </span>
-                          <span className="text-[#346538]">
-                            -{formatCurrency(order.discountAmount)}
-                          </span>
-                        </div>
-                      )}
-                    {order.shippingAmount != null && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Shipping</span>
-                        <span>
-                          {parseFloat(order.shippingAmount) === 0
-                            ? "Free"
-                            : formatCurrency(order.shippingAmount)}
-                        </span>
-                      </div>
-                    )}
-                    <div className="flex justify-between font-semibold">
-                      <span>Total</span>
-                      <span>{formatCurrency(order.totalAmount)}</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
 
-              <Card>
-                <CardHeader>
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <CardTitle>Order review</CardTitle>
-                    {order.orderReview && (
-                      <StatusBadge
-                        variant={
-                          order.orderReview.isVisible ? "success" : "neutral"
-                        }
-                      >
-                        {order.orderReview.isVisible ? "Visible" : "Hidden"}
-                      </StatusBadge>
-                    )}
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {order.orderReview ? (
-                    <div className="space-y-3">
-                      <StarRating value={order.orderReview.rating} />
-                      {order.orderReview.comment ? (
-                        <p className="text-sm leading-relaxed">
-                          {order.orderReview.comment}
-                        </p>
-                      ) : (
-                        <p className="text-sm text-muted-foreground">
-                          No comment provided.
-                        </p>
-                      )}
-                      <p className="text-xs text-muted-foreground">
-                        Submitted {formatDate(order.orderReview.createdAt)}
-                        {order.orderReview.updatedAt !==
-                          order.orderReview.createdAt &&
-                          ` · Updated ${formatDate(order.orderReview.updatedAt)}`}
-                      </p>
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">
-                      No overall order review yet. Customers can submit one
-                      after delivery.
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-
-            <div className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Payment</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Amount</span>
-                    <span className="font-medium">
-                      {formatCurrency(order.payment.amount)}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle>Pricing</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="w-full space-y-3 rounded-xl border bg-muted/20 p-4 sm:p-5">
+                {order.subtotalAmount && (
+                  <div className="flex justify-between gap-4 text-sm sm:text-base">
+                    <span className="text-muted-foreground">Subtotal</span>
+                    <span className="tabular-nums">
+                      {formatCurrency(order.subtotalAmount)}
                     </span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Status</span>
-                    <StatusBadge
-                      variant={
-                        paymentStatusVariants[order.payment.status] ?? "neutral"
-                      }
-                    >
-                      {paymentStatusLabels[order.payment.status] ??
-                        order.payment.status}
-                    </StatusBadge>
-                  </div>
-                  {latestRefund && refundStatusLabel && (
-                    <div className="flex justify-between">
-                      <span className="text-sm text-muted-foreground">
-                        Refund status
+                )}
+                {order.discountAmount &&
+                  parseFloat(order.discountAmount) > 0 && (
+                    <div className="flex justify-between gap-4 text-sm sm:text-base">
+                      <span className="text-muted-foreground">Discount</span>
+                      <span className="tabular-nums text-[#346538]">
+                        -{formatCurrency(order.discountAmount)}
                       </span>
-                      <StatusBadge variant={refundStatusVariant}>
-                        {refundStatusLabel}
-                      </StatusBadge>
                     </div>
                   )}
-                  {order.payment.paymentLinkUrl && (
-                    <Button
-                      variant="outline"
-                      className="w-full"
-                      render={
-                        <a
-                          href={order.payment.paymentLinkUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          View payment link
-                        </a>
-                      }
-                    />
-                  )}
-                  <Link
-                    to={`/payments/${order.payment.id}`}
-                    className={cn(
-                      buttonVariants({ variant: "ghost" }),
-                      "w-full justify-center gap-2",
-                    )}
-                  >
-                    <Eye className="size-4" />
-                    View payment details
-                  </Link>
-                </CardContent>
-              </Card>
+                {order.shippingAmount != null && (
+                  <div className="flex justify-between gap-4 text-sm sm:text-base">
+                    <span className="text-muted-foreground">Shipping</span>
+                    <span className="tabular-nums">
+                      {parseFloat(order.shippingAmount) === 0
+                        ? "Free"
+                        : formatCurrency(order.shippingAmount)}
+                    </span>
+                  </div>
+                )}
+                {order.floorDeliveryAmount != null && (
+                  <div className="flex justify-between gap-4 text-sm sm:text-base">
+                    <span className="text-muted-foreground">
+                      Floor delivery
+                      {order.deliveryFloor != null && order.deliveryFloor > 0
+                        ? ` (floor ${order.deliveryFloor})`
+                        : ""}
+                    </span>
+                    <span className="tabular-nums">
+                      {parseFloat(order.floorDeliveryAmount) === 0
+                        ? "—"
+                        : formatCurrency(order.floorDeliveryAmount)}
+                    </span>
+                  </div>
+                )}
+                <Separator />
+                <div className="flex items-baseline justify-between gap-4 pt-0.5">
+                  <span className="font-semibold">Total</span>
+                  <span className="text-xl font-semibold tracking-tight tabular-nums sm:text-2xl">
+                    {formatCurrency(order.totalAmount)}
+                  </span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-              <OrderStatusForm
-                order={order}
-                loading={updateMutation.isPending}
-                onUpdate={(payload) => updateMutation.mutateAsync(payload)}
-              />
-            </div>
-          </div>
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <CardTitle>Order review</CardTitle>
+                {order.orderReview && (
+                  <StatusBadge
+                    variant={
+                      order.orderReview.isVisible ? "success" : "neutral"
+                    }
+                  >
+                    {order.orderReview.isVisible ? "Visible" : "Hidden"}
+                  </StatusBadge>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              {order.orderReview ? (
+                <div className="space-y-3">
+                  <StarRating value={order.orderReview.rating} />
+                  {order.orderReview.comment ? (
+                    <p className="text-sm leading-relaxed">
+                      {order.orderReview.comment}
+                    </p>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      No comment provided.
+                    </p>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    Submitted {formatDate(order.orderReview.createdAt)}
+                    {order.orderReview.updatedAt !==
+                      order.orderReview.createdAt &&
+                      ` · Updated ${formatDate(order.orderReview.updatedAt)}`}
+                  </p>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No overall order review yet. Customers can submit one after
+                  delivery.
+                </p>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="tracking" className="mt-0">
@@ -775,8 +969,8 @@ export function OrderDetailPage() {
           <TabsContent value="refund" className="mt-0">
             <Card>
               <CardHeader>
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
+                <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+                  <div className="flex flex-wrap items-center gap-2">
                     <CardTitle>Refund</CardTitle>
                     {latestRefund && refundStatusLabel && (
                       <StatusBadge variant={refundStatusVariant}>
@@ -787,6 +981,7 @@ export function OrderDetailPage() {
                   {canInitiateRefund && (
                     <Button
                       variant="destructive"
+                      className="min-h-11 w-full sm:w-auto"
                       onClick={() => setRefundOpen(true)}
                     >
                       Initiate refund
@@ -838,7 +1033,7 @@ export function OrderDetailPage() {
           <TabsContent value="support" className="mt-0">
             <Card>
               <CardHeader>
-                <div className="flex items-center justify-between gap-3">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <CardTitle>Support tickets</CardTitle>
                     <p className="mt-1 text-sm text-muted-foreground">
@@ -848,6 +1043,7 @@ export function OrderDetailPage() {
                   <Button
                     variant="outline"
                     size="sm"
+                    className="min-h-11 w-full sm:w-auto"
                     render={
                       <Link to={`/support-tickets?orderId=${orderId}`}>
                         View all
@@ -873,7 +1069,7 @@ export function OrderDetailPage() {
                       <Link
                         key={ticket.id}
                         to={`/support-tickets/${ticket.id}`}
-                        className="flex items-center justify-between gap-3 rounded-xl border p-4 transition hover:bg-muted/30"
+                        className="flex flex-col gap-3 rounded-xl border p-4 transition hover:bg-muted/30 sm:flex-row sm:items-center sm:justify-between"
                       >
                         <div className="min-w-0">
                           <p className="font-medium">{ticket.ticketNumber}</p>

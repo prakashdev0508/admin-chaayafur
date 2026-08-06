@@ -1,13 +1,12 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, RefreshCw } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, RefreshCw, ShoppingCart } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/data-table/data-table";
 import { orderColumns } from "@/components/data-table/order-columns";
-import {
-  OrderFilterSheet,
-} from "@/components/orders/OrderFilterSheet";
+import { OrderFilterSheet } from "@/components/orders/OrderFilterSheet";
+import { OrderListMobileCards } from "@/components/orders/OrderListMobileCards";
 import {
   countActiveOrderFilters,
   defaultOrderFilters,
@@ -19,7 +18,6 @@ import { usePermission } from "@/hooks/usePermission";
 import { PERMISSIONS } from "@/lib/roles";
 import type { OrderStatus } from "@/types/order";
 import { EmptyState } from "@/components/shared/EmptyState";
-import { ShoppingCart } from "lucide-react";
 
 export function OrderListPage() {
   const { hasPermission } = usePermission();
@@ -119,20 +117,58 @@ export function OrderListPage() {
           <Loader2 className="size-6 animate-spin text-muted-foreground" />
         </div>
       ) : (
-        <DataTable
-          columns={orderColumns}
-          data={data?.items ?? []}
-          manualPagination
-          pageIndex={page}
-          pageSize={pageSize}
-          pageCount={data?.meta.totalPages ?? 1}
-          totalRows={data?.meta.total}
-          onPageChange={setPage}
-          onPageSizeChange={(size) => {
-            setPageSize(size);
-            setPage(0);
-          }}
-        />
+        <>
+          <OrderListMobileCards orders={data?.items ?? []} />
+
+          <div className="hidden md:block">
+            <DataTable
+              columns={orderColumns}
+              data={data?.items ?? []}
+              manualPagination
+              pageIndex={page}
+              pageSize={pageSize}
+              pageCount={data?.meta.totalPages ?? 1}
+              totalRows={data?.meta.total}
+              onPageChange={setPage}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setPage(0);
+              }}
+            />
+          </div>
+
+          <div className="flex items-center justify-between gap-3 md:hidden">
+            <p className="text-sm text-muted-foreground">
+              {data?.meta.total ?? 0} order
+              {(data?.meta.total ?? 0) === 1 ? "" : "s"}
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="icon"
+                className="size-11"
+                disabled={page <= 0}
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+                aria-label="Previous page"
+              >
+                <ChevronLeft className="size-4" />
+              </Button>
+              <span className="min-w-16 text-center text-sm tabular-nums">
+                {page + 1} / {Math.max(1, data?.meta.totalPages ?? 1)}
+              </span>
+              <Button
+                variant="outline"
+                size="icon"
+                className="size-11"
+                disabled={page + 1 >= (data?.meta.totalPages ?? 1)}
+                onClick={() => setPage((p) => p + 1)}
+                aria-label="Next page"
+              >
+                <ChevronRight className="size-4" />
+              </Button>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );

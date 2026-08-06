@@ -33,6 +33,8 @@ export function FeesAnnouncementSection({
   const [freeShippingMinAmount, setFreeShippingMinAmount] = useState(
     settings.freeShippingMinAmount ?? "",
   );
+  const [floorDeliveryChargePerFloor, setFloorDeliveryChargePerFloor] =
+    useState(settings.floorDeliveryChargePerFloor ?? "");
   const [clearFreeShipping, setClearFreeShipping] = useState(
     settings.freeShippingMinAmount == null,
   );
@@ -49,6 +51,9 @@ export function FeesAnnouncementSection({
   useEffect(() => {
     setFlatShippingFee(settings.flatShippingFee ?? "");
     setFreeShippingMinAmount(settings.freeShippingMinAmount ?? "");
+    setFloorDeliveryChargePerFloor(
+      settings.floorDeliveryChargePerFloor ?? "",
+    );
     setClearFreeShipping(settings.freeShippingMinAmount == null);
     setAnnouncementText(settings.announcementText ?? "");
     setAnnouncementLinkUrl(settings.announcementLinkUrl ?? "");
@@ -87,9 +92,16 @@ export function FeesAnnouncementSection({
       freeMin = parsed;
     }
 
+    const floorRate = Number(floorDeliveryChargePerFloor);
+    if (!Number.isFinite(floorRate) || floorRate < 0) {
+      toast.error("Enter a valid floor delivery charge per floor");
+      return;
+    }
+
     saveMutation.mutate({
       flatShippingFee: fee,
       freeShippingMinAmount: freeMin,
+      floorDeliveryChargePerFloor: floorRate,
       announcementText: announcementText.trim() || null,
       announcementLinkUrl: announcementLinkUrl.trim() || null,
       announcementIsActive,
@@ -101,8 +113,8 @@ export function FeesAnnouncementSection({
       <CardHeader>
         <CardTitle>Fees & announcement</CardTitle>
         <CardDescription>
-          Flat shipping fee and free-shipping threshold apply at checkout.
-          Pincode allowlists are managed separately.
+          Flat shipping fee, free-shipping threshold, and per-floor delivery
+          labor apply at checkout. Pincode allowlists are managed separately.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -149,6 +161,25 @@ export function FeesAnnouncementSection({
               disabled={!canUpdate || clearFreeShipping}
               placeholder="e.g. 10000"
             />
+          </div>
+          <div className="space-y-2 sm:col-span-2">
+            <Label htmlFor="floor-delivery-rate">
+              Floor delivery charge per floor (INR)
+            </Label>
+            <Input
+              id="floor-delivery-rate"
+              type="number"
+              min={0}
+              step="1"
+              value={floorDeliveryChargePerFloor}
+              onChange={(e) => setFloorDeliveryChargePerFloor(e.target.value)}
+              disabled={!canUpdate}
+              placeholder="e.g. 300"
+            />
+            <p className="text-xs text-muted-foreground">
+              Ground floor = ₹0; Nth floor = N × this rate. Not waived by free
+              shipping.
+            </p>
           </div>
         </div>
 
