@@ -11,6 +11,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import { useCart } from "@/contexts/CartContext";
 import { useCustomerAuth } from "@/contexts/CustomerAuthContext";
 import { ApiError } from "@/lib/api";
@@ -42,6 +43,7 @@ export function CheckoutPage() {
     getStoredReferralCode(),
   );
   const [deliveryFloor, setDeliveryFloor] = useState("0");
+  const [liftAccessAvailable, setLiftAccessAvailable] = useState(false);
   const [placingOrder, setPlacingOrder] = useState(false);
 
   useEffect(() => {
@@ -74,12 +76,14 @@ export function CheckoutPage() {
       pincode: pincode ?? "",
       subtotal: quoteSubtotal,
       deliveryFloor: parsedDeliveryFloor,
+      liftAccessAvailable,
     }),
     queryFn: () =>
       getShippingQuote({
         pincode: pincode!,
         subtotal: quoteSubtotal,
         deliveryFloor: parsedDeliveryFloor,
+        liftAccessAvailable,
       }),
     enabled: Boolean(pincode && /^\d{6}$/.test(pincode) && quoteSubtotal >= 0),
   });
@@ -130,6 +134,7 @@ export function CheckoutPage() {
         useCart: true,
         shippingAddressId: selectedAddressId,
         deliveryFloor: floor,
+        liftAccessAvailable,
         ...(coupon ? { couponCode: coupon.code } : {}),
         ...(referralCode ? { referralCode } : {}),
       });
@@ -238,21 +243,36 @@ export function CheckoutPage() {
             />
           )}
           {isAuthenticated && (
-            <div className="space-y-2 rounded-xl border border-[#E8DFD3] bg-white p-5">
-              <Label htmlFor="delivery-floor">Delivery floor</Label>
-              <Input
-                id="delivery-floor"
-                type="number"
-                min={0}
-                max={100}
-                step={1}
-                value={deliveryFloor}
-                onChange={(e) => setDeliveryFloor(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                Ground floor = 0 (no carry-up charge). Upper floors are charged
-                per floor for delivery labor.
-              </p>
+            <div className="space-y-4 rounded-xl border border-[#E8DFD3] bg-white p-5">
+              <div className="space-y-2">
+                <Label htmlFor="delivery-floor">Delivery floor</Label>
+                <Input
+                  id="delivery-floor"
+                  type="number"
+                  min={0}
+                  max={100}
+                  step={1}
+                  value={deliveryFloor}
+                  onChange={(e) => setDeliveryFloor(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Ground floor = 0 (no carry-up charge). Upper floors are charged
+                  per floor for delivery labor when lift access is not available.
+                </p>
+              </div>
+              <div className="flex items-center justify-between gap-3 rounded-lg border border-[#E8DFD3] px-3 py-2.5">
+                <div className="space-y-0.5">
+                  <Label htmlFor="lift-access">Lift accessible for delivery</Label>
+                  <p className="text-xs text-muted-foreground">
+                    When enabled, floor carry-up charges are waived.
+                  </p>
+                </div>
+                <Switch
+                  id="lift-access"
+                  checked={liftAccessAvailable}
+                  onCheckedChange={setLiftAccessAvailable}
+                />
+              </div>
             </div>
           )}
         </div>

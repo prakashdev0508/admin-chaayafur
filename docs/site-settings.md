@@ -120,7 +120,7 @@ Returns the full row including `logoStorageKey`, `faviconStorageKey`, and flat a
 }
 ```
 
-Set `freeShippingMinAmount` to `null` to disable the free-shipping threshold. `floorDeliveryChargePerFloor` is the per-floor carry-up rate (ground floor = ₹0; Nth floor = N × rate). Replacing logo/favicon with a new storage key deletes the previous R2 object when one was stored.
+Set `freeShippingMinAmount` to `null` to disable the free-shipping threshold. `floorDeliveryChargePerFloor` is the per-floor carry-up rate when lift access is not available (ground floor = ₹0; Nth floor = N × rate; waived when checkout `liftAccessAvailable` is true). Replacing logo/favicon with a new storage key deletes the previous R2 object when one was stored.
 
 ### cURL
 

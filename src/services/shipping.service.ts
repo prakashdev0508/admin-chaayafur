@@ -13,9 +13,15 @@ export function getShippingQuote({
   pincode,
   subtotal,
   deliveryFloor,
+  liftAccessAvailable,
 }: ShippingQuoteParams) {
   return apiRequest<ShippingQuote>(
-    `/shipping/quote${buildQueryString({ pincode, subtotal, deliveryFloor })}`,
+    `/shipping/quote${buildQueryString({
+      pincode,
+      subtotal,
+      deliveryFloor,
+      liftAccessAvailable,
+    })}`,
     {},
     false,
   );

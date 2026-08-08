@@ -53,6 +53,7 @@ export function ConvertCustomizationRequestDialog({
   const [useReferenceImage, setUseReferenceImage] = useState(false);
   const [shippingAmount, setShippingAmount] = useState("0");
   const [deliveryFloor, setDeliveryFloor] = useState("0");
+  const [liftAccessAvailable, setLiftAccessAvailable] = useState(false);
   const [woodId, setWoodId] = useState<number | null>(
     request.woodId ?? null,
   );
@@ -103,6 +104,7 @@ export function ConvertCustomizationRequestDialog({
     setUseReferenceImage(false);
     setShippingAmount("0");
     setDeliveryFloor("0");
+    setLiftAccessAvailable(false);
   }, [open, request]);
 
   const categoryItems = useMemo(
@@ -147,6 +149,7 @@ export function ConvertCustomizationRequestDialog({
       useReferenceImageAsProductImage: useReferenceImage,
       shippingAmount: parsedShipping,
       deliveryFloor: parsedFloor,
+      liftAccessAvailable,
     };
 
     const trimmedName = productName.trim();
@@ -292,8 +295,24 @@ export function ConvertCustomizationRequestDialog({
             />
             <p className="text-xs text-muted-foreground">
               Ground = 0. Floor delivery labor is calculated from site settings
-              (N × per-floor rate).
+              (N × per-floor rate) when lift access is not available.
             </p>
+          </div>
+
+          <div className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2">
+            <div>
+              <Label htmlFor="convert-lift-access">
+                Lift accessible for delivery
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                When enabled, floor carry-up charges are waived.
+              </p>
+            </div>
+            <Switch
+              id="convert-lift-access"
+              checked={liftAccessAvailable}
+              onCheckedChange={setLiftAccessAvailable}
+            />
           </div>
 
           <CustomizationMaterialFields

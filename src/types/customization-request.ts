@@ -112,6 +112,7 @@ export type ConvertCustomizationRequestPayload = {
   fabricId?: number;
   shippingAmount?: number;
   deliveryFloor?: number;
+  liftAccessAvailable?: boolean;
 };
 
 export type ConvertCustomizationRequestResult = {
