@@ -12,9 +12,10 @@ Pincode serviceability, shipping fee quotes, and floor delivery carry-up charges
   - If `freeShippingMinAmount` is set and cart (after discount) ≥ threshold → `shippingAmount = 0`
   - Else → `shippingAmount = flatShippingFee` from site settings
 - **Floor delivery**
-  - `floorDeliveryAmount = deliveryFloor × floorDeliveryChargePerFloor`
+  - Charge only when `liftAccessAvailable` is `false`
+  - `floorDeliveryAmount = deliveryFloor × floorDeliveryChargePerFloor` (else `0`)
   - Ground floor (`deliveryFloor = 0`) → ₹0
-  - Not waived by free shipping
+  - Not waived by free shipping (lift access is separate)
 - **Pincode policy**
   - If the allowlist table is **empty** → all valid 6-digit Indian pincodes are serviceable
   - If any rows exist → only pincodes with `isServiceable: true` are allowed
@@ -37,7 +38,7 @@ Pincode serviceability, shipping fee quotes, and floor delivery carry-up charges
 |---|---|
 | **Auth** | Public |
 | **Status** | `200` |
-| **Query** | `pincode` (6-digit), `subtotal` (INR after discount), `deliveryFloor` (optional, default `0`) |
+| **Query** | `pincode` (6-digit), `subtotal` (INR after discount), `deliveryFloor` (optional, default `0`), `liftAccessAvailable` (optional, default `false`) |
 
 ### Success response (serviceable)
 
@@ -49,6 +50,7 @@ Pincode serviceability, shipping fee quotes, and floor delivery carry-up charges
     "serviceable": true,
     "shippingAmount": "499",
     "deliveryFloor": 3,
+    "liftAccessAvailable": false,
     "floorDeliveryChargePerFloor": "300",
     "floorDeliveryAmount": "900",
     "message": "Shipping fee applies"
@@ -66,6 +68,7 @@ Pincode serviceability, shipping fee quotes, and floor delivery carry-up charges
     "serviceable": false,
     "shippingAmount": "0",
     "deliveryFloor": 0,
+    "liftAccessAvailable": false,
     "floorDeliveryChargePerFloor": "300",
     "floorDeliveryAmount": "0",
     "message": "Delivery is not available for pincode 999999"
@@ -76,7 +79,7 @@ Pincode serviceability, shipping fee quotes, and floor delivery carry-up charges
 ### cURL
 
 ```bash
-curl "http://localhost:5000/api/v1/shipping/quote?pincode=560001&subtotal=15000&deliveryFloor=3"
+curl "http://localhost:5000/api/v1/shipping/quote?pincode=560001&subtotal=15000&deliveryFloor=3&liftAccessAvailable=false"
 ```
 
 ---

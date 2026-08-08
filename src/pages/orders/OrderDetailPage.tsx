@@ -481,12 +481,14 @@ export function OrderDetailPage() {
                   {order.deliveryFloor ?? 0}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {(order.deliveryFloor ?? 0) === 0
-                    ? "Ground · no carry-up charge"
-                    : order.floorDeliveryAmount != null &&
-                        parseFloat(order.floorDeliveryAmount) > 0
-                      ? `Labor ${formatCurrency(order.floorDeliveryAmount)}`
-                      : "Floor delivery labor"}
+                  {order.liftAccessAvailable
+                    ? "Lift accessible · floor charge waived"
+                    : (order.deliveryFloor ?? 0) === 0
+                      ? "Ground · no carry-up charge"
+                      : order.floorDeliveryAmount != null &&
+                          parseFloat(order.floorDeliveryAmount) > 0
+                        ? `Labor ${formatCurrency(order.floorDeliveryAmount)}`
+                        : "Floor delivery labor"}
                 </p>
               </CardContent>
             </Card>
@@ -865,21 +867,32 @@ export function OrderDetailPage() {
                     </span>
                   </div>
                 )}
-                {order.floorDeliveryAmount != null && (
-                  <div className="flex justify-between gap-4 text-sm sm:text-base">
-                    <span className="text-muted-foreground">
-                      Floor delivery
-                      {order.deliveryFloor != null && order.deliveryFloor > 0
-                        ? ` (floor ${order.deliveryFloor})`
-                        : ""}
-                    </span>
-                    <span className="tabular-nums">
-                      {parseFloat(order.floorDeliveryAmount) === 0
-                        ? "—"
-                        : formatCurrency(order.floorDeliveryAmount)}
-                    </span>
-                  </div>
-                )}
+                <div className="flex justify-between gap-4 text-sm sm:text-base">
+                  <span className="text-muted-foreground">Delivery floor</span>
+                  <span className="tabular-nums">
+                    {order.deliveryFloor ?? 0}
+                  </span>
+                </div>
+                <div className="flex justify-between gap-4 text-sm sm:text-base">
+                  <span className="text-muted-foreground">
+                    Floor delivery
+                    {(order.deliveryFloor ?? 0) > 0
+                      ? ` (floor ${order.deliveryFloor})`
+                      : ""}
+                  </span>
+                  <span className="tabular-nums">
+                    {order.liftAccessAvailable
+                      ? "Waived"
+                      : order.floorDeliveryAmount != null &&
+                          parseFloat(order.floorDeliveryAmount) > 0
+                        ? formatCurrency(order.floorDeliveryAmount)
+                        : "—"}
+                  </span>
+                </div>
+                <div className="flex justify-between gap-4 text-sm sm:text-base">
+                  <span className="text-muted-foreground">Lift accessible</span>
+                  <span>{order.liftAccessAvailable ? "Yes" : "No"}</span>
+                </div>
                 <Separator />
                 <div className="flex items-baseline justify-between gap-4 pt-0.5">
                   <span className="font-semibold">Total</span>

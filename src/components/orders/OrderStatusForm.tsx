@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Card,
@@ -33,11 +34,20 @@ export function OrderStatusForm({
   const [deliveryFloor, setDeliveryFloor] = useState(
     String(order.deliveryFloor ?? 0),
   );
+  const [liftAccessAvailable, setLiftAccessAvailable] = useState(
+    order.liftAccessAvailable ?? false,
+  );
 
   useEffect(() => {
     setNotes(order.payment.notes ?? "");
     setDeliveryFloor(String(order.deliveryFloor ?? 0));
-  }, [order.id, order.payment.notes, order.deliveryFloor]);
+    setLiftAccessAvailable(order.liftAccessAvailable ?? false);
+  }, [
+    order.id,
+    order.payment.notes,
+    order.deliveryFloor,
+    order.liftAccessAvailable,
+  ]);
 
   if (!canUpdate) {
     return null;
@@ -56,6 +66,9 @@ export function OrderStatusForm({
     }
     if (parsedFloor !== (order.deliveryFloor ?? 0)) {
       payload.deliveryFloor = parsedFloor;
+    }
+    if (liftAccessAvailable !== (order.liftAccessAvailable ?? false)) {
+      payload.liftAccessAvailable = liftAccessAvailable;
     }
 
     if (Object.keys(payload).length === 0) {
@@ -78,8 +91,8 @@ export function OrderStatusForm({
       <CardHeader>
         <CardTitle>Order options</CardTitle>
         <CardDescription>
-          Update delivery floor and internal payment notes. Fulfillment status
-          is edited from the bar above.
+          Update delivery floor, lift access, and internal payment notes.
+          Fulfillment status is edited from the bar above.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -97,8 +110,21 @@ export function OrderStatusForm({
           />
           <p className="text-xs text-muted-foreground">
             Ground = 0. Changing floor recalculates floor delivery labor on the
-            server (ADMIN / SUPER_ADMIN only).
+            server when lift access is not available (ADMIN / SUPER_ADMIN only).
           </p>
+        </div>
+        <div className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5">
+          <div className="space-y-0.5">
+            <Label htmlFor="lift-access">Lift accessible for delivery</Label>
+            <p className="text-xs text-muted-foreground">
+              When enabled, floor carry-up charges are waived.
+            </p>
+          </div>
+          <Switch
+            id="lift-access"
+            checked={liftAccessAvailable}
+            onCheckedChange={setLiftAccessAvailable}
+          />
         </div>
         <div className="space-y-2">
           <Label htmlFor="payment-notes">Payment notes</Label>

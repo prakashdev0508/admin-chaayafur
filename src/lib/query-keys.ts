@@ -141,6 +141,7 @@ export const queryKeys = {
       pincode: string;
       subtotal: number;
       deliveryFloor?: number;
+      liftAccessAvailable?: boolean;
     }) => ["shop", "shipping-quote", params] as const,
     home: ["shop", "home"] as const,
     search: (params: Record<string, unknown>) =>

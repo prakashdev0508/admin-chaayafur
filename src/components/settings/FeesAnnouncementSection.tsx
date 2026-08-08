@@ -177,8 +177,8 @@ export function FeesAnnouncementSection({
               placeholder="e.g. 300"
             />
             <p className="text-xs text-muted-foreground">
-              Ground floor = ₹0; Nth floor = N × this rate. Not waived by free
-              shipping.
+              Ground floor = ₹0; Nth floor = N × this rate when lift access is
+              not available at checkout. Not waived by free shipping.
             </p>
           </div>
         </div>

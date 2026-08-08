@@ -151,6 +151,7 @@ export type Order = {
   discountAmount: string;
   shippingAmount?: string;
   deliveryFloor?: number;
+  liftAccessAvailable?: boolean;
   floorDeliveryAmount?: string;
   totalAmount: string;
   paymentMethod: string;
@@ -210,6 +211,7 @@ export type UpdateOrderPayload = {
   shippingAddressId?: number;
   billingAddressId?: number;
   deliveryFloor?: number;
+  liftAccessAvailable?: boolean;
   items?: { productId: number; quantity: number; woodId?: number }[];
   payment?: { notes: string };
 };
@@ -223,4 +225,5 @@ export type CreateOrderPayload = {
   couponCode?: string;
   referralCode?: string;
   deliveryFloor: number;
+  liftAccessAvailable: boolean;
 };

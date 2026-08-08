@@ -182,7 +182,8 @@ Only when status is `APPROVED`.
 | `useReferenceImageAsProductImage` | boolean | No | Default `false` |
 | `woodId` / `polishId` / `fabricId` | number | No | Override catalog picks |
 | `shippingAmount` | number | No | Default `0` |
-| `deliveryFloor` | number | No | Default `0` (ground). Charge = floor × site setting rate |
+| `deliveryFloor` | number | No | Default `0` (ground) |
+| `liftAccessAvailable` | boolean | No | Default `false`. When `true`, floor charge is waived |
 | `billingAddressId` | number | No | Defaults to request shipping address |
 
 ### Example response `data`

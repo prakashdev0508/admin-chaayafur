@@ -176,7 +176,8 @@ Create an order from frontend cart items. Creates a Razorpay Payment Link for th
   "billingAddressId": 2,
   "couponCode": "SAVE500",
   "referralCode": "CHAYAAB12CD",
-  "deliveryFloor": 3
+  "deliveryFloor": 3,
+  "liftAccessAvailable": false
 }
 ```
 
@@ -192,7 +193,8 @@ Create an order from frontend cart items. Creates a Razorpay Payment Link for th
 | `billingAddressId` | integer | No | Defaults to `shippingAddressId` |
 | `couponCode` | string | No | Max 32 chars; validated server-side |
 | `referralCode` | string | No | Another customer's code; tracking only (no discount). See [referrals.md](./referrals.md) |
-| `deliveryFloor` | integer | Yes | `0` = ground floor (no charge); `1`–`100` = floor number. Charge = floor × `floorDeliveryChargePerFloor` from [site settings](./site-settings.md) |
+| `deliveryFloor` | integer | Yes | `0` = ground floor (no charge); `1`–`100` = floor number |
+| `liftAccessAvailable` | boolean | Yes | `true` = lift can be used for the product → floor charge waived; `false` = charge `deliveryFloor × floorDeliveryChargePerFloor` |
 
 ### Validation rules
 
@@ -203,7 +205,7 @@ Create an order from frontend cart items. Creates a Razorpay Payment Link for th
 5. `subtotalAmount` = sum of `(base price + wood adj + polish adj + fabric adj) × quantity`
 6. Optional coupon validated and discount applied
 7. Shipping address pincode checked for serviceability ([shipping.md](./shipping.md)); `shippingAmount` computed from site settings
-8. `floorDeliveryAmount` = `deliveryFloor × floorDeliveryChargePerFloor` (independent of free shipping)
+8. `floorDeliveryAmount` = `0` when `liftAccessAvailable` is true or floor is 0; otherwise `deliveryFloor × floorDeliveryChargePerFloor` (independent of free shipping)
 9. `totalAmount = subtotal - discount + shippingAmount + floorDeliveryAmount`
 10. Razorpay Payment Link created for full `totalAmount`
 
@@ -225,6 +227,7 @@ Same shape as `GET /orders/:id` (see [Order detail response](#order-detail-respo
     "discountAmount": "500.00",
     "shippingAmount": "0.00",
     "deliveryFloor": 3,
+    "liftAccessAvailable": false,
     "floorDeliveryAmount": "900.00",
     "totalAmount": "5400.00",
     "coupon": {
@@ -622,6 +625,7 @@ Staff order update with audit logging. **ADMIN** and **SUPER_ADMIN** can perform
 | `shippingAddressId`, `billingAddressId` | Yes | No (`403`) |
 | `items[]` | Yes | No |
 | `deliveryFloor` | Yes | No |
+| `liftAccessAvailable` | Yes | No |
 | `payment.notes` | Yes | No |
 
 ### Request body
@@ -634,6 +638,7 @@ All fields optional; at least one required.
   "shippingAddressId": 1,
   "billingAddressId": 2,
   "deliveryFloor": 3,
+  "liftAccessAvailable": false,
   "items": [
     { "productId": 1, "quantity": 2 }
   ],
@@ -800,7 +805,8 @@ All of `POST /orders` and `GET /orders/:id` return this shape (wrapped in `{ suc
 | `discountAmount` | string | Coupon discount ( `0.00` if none) |
 | `shippingAmount` | string | Shipping fee applied at checkout |
 | `deliveryFloor` | integer | Floor for delivery (`0` = ground) |
-| `floorDeliveryAmount` | string | Carry-up charge (`deliveryFloor ×` site rate) |
+| `liftAccessAvailable` | boolean | `true` when lift can be used (floor charge waived) |
+| `floorDeliveryAmount` | string | Carry-up charge (`0` if lift available; else `deliveryFloor ×` site rate) |
 | `totalAmount` | string | `subtotalAmount - discountAmount + shippingAmount + floorDeliveryAmount` |
 | `coupon` | object \| null | `{ id, code, type }` or `{ code }` only, or `null` |
 | `paymentMethod` | string | Always `RAZORPAY` |

@@ -388,21 +388,30 @@ export function ShopOrderPage() {
                 </span>
               </div>
             )}
-            {order.floorDeliveryAmount != null && (
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">
-                  Floor delivery
-                  {order.deliveryFloor != null && order.deliveryFloor > 0
-                    ? ` (floor ${order.deliveryFloor})`
-                    : ""}
-                </span>
-                <span>
-                  {parseFloat(order.floorDeliveryAmount) === 0
-                    ? "—"
-                    : formatCurrency(order.floorDeliveryAmount)}
-                </span>
-              </div>
-            )}
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Delivery floor</span>
+              <span>{order.deliveryFloor ?? 0}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">
+                Floor delivery
+                {(order.deliveryFloor ?? 0) > 0
+                  ? ` (floor ${order.deliveryFloor})`
+                  : ""}
+              </span>
+              <span>
+                {order.liftAccessAvailable
+                  ? "Waived"
+                  : order.floorDeliveryAmount != null &&
+                      parseFloat(order.floorDeliveryAmount) > 0
+                    ? formatCurrency(order.floorDeliveryAmount)
+                    : "—"}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Lift accessible</span>
+              <span>{order.liftAccessAvailable ? "Yes" : "No"}</span>
+            </div>
             <div className="flex justify-between font-medium">
               <span>Total paid</span>
               <span>{formatCurrency(order.payment.amount)}</span>

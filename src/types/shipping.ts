@@ -21,6 +21,7 @@ export type ShippingQuoteParams = {
   pincode: string;
   subtotal: number;
   deliveryFloor?: number;
+  liftAccessAvailable?: boolean;
 };
 
 export type ShippingQuote = {
@@ -28,6 +29,7 @@ export type ShippingQuote = {
   serviceable: boolean;
   shippingAmount: string;
   deliveryFloor: number;
+  liftAccessAvailable: boolean;
   floorDeliveryChargePerFloor: string;
   floorDeliveryAmount: string;
   message: string;
