@@ -336,6 +336,7 @@ export function OrderDetailPage() {
             </StatusBadge>
             <OrderStatusSelect
               status={order.status}
+              orderNumber={order.orderNumber}
               onUpdate={(payload) => updateMutation.mutateAsync(payload)}
             />
             {latestRefund && refundStatusLabel && (
@@ -493,6 +494,17 @@ export function OrderDetailPage() {
               </CardContent>
             </Card>
           </div>
+
+          {order.status === "CANCELLED" && order.cancellationReason && (
+            <div className="rounded-lg border border-destructive/20 bg-destructive/5 px-4 py-3">
+              <p className="text-xs font-medium tracking-wide text-destructive uppercase">
+                Cancellation reason
+              </p>
+              <p className="mt-1 text-sm leading-relaxed whitespace-pre-wrap">
+                {order.cancellationReason}
+              </p>
+            </div>
+          )}
 
           <div className="grid gap-4 md:grid-cols-2 md:items-stretch">
             <Card className="flex h-full flex-col">

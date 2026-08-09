@@ -100,7 +100,7 @@ Razorpay webhook → Order CONFIRMED + invoice (or CANCELLED + stock restored)
 | `REFUND_INITIATED` | Legacy enum value — refunds no longer set this; use `Refund.status` / `?refundStatus=` |
 | `PARTIALLY_REFUNDED` | Legacy enum value — refunds no longer set this |
 | `REFUNDED` | Legacy enum value — full refund sets `Payment.status = REFUNDED` only; order status stays operational |
-| `CANCELLED` | Order cancelled (payment failed / staff cancel); stock restored |
+| `CANCELLED` | Order cancelled (payment failed / staff cancel); stock restored. Staff cancel requires `cancellationReason`; payment-failure cancels store `Payment failed or expired` |
 
 Refund lifecycle is tracked on `Refund.status` (`INITIATED` → `PROCESSING` → `PROCESSED` / `FAILED` / `CANCELLED`), not on `Order.status`. See [refund.md](./refund.md).
 
@@ -395,6 +395,7 @@ List items are slim (use `GET /orders/:id` for full detail).
 | `totalAmount` | string | Order total |
 | `customerPhone` | string | Customer phone number |
 | `status` | string | Operational order status |
+| `cancellationReason` | string \| null | Set when cancelled (staff reason or system message) |
 | `paymentStatus` | string \| null | Payment status |
 | `activeRefundStatus` | string \| null | `INITIATED` or `PROCESSING` if an open refund exists |
 | `latestRefundStatus` | string \| null | Status of the most recent refund row |
@@ -412,6 +413,7 @@ List items are slim (use `GET /orders/:id` for full detail).
         "totalAmount": "5000.00",
         "customerPhone": "9876543210",
         "status": "SHIPPED",
+        "cancellationReason": null,
         "paymentStatus": "COMPLETED",
         "activeRefundStatus": "INITIATED",
         "latestRefundStatus": "INITIATED",
@@ -635,23 +637,15 @@ All fields optional; at least one required.
 
 ```json
 {
-  "status": "SHIPPED",
-  "shippingAddressId": 1,
-  "billingAddressId": 2,
-  "deliveryFloor": 3,
-  "liftAccessAvailable": false,
-  "items": [
-    { "productId": 1, "quantity": 2 }
-  ],
-  "payment": {
-    "notes": "Gift wrap requested"
-  }
+  "status": "CANCELLED",
+  "cancellationReason": "Customer requested cancellation"
 }
 ```
 
 | Field | Type | Rules |
 |-------|------|-------|
 | `status` | string | Any `OrderStatus` value from the client (no transition rules). Examples: `PENDING` \| `CONFIRMED` \| `UNDER_PRODUCTION` \| `PACKING` \| `SHIPPED` \| `DELIVERED` \| `REFUND_INITIATED` \| `PARTIALLY_REFUNDED` \| `REFUNDED` \| `CANCELLED` |
+| `cancellationReason` | string | **Required** when `status` is `CANCELLED` (min 3 chars). Stored on the order and returned in detail/list responses |
 | `shippingAddressId` | integer | Must belong to order customer; refreshes address snapshot |
 | `billingAddressId` | integer | Must belong to order customer |
 | `items` | array | Min 1 item; prices from DB; stock adjusted by delta |
@@ -662,13 +656,14 @@ All fields optional; at least one required.
 - Cannot edit `customerId`, `orderNumber`, `paymentMethod`, or Razorpay IDs
 - Cannot edit items/addresses on `CANCELLED` or `DELIVERED` orders
 - Cannot change items and cancel in the same request
+- Cancelling without `cancellationReason` returns `400`
 
 ### Side effects
 
 | Change | Effect |
 |--------|--------|
 | → `CONFIRMED` | Order-received email sent; invoice is **not** auto-generated (use generate/email APIs) |
-| → `CANCELLED` | Stock restored for all line items; cancelled email sent |
+| → `CANCELLED` | Requires `cancellationReason`; stock restored for all line items; cancelled email sent |
 | `items` changed on confirmed order with invoice | Invoice regenerated |
 | `items` changed | `totalAmount` and `payment.amount` recalculated; stock delta applied |
 
@@ -682,7 +677,7 @@ All field changes are written to the audit log. See [admin-audit-logs.md](./admi
 curl -X PATCH http://localhost:5000/api/v1/orders/1 \
   -H "Authorization: Bearer $STAFF_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"status":"SHIPPED"}'
+  -d '{"status":"CANCELLED","cancellationReason":"Customer requested cancellation"}'
 ```
 
 ---
@@ -799,8 +794,8 @@ All of `POST /orders` and `GET /orders/:id` return this shape (wrapped in `{ suc
 | `id` | integer | Order ID |
 | `orderNumber` | string | Human-readable ID, e.g. `ORD-20260710-0001` |
 | `customerId` | integer | Customer who placed the order |
-| `addressId` | integer | Shipping address ID |
-| `billingAddressId` | integer \| null | Billing address ID (`null` if same as shipping) |
+| `addressId` | integer \| null | Soft link to address book (may be `null` if address was deleted). Prefer `shippingAddress` snapshot. |
+| `billingAddressId` | integer \| null | Soft link (`null` if same as shipping or address deleted). Prefer `billingAddress` snapshot. |
 | `status` | string | `PENDING` \| `CONFIRMED` \| `SHIPPED` \| `DELIVERED` \| `REFUND_INITIATED` \| `PARTIALLY_REFUNDED` \| `REFUNDED` \| `CANCELLED` |
 | `subtotalAmount` | string | Sum of line items before discount |
 | `discountAmount` | string | Coupon discount ( `0.00` if none) |
