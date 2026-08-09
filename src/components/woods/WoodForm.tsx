@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -128,13 +128,6 @@ export function WoodForm({ initial, onSubmit, loading, mode }: WoodFormProps) {
         ...prev.polishes,
         emptyPolish(`new-${polishKeyRef.current}`),
       ],
-    }));
-  }
-
-  function removePolish(key: string) {
-    setValues((prev) => ({
-      ...prev,
-      polishes: prev.polishes.filter((p) => p.key !== key),
     }));
   }
 
@@ -282,18 +275,7 @@ export function WoodForm({ initial, onSubmit, loading, mode }: WoodFormProps) {
             key={polish.key}
             className="space-y-3 rounded-lg border p-3"
           >
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Polish {index + 1}</span>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => removePolish(polish.key)}
-                aria-label="Remove polish"
-              >
-                <Trash2 className="size-4" />
-              </Button>
-            </div>
+            <span className="text-sm font-medium">Polish {index + 1}</span>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label>Name</Label>
