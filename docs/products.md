@@ -17,6 +17,7 @@ Create, update, and list furniture products.
 - Default list shows only **active** products (`isActive=true`)
 - **`price`** is the selling price (after discount) — used for cart, checkout, and filters
 - **`priceWithoutDiscount`** is optional compare-at / MRP; display-only, does not affect checkout
+- **`hsnCode`** is optional (4–8 digits); tax invoices use it when set, otherwise `INVOICE_HSN`
 - **Product-level customization pricing** — woods, polishes, and fabrics each carry a per-product `priceAdjustment` (default `0`). Cart/checkout unit price = `base price + wood adj + polish adj + fabric adj`. See [Product-level customization pricing](#product-level-customization-pricing)
 - **`woods`** — product wood options with nested polishes and `priceAdjustment` (see [woods.md](./woods.md)); detail includes unavailable woods with `isAvailable: false`
 - **`polishes`** — product polish options (also nested under each wood); must belong to an assigned wood
@@ -235,6 +236,7 @@ Authorization: Bearer <accessToken>
 | `description` | string | No | — |
 | `price` | number | Yes | Min `0`. **Selling price** (after discount). Used for cart, checkout, and filters. |
 | `priceWithoutDiscount` | number | No | Min `0`. Compare-at / MRP before discount. Optional; does not affect checkout. |
+| `hsnCode` | string | No | 4–8 digits. Optional GST HSN; invoices fall back to `INVOICE_HSN` when omitted. |
 | `stock` | number | Yes | Min `0` |
 | `subCategoryId` | integer | Yes | Must exist in `SubCategory` table |
 | `isActive` | boolean | No | Default `true` |
@@ -340,9 +342,9 @@ Two-step async flow (DB-backed queue on the EC2 worker). Full job APIs: [upload-
 
 ### Workflow
 
-1. **Stage images** — name files `{productSlug}__{sortOrder}.{jpg|jpeg|png|webp}` (e.g. `oak-dining-table__0.jpg`, `oak-dining-table__1.png`), zip them, upload: `POST /api/v1/products/bulk-upload/images` → returns `{ jobId }`
+1. **Stage images** — name files `{productSlug}__{sortOrder}.{jpg|jpeg|png|webp}` (e.g. `oak-dining-table__0.jpg`, `oak-dining-table__1.png`), zip them, upload: `POST /api/v1/products/bulk-upload/images` → returns `{ jobId }`. A single underscore also works — see [Image filename convention](#image-filename-convention)
 2. Poll `GET /api/v1/upload-jobs/:jobId` until `COMPLETED` / `COMPLETED_WITH_ERRORS`. Optionally inspect staged rows: `GET /api/v1/products/bulk-upload/staged-images?slug=oak-dining-table&unconsumed=true`
-3. Download the sample template: `GET /api/v1/products/bulk-upload/sample` (includes a `Lookups` sheet + dropdowns for `subCategoryId` and boolean columns)
+3. Download the sample template: `GET /api/v1/products/bulk-upload/sample` (includes a `Lookups` sheet + dropdowns for `subCategoryId`, the boolean columns, and every wood / polish / fabric slot)
 4. Fill one product per row (**no images column required**) and upload: `POST /api/v1/products/bulk-upload` → returns `{ jobId }`
 5. Poll the sheet job. When done, download the result workbook via `GET /api/v1/upload-jobs/:id/download/result` (columns include `imagesAttached` + `status`)
 
@@ -354,10 +356,20 @@ Legacy sheets may still include an `images` column of public URLs; when present 
 
 | Part | Rule |
 |------|------|
-| `productSlug` | lowercase kebab-case matching the Excel `slug` |
-| `sortOrder` | integer `0`–`4` (max 5 images per product) |
-| extension | `jpg`, `jpeg`, `png`, or `webp` |
-| separator | double underscore `__` |
+| `productSlug` | must resolve to the Excel `slug` (see normalization below) |
+| separator | double underscore `__` (a single `_` is also accepted) |
+| `sortOrder` | integer `0`–`4` (max 5 images per product); leading zeros allowed |
+| extension | `jpg`, `jpeg`, `png`, or `webp` (case-insensitive) |
+
+**Slug normalization** — the part before the trailing `_{number}` is lowercased, and underscores and spaces are folded to hyphens. The last underscore run before the number is always the separator.
+
+| Filename | Resolved slug | sortOrder |
+|----------|---------------|-----------|
+| `oak-dining-table__0.jpg` | `oak-dining-table` | `0` |
+| `testproduct3_02.jpg` | `testproduct3` | `2` |
+| `testproduct3_4_01.jpg` | `testproduct3-4` | `1` |
+| `Test_Product_3_01.JPG` | `test-product-3` | `1` |
+| `img2.jpg` | rejected — no sort order | — |
 
 Invalid names are recorded as failed rows in the image-staging result workbook (they do not abort the job).
 
@@ -372,6 +384,7 @@ Header names are case-insensitive. Backend appends **`imagesAttached`** and **`s
 | `description` | No | string |
 | `price` | Yes | number |
 | `priceWithoutDiscount` | No | number |
+| `hsnCode` | No | 4–8 digit HSN (optional) |
 | `stock` | Yes | integer ≥ 0 |
 | `subCategoryId` | Yes | integer **or** dropdown label `12 - Living Room > Sofas` |
 | `isActive` | No | `true` / `false` (dropdown; default true) |
@@ -380,23 +393,36 @@ Header names are case-insensitive. Backend appends **`imagesAttached`** and **`s
 | `isMostPopular` | No | `true` / `false` |
 | `isNewArrival` | No | `true` / `false` |
 | `productFeatures` | No | pipe-separated, max 10: `Solid oak\|Seats 6\|1-year warranty` |
+| `wood1` … `wood3` | No | **dropdown** of woods; each paired with a price column |
+| `wood1Price` … `wood3Price` | No | number ≥ 0; the `priceAdjustment` for the wood in the same slot (blank = `0`) |
+| `polish1` … `polish3` | No | **dropdown** of polishes; each must belong to an assigned wood |
+| `polish1Price` … `polish3Price` | No | number ≥ 0 |
+| `fabric1` … `fabric3` | No | **dropdown** of fabrics |
+| `fabric1Price` … `fabric3Price` | No | number ≥ 0 |
 | `images` | No (legacy) | comma-separated public URLs, max 5 — overrides staged images when present |
-| `woods` | No | comma-separated: `id` or `id:priceAdjustment`. Examples: `1,2` or `1:3000,2:6000` |
-| `polishes` | No | same format; each polish must belong to an assigned wood |
-| `fabrics` | No | same format |
+| `woods` / `polishes` / `fabrics` | No (legacy) | combined `id:priceAdjustment` list, e.g. `1:3000,2:6000` — only read when the numbered slots are all blank |
 | `imagesAttached` | Backend-only | count of images attached for the row |
 | `status` | Backend-only | `Success`, `Success (no images found for slug "…")`, or error message |
 
 Limits: max **500** data rows per sheet (5 MB `.xlsx`); max **50 MB** / **200** files per image ZIP.
 
-The sample workbook includes a **`Lookups`** sheet listing sub-categories, woods, polishes, and fabrics as `{id} - {label}` for reference. Excel has no native multi-select, so woods/polishes/fabrics remain free-text `id:price` lists.
+### Customization pricing
 
-**Customization pricing notes**
+Every customization has its own dropdown column plus a price column, so no manual ID typing is needed:
 
-- Format: `optionId:priceAdjustment` per entry, comma-separated
-- Omit `:price` to default `priceAdjustment` to `0` (backward compatible with older sheets)
-- Prices are product-specific (same wood ID can have different prices on different product rows)
-- If `woods` is set and `polishes` is empty/omitted, active polishes of those woods are synced automatically at price `0`
+| `wood1` | `wood1Price` | `wood2` | `wood2Price` | `polish1` | `polish1Price` |
+|---|---|---|---|---|---|
+| `1 - Sheesham` | `3000` | `2 - Teak` | `6000` | `5 - Sheesham / Natural` | `500` |
+
+- Dropdown values are `{id} - {label}`; the backend reads the leading ID, so a bare `1` also works
+- A blank price column defaults the adjustment to `0`
+- Prices are product-specific — the same wood can be priced differently on each row
+- Up to **3** options per type. Need more? Use the legacy combined `woods` / `polishes` / `fabrics` column instead, which has no limit
+- Duplicate IDs across slots of the same type are rejected for that row
+- Each polish must belong to one of the assigned woods
+- If woods are set and no polishes are given, active polishes of those woods are synced automatically at price `0`
+
+The **`Lookups`** sheet backs every dropdown and lists sub-categories, woods, polishes, and fabrics as `{id} - {label}`, plus usage notes in column G.
 
 ---
 
@@ -526,6 +552,7 @@ Partial update. All body fields are optional.
 | `description` | string | — |
 | `price` | number | Min `0`. Selling price (after discount). |
 | `priceWithoutDiscount` | number | Min `0`. Compare-at / MRP before discount. |
+| `hsnCode` | string | Optional 4–8 digit HSN code. |
 | `stock` | number | Min `0` |
 | `subCategoryId` | integer | Must exist in `SubCategory` table |
 | `isActive` | boolean | Set `false` to hide product |

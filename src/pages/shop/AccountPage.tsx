@@ -10,6 +10,7 @@ import {
   createCustomerAddress,
   deleteCustomerAddress,
   listCustomerAddresses,
+  updateCustomerAddress,
 } from "@/services/shop-addresses.service";
 import { listShopOrders } from "@/services/shop-orders.service";
 import { getMyReferral } from "@/services/shop-referrals.service";
@@ -19,11 +20,15 @@ import { queryKeys } from "@/lib/query-keys";
 import { formatCurrency, formatDate, formatPhone } from "@/lib/format";
 import { getOrderStatusLabel } from "@/lib/order-status";
 import { cn } from "@/lib/utils";
+import type { CustomerAddress } from "@/types/address";
 
 export function AccountPage() {
   const { user, logout } = useCustomerAuth();
   const queryClient = useQueryClient();
   const [showAddressForm, setShowAddressForm] = useState(false);
+  const [editingAddress, setEditingAddress] = useState<CustomerAddress | null>(
+    null,
+  );
 
   const ordersQuery = useQuery({
     queryKey: queryKeys.shop.orders.list({ page: 1, limit: 10 }),
@@ -55,17 +60,57 @@ export function AccountPage() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.shop.addresses.all });
       setShowAddressForm(false);
+      setEditingAddress(null);
       toast.success("Address saved");
     },
+    onError: () => toast.error("Could not save address"),
+  });
+
+  const updateAddressMutation = useMutation({
+    mutationFn: ({
+      id,
+      payload,
+    }: {
+      id: number;
+      payload: Parameters<typeof updateCustomerAddress>[1];
+    }) => updateCustomerAddress(id, payload),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.shop.addresses.all });
+      setEditingAddress(null);
+      setShowAddressForm(false);
+      toast.success("Address updated");
+    },
+    onError: () => toast.error("Could not update address"),
   });
 
   const deleteAddressMutation = useMutation({
     mutationFn: deleteCustomerAddress,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.shop.addresses.all });
+      if (editingAddress) setEditingAddress(null);
       toast.success("Address removed");
     },
+    onError: () => toast.error("Could not remove address"),
   });
+
+  function closeAddressForm() {
+    setShowAddressForm(false);
+    setEditingAddress(null);
+  }
+
+  function startAddAddress() {
+    if (editingAddress) {
+      setEditingAddress(null);
+      setShowAddressForm(true);
+      return;
+    }
+    setShowAddressForm((open) => !open);
+  }
+
+  function startEditAddress(address: CustomerAddress) {
+    setShowAddressForm(false);
+    setEditingAddress(address);
+  }
 
   const counts = user?.counts;
   const productReviews = reviewsQuery.data?.productReviews ?? [];
@@ -324,18 +369,34 @@ export function AccountPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setShowAddressForm((value) => !value)}
-            disabled={(addressesQuery.data?.length ?? 0) >= 5 && !showAddressForm}
+            onClick={startAddAddress}
+            disabled={
+              (addressesQuery.data?.length ?? 0) >= 5 &&
+              !showAddressForm &&
+              !editingAddress
+            }
           >
-            Add address
+            {showAddressForm && !editingAddress ? "Cancel" : "Add address"}
           </Button>
         </div>
 
-        {showAddressForm && (
+        {(showAddressForm || editingAddress) && (
           <ShopAddressForm
-            loading={createAddressMutation.isPending}
-            onCancel={() => setShowAddressForm(false)}
+            key={editingAddress ? `edit-${editingAddress.id}` : "create"}
+            initial={editingAddress ?? undefined}
+            loading={
+              createAddressMutation.isPending || updateAddressMutation.isPending
+            }
+            onCancel={closeAddressForm}
             onSubmit={async (payload) => {
+              if (editingAddress) {
+                const { sameAsBilling: _ignored, ...updatePayload } = payload;
+                await updateAddressMutation.mutateAsync({
+                  id: editingAddress.id,
+                  payload: updatePayload,
+                });
+                return;
+              }
               await createAddressMutation.mutateAsync(payload);
             }}
           />
@@ -348,20 +409,40 @@ export function AccountPage() {
               className="flex items-start justify-between gap-4 rounded-2xl border border-[#E8DFD3] bg-white p-4"
             >
               <div>
-                <p className="font-medium">{address.name}</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="font-medium">{address.name}</p>
+                  <span className="rounded-full bg-[#F8F1E8] px-2 py-0.5 text-xs font-medium text-[#744C31]">
+                    {address.type === "BILLING" ? "Billing" : "Shipping"}
+                  </span>
+                  {address.isDefault && (
+                    <span className="rounded-full bg-[#E8F0E3] px-2 py-0.5 text-xs font-medium text-[#5C7A4A]">
+                      Default
+                    </span>
+                  )}
+                </div>
                 <p className="mt-1 text-sm text-muted-foreground">
                   {address.line1}
                   {address.line2 ? `, ${address.line2}` : ""}, {address.city},{" "}
                   {address.state} {address.zipCode}
                 </p>
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => deleteAddressMutation.mutate(address.id)}
-              >
-                Remove
-              </Button>
+              <div className="flex shrink-0 gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => startEditAddress(address)}
+                  disabled={editingAddress?.id === address.id}
+                >
+                  Edit
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => deleteAddressMutation.mutate(address.id)}
+                >
+                  Remove
+                </Button>
+              </div>
             </div>
           ))}
         </div>

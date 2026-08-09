@@ -41,6 +41,8 @@ export type Product = {
   description: string | null;
   price: string;
   priceWithoutDiscount?: string | null;
+  /** Optional GST HSN (4–8 digits); invoices fall back to INVOICE_HSN when omitted. */
+  hsnCode?: string | null;
   stock: number;
   isActive: boolean;
   isBestSeller: boolean;
@@ -67,6 +69,7 @@ export type ProductListItem = {
   slug: string;
   price: string;
   priceWithoutDiscount?: string | null;
+  hsnCode?: string | null;
   stock: number;
   isActive: boolean;
   isBestSeller: boolean;
@@ -109,6 +112,7 @@ export type CreateProductPayload = {
   description?: string;
   price: number;
   priceWithoutDiscount?: number | null;
+  hsnCode?: string | null;
   stock: number;
   subCategoryId: number;
   isActive?: boolean;
@@ -175,6 +179,7 @@ export type ProductFormValues = {
   description: string;
   price: string;
   priceWithoutDiscount: string;
+  hsnCode: string;
   stock: string;
   subCategoryId: string;
   isActive: boolean;

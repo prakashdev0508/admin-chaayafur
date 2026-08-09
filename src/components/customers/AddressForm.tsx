@@ -10,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { usePincodeLookup } from "@/hooks/usePincodeLookup";
 import type {
   AddressType,
   CreateAddressPayload,
@@ -35,6 +36,16 @@ export function AddressForm({
 }: AddressFormProps) {
   const [type, setType] = useState<AddressType>(initial?.type ?? "SHIPPING");
   const [isDefault, setIsDefault] = useState(initial?.isDefault ?? false);
+  const [zipCode, setZipCode] = useState(initial?.zipCode ?? "");
+  const [city, setCity] = useState(initial?.city ?? "");
+  const [state, setState] = useState(initial?.state ?? "");
+
+  const pincodeLookup = usePincodeLookup(zipCode, {
+    onResolved: (result) => {
+      setCity(result.city);
+      setState(result.state);
+    },
+  });
 
   return (
     <form
@@ -50,9 +61,9 @@ export function AddressForm({
           type,
           name: String(form.get("name")),
           line1: String(form.get("line1")),
-          city: String(form.get("city")),
-          state: String(form.get("state")),
-          zipCode: String(form.get("zipCode")),
+          city: city.trim(),
+          state: state.trim(),
+          zipCode: zipCode.trim(),
           country: String(form.get("country") || "IN"),
           isDefault,
           ...(email ? { email } : {}),
@@ -135,13 +146,47 @@ export function AddressForm({
         />
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="zipCode">PIN code</Label>
+          <Input
+            id="zipCode"
+            name="zipCode"
+            value={zipCode}
+            onChange={(e) =>
+              setZipCode(e.target.value.replace(/\D/g, "").slice(0, 6))
+            }
+            inputMode="numeric"
+            maxLength={6}
+            pattern="\d{6}"
+            title="6-digit Indian PIN code"
+            required
+          />
+          {pincodeLookup.isLoading && (
+            <p className="text-xs text-muted-foreground">
+              Looking up city and state…
+            </p>
+          )}
+          {pincodeLookup.error && (
+            <p className="text-xs text-destructive">{pincodeLookup.error}</p>
+          )}
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="country">Country</Label>
+          <Input
+            id="country"
+            name="country"
+            defaultValue={initial?.country ?? "IN"}
+            required
+          />
+        </div>
         <div className="space-y-2">
           <Label htmlFor="city">City</Label>
           <Input
             id="city"
             name="city"
-            defaultValue={initial?.city}
+            value={city}
+            onChange={(e) => setCity(e.target.value)}
             maxLength={100}
             required
           />
@@ -151,31 +196,12 @@ export function AddressForm({
           <Input
             id="state"
             name="state"
-            defaultValue={initial?.state}
+            value={state}
+            onChange={(e) => setState(e.target.value)}
             maxLength={100}
             required
           />
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="zipCode">ZIP code</Label>
-          <Input
-            id="zipCode"
-            name="zipCode"
-            defaultValue={initial?.zipCode}
-            maxLength={20}
-            required
-          />
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="country">Country</Label>
-        <Input
-          id="country"
-          name="country"
-          defaultValue={initial?.country ?? "IN"}
-          required
-        />
       </div>
 
       <div className="flex items-center justify-between rounded-lg border p-3">

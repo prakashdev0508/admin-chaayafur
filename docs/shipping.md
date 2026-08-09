@@ -26,6 +26,7 @@ Pincode serviceability, shipping fee quotes, and floor delivery carry-up charges
 | Endpoint | Permission | SUPER_ADMIN | ADMIN | ORDER_MANAGER |
 |----------|------------|:-----------:|:-----:|:-------------:|
 | `GET /shipping/quote` | **Public** | — | — | — |
+| `GET /shipping/pincode/:pincode` | **Public** | — | — | — |
 | `GET /admin/shipping/pincodes` | `view-settings` | Yes | Yes | No |
 | `POST /admin/shipping/pincodes` | `update-settings` | Yes | Yes | No |
 | `DELETE /admin/shipping/pincodes/:pincode` | `update-settings` | Yes | Yes | No |
@@ -80,6 +81,44 @@ Pincode serviceability, shipping fee quotes, and floor delivery carry-up charges
 
 ```bash
 curl "http://localhost:5000/api/v1/shipping/quote?pincode=560001&subtotal=15000&deliveryFloor=3&liftAccessAvailable=false"
+```
+
+---
+
+## GET /api/v1/shipping/pincode/:pincode
+
+Resolve city and state from a 6-digit Indian pincode via the public India Post API (`api.postalpincode.in`). Results are cached in-memory for 24 hours.
+
+| | |
+|---|---|
+| **Auth** | Public |
+| **Status** | `200` |
+
+### Success response
+
+```json
+{
+  "success": true,
+  "data": {
+    "pincode": "500034",
+    "city": "Hyderabad",
+    "state": "Telangana",
+    "offices": ["Banjara Hills", "…"]
+  }
+}
+```
+
+### Errors
+
+| Status | When |
+|--------|------|
+| `400` | Invalid pincode format or upstream lookup failure |
+| `404` | Pincode not found in postal data |
+
+### cURL
+
+```bash
+curl http://localhost:5000/api/v1/shipping/pincode/500034
 ```
 
 ---

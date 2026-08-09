@@ -13,7 +13,10 @@ Manage customer shipping and billing addresses with contact details.
 - **Contact details on address** — `name`, `email`, and `phone` belong to each address, not the customer account
 - Two address types: `SHIPPING` and `BILLING`
 - Used at checkout via `shippingAddressId` and optional `billingAddressId`
+- **Same as shipping:** set `sameAsBilling: true` when creating a `SHIPPING` address to also create an identical `BILLING` row (uses 2 slots toward the max of 5). At checkout set `billingSameAsShipping: true` (or omit `billingAddressId`) so both order snapshots match.
+- **Different billing:** create a separate address with `type: BILLING`, then pass its id as `billingAddressId` on the order
 - Address snapshots (including name/email/phone) are stored on the order at checkout
+- City/state can be filled from `GET /shipping/pincode/:pincode` ([shipping.md](./shipping.md))
 
 ### Who can access?
 
@@ -83,14 +86,15 @@ Create a new address. Fails with `400` if customer already has 5 addresses.
 | `zipCode` | string | Yes | Max 20 characters |
 | `country` | string | No | Default `IN` |
 | `isDefault` | boolean | No | Default `false` |
+| `sameAsBilling` | boolean | No | When `true` and `type` is `SHIPPING`, also creates an identical `BILLING` address. Response is `{ shipping, billing }`. Requires 2 free address slots. |
 
 ### Errors
 
 | Status | When |
 |--------|------|
-| `400` | Validation failed or max 5 addresses reached |
+| `400` | Validation failed, max 5 addresses reached, or not enough slots for `sameAsBilling` |
 
-### cURL
+### cURL (shipping only)
 
 ```bash
 curl -X POST http://localhost:5000/api/v1/addresses \
@@ -106,6 +110,42 @@ curl -X POST http://localhost:5000/api/v1/addresses \
     "state": "Maharashtra",
     "zipCode": "400001",
     "isDefault": true
+  }'
+```
+
+### cURL (shipping + billing twin)
+
+```bash
+curl -X POST http://localhost:5000/api/v1/addresses \
+  -H "Authorization: Bearer $CUSTOMER_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "SHIPPING",
+    "sameAsBilling": true,
+    "name": "John Doe",
+    "phone": "9876543210",
+    "line1": "123 Main Street",
+    "city": "Mumbai",
+    "state": "Maharashtra",
+    "zipCode": "400001",
+    "isDefault": true
+  }'
+```
+
+### cURL (different billing address)
+
+```bash
+curl -X POST http://localhost:5000/api/v1/addresses \
+  -H "Authorization: Bearer $CUSTOMER_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "BILLING",
+    "name": "John Doe",
+    "phone": "9876543210",
+    "line1": "Office Tower, Floor 12",
+    "city": "Mumbai",
+    "state": "Maharashtra",
+    "zipCode": "400021"
   }'
 ```
 

@@ -222,6 +222,8 @@ export type CreateOrderPayload = {
   useCart?: boolean;
   shippingAddressId: number;
   billingAddressId?: number;
+  /** When true, billing snapshot matches shipping; ignores a different billingAddressId. */
+  billingSameAsShipping?: boolean;
   couponCode?: string;
   referralCode?: string;
   deliveryFloor: number;

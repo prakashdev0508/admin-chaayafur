@@ -532,6 +532,9 @@ export function ProductDetailPage() {
                 />
               )}
               <MetaRow label="Stock" value={`${product.stock} units`} />
+              {product.hsnCode && (
+                <MetaRow label="HSN code" value={product.hsnCode} />
+              )}
               <MetaRow
                 label="Images"
                 value={String(sortedImages.length)}

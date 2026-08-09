@@ -190,7 +190,8 @@ Create an order from frontend cart items. Creates a Razorpay Payment Link for th
 | `items[].polishId` | integer | No | Optional; requires `woodId`; must be an active polish assigned to that product and belonging to that wood |
 | `items[].fabricId` | integer | No | Optional; must be an active fabric **assigned to that product** ([fabrics.md](./fabrics.md)) |
 | `shippingAddressId` | integer | Yes | Customer's own address |
-| `billingAddressId` | integer | No | Defaults to `shippingAddressId` |
+| `billingAddressId` | integer | No | Defaults to `shippingAddressId` when omitted |
+| `billingSameAsShipping` | boolean | No | When `true`, forces billing = shipping (identical snapshots; `billingAddressId` FK stored as `null`). Ignores a different `billingAddressId`. When billing differs, omit this flag and pass the other address id. |
 | `couponCode` | string | No | Max 32 chars; validated server-side |
 | `referralCode` | string | No | Another customer's code; tracking only (no discount). See [referrals.md](./referrals.md) |
 | `deliveryFloor` | integer | Yes | `0` = ground floor (no charge); `1`–`100` = floor number |
