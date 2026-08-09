@@ -11,7 +11,6 @@ import {
   MessageSquareQuote,
   ScrollText,
   Settings,
-  HelpCircle,
   ChevronsUpDown,
   UserPlus,
   Globe,
