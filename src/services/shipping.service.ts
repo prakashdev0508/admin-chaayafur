@@ -3,6 +3,7 @@ import { apiRequest } from "@/lib/api";
 import type { PaginatedResponse } from "@/types/api";
 import type {
   ListPincodesParams,
+  PincodeLookup,
   ShippingPincode,
   ShippingQuote,
   ShippingQuoteParams,
@@ -22,6 +23,14 @@ export function getShippingQuote({
       deliveryFloor,
       liftAccessAvailable,
     })}`,
+    {},
+    false,
+  );
+}
+
+export function lookupPincode(pincode: string) {
+  return apiRequest<PincodeLookup>(
+    `/shipping/pincode/${encodeURIComponent(pincode)}`,
     {},
     false,
   );

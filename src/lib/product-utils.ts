@@ -97,6 +97,7 @@ export function productToFormValues(product: Product): ProductFormValues {
     description: product.description ?? "",
     price: product.price,
     priceWithoutDiscount: product.priceWithoutDiscount ?? "",
+    hsnCode: product.hsnCode ?? "",
     stock: String(product.stock),
     subCategoryId: String(product.subCategoryId),
     isActive: product.isActive,
@@ -180,6 +181,7 @@ export function formValuesToCreatePayload(
     .filter((img): img is ProductImageInput => img !== null);
 
   const mrp = values.priceWithoutDiscount.trim();
+  const hsn = values.hsnCode.trim();
 
   return {
     name: values.name.trim(),
@@ -187,6 +189,7 @@ export function formValuesToCreatePayload(
     description: values.description.trim() || undefined,
     price: parseFloat(values.price),
     priceWithoutDiscount: mrp ? parseFloat(mrp) : null,
+    hsnCode: hsn || null,
     stock: parseInt(values.stock, 10),
     subCategoryId: parseInt(values.subCategoryId, 10),
     isActive: values.isActive,

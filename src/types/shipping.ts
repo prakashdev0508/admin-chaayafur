@@ -34,3 +34,11 @@ export type ShippingQuote = {
   floorDeliveryAmount: string;
   message: string;
 };
+
+/** City/state resolution from `GET /shipping/pincode/:pincode`. */
+export type PincodeLookup = {
+  pincode: string;
+  city: string;
+  state: string;
+  offices: string[];
+};

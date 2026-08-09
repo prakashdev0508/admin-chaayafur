@@ -38,6 +38,10 @@ export function CheckoutPage() {
   const { isAuthenticated } = useCustomerAuth();
   const [loginOpen, setLoginOpen] = useState(!isAuthenticated);
   const [selectedAddressId, setSelectedAddressId] = useState<number | null>(null);
+  const [billingSameAsShipping, setBillingSameAsShipping] = useState(true);
+  const [selectedBillingAddressId, setSelectedBillingAddressId] = useState<
+    number | null
+  >(null);
   const [coupon, setCoupon] = useState<ValidateCouponResponse | null>(null);
   const [referralCode, setReferralCode] = useState<string | null>(() =>
     getStoredReferralCode(),
@@ -101,9 +105,13 @@ export function CheckoutPage() {
     [items],
   );
 
+  const billingReady =
+    billingSameAsShipping || selectedBillingAddressId != null;
+
   const canPlaceOrder =
     isAuthenticated &&
     selectedAddressId &&
+    billingReady &&
     !hasUnavailable &&
     (!shippingQuote || shippingQuote.serviceable);
 
@@ -114,6 +122,11 @@ export function CheckoutPage() {
   async function handlePlaceOrder() {
     if (!selectedAddressId) {
       toast.error("Select a shipping address");
+      return;
+    }
+
+    if (!billingSameAsShipping && !selectedBillingAddressId) {
+      toast.error("Select a billing address");
       return;
     }
 
@@ -135,6 +148,9 @@ export function CheckoutPage() {
         shippingAddressId: selectedAddressId,
         deliveryFloor: floor,
         liftAccessAvailable,
+        ...(billingSameAsShipping
+          ? { billingSameAsShipping: true }
+          : { billingAddressId: selectedBillingAddressId! }),
         ...(coupon ? { couponCode: coupon.code } : {}),
         ...(referralCode ? { referralCode } : {}),
       });
@@ -217,10 +233,33 @@ export function CheckoutPage() {
       <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
         <div className="space-y-6">
           {isAuthenticated ? (
-            <AddressPicker
-              selectedId={selectedAddressId}
-              onSelect={setSelectedAddressId}
-            />
+            <>
+              <AddressPicker
+                type="SHIPPING"
+                selectedId={selectedAddressId}
+                onSelect={setSelectedAddressId}
+              />
+              <div className="flex items-center justify-between gap-3 rounded-xl border border-[#E8DFD3] bg-white px-4 py-3">
+                <div className="space-y-0.5">
+                  <Label htmlFor="billing-same">Billing same as shipping</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Turn off to choose a different billing address
+                  </p>
+                </div>
+                <Switch
+                  id="billing-same"
+                  checked={billingSameAsShipping}
+                  onCheckedChange={setBillingSameAsShipping}
+                />
+              </div>
+              {!billingSameAsShipping && (
+                <AddressPicker
+                  type="BILLING"
+                  selectedId={selectedBillingAddressId}
+                  onSelect={setSelectedBillingAddressId}
+                />
+              )}
+            </>
           ) : (
             <div className="rounded-xl border border-[#E8DFD3] bg-white p-5">
               <p className="text-sm text-muted-foreground">

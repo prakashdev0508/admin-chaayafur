@@ -30,6 +30,7 @@ import {
 import {
   getCustomizationRequestMaterialChips,
   getOrderItemMaterialChips,
+  orderShowsSeparateBilling,
 } from "@/lib/order-customization-materials";
 import { formatOrderAddressRef } from "@/lib/order-utils";
 import { formatCurrency, formatDate } from "@/lib/format";
@@ -183,6 +184,10 @@ export function ShopOrderPage() {
   const deliveryAddress = order.shippingAddressRef
     ? formatOrderAddressRef(order.shippingAddressRef)
     : order.shippingAddress;
+  const billingAddress = order.billingAddressRef
+    ? formatOrderAddressRef(order.billingAddressRef)
+    : order.billingAddress;
+  const showBilling = orderShowsSeparateBilling(order);
   const customization = order.customizationRequest ?? null;
   const customizationMaterials = customization
     ? getCustomizationRequestMaterialChips(customization)
@@ -431,6 +436,24 @@ export function ShopOrderPage() {
             <p className="mt-2 text-sm text-muted-foreground">
               {order.shippingAddressRef.phone}
             </p>
+          )}
+          {showBilling && (
+            <div className="mt-5 border-t border-[#E8DFD3] pt-4">
+              <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                Billing address
+              </p>
+              {order.billingAddressRef && (
+                <p className="mt-2 font-medium">{order.billingAddressRef.name}</p>
+              )}
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                {billingAddress}
+              </p>
+              {order.billingAddressRef?.phone && (
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {order.billingAddressRef.phone}
+                </p>
+              )}
+            </div>
           )}
           {order.invoice && (
             <div className="mt-4 rounded-lg bg-[#F8F1E8] p-3 text-sm">

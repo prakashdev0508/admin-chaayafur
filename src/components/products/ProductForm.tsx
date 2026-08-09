@@ -40,6 +40,7 @@ export const emptyProductFormValues: ProductFormValues = {
   description: "",
   price: "",
   priceWithoutDiscount: "",
+  hsnCode: "",
   stock: "",
   subCategoryId: "",
   isActive: true,
@@ -213,6 +214,10 @@ export function ProductForm({
     }
     if (!values.stock || parseInt(values.stock, 10) < 0)
       return "Valid stock is required";
+    const hsn = values.hsnCode.trim();
+    if (hsn && !/^\d{4,8}$/.test(hsn)) {
+      return "HSN code must be 4–8 digits";
+    }
     if (isImageUploading) return "Wait for image uploads to finish";
     if (values.images.length > 10) {
       return "Maximum 10 images allowed";
@@ -513,6 +518,27 @@ export function ProductForm({
                 step="0.01"
                 className="h-9 tabular-nums"
               />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="hsnCode">HSN code</Label>
+              <Input
+                id="hsnCode"
+                value={values.hsnCode}
+                onChange={(e) =>
+                  updateField(
+                    "hsnCode",
+                    e.target.value.replace(/\D/g, "").slice(0, 8),
+                  )
+                }
+                placeholder="Optional · 4–8 digits"
+                inputMode="numeric"
+                maxLength={8}
+                className="h-9 tabular-nums"
+              />
+              <p className="text-xs text-muted-foreground">
+                Used on tax invoices; falls back to store default when empty.
+              </p>
             </div>
 
             {basePrice > 0 && (

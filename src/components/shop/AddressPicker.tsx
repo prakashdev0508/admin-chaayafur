@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,16 +8,30 @@ import {
   listCustomerAddresses,
 } from "@/services/shop-addresses.service";
 import { queryKeys } from "@/lib/query-keys";
-import type { CustomerAddress } from "@/types/address";
+import {
+  primaryAddressFromCreate,
+  type AddressType,
+  type CustomerAddress,
+} from "@/types/address";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 type AddressPickerProps = {
   selectedId: number | null;
-  onSelect: (addressId: number) => void;
+  onSelect: (addressId: number | null) => void;
+  /** Only list/create addresses of this type. Defaults to SHIPPING. */
+  type?: AddressType;
+  title?: string;
+  emptyMessage?: string;
 };
 
-export function AddressPicker({ selectedId, onSelect }: AddressPickerProps) {
+export function AddressPicker({
+  selectedId,
+  onSelect,
+  type = "SHIPPING",
+  title,
+  emptyMessage,
+}: AddressPickerProps) {
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
 
@@ -28,34 +42,53 @@ export function AddressPicker({ selectedId, onSelect }: AddressPickerProps) {
 
   const createMutation = useMutation({
     mutationFn: createCustomerAddress,
-    onSuccess: (address) => {
+    onSuccess: (result) => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.shop.addresses.all });
-      onSelect(address.id);
+      const primary = primaryAddressFromCreate(result, type);
+      onSelect(primary.id);
       setShowForm(false);
       toast.success("Address saved");
     },
     onError: () => toast.error("Could not save address"),
   });
 
-  const addresses = addressesQuery.data ?? [];
+  const addresses = useMemo(
+    () => (addressesQuery.data ?? []).filter((address) => address.type === type),
+    [addressesQuery.data, type],
+  );
+
+  const totalCount = addressesQuery.data?.length ?? 0;
 
   useEffect(() => {
-    if (!selectedId && addresses.length > 0) {
-      const defaultAddress =
-        addresses.find((address) => address.isDefault) ?? addresses[0];
-      onSelect(defaultAddress.id);
+    if (selectedId != null && addresses.some((a) => a.id === selectedId)) {
+      return;
     }
+    if (addresses.length === 0) {
+      if (selectedId != null) onSelect(null);
+      return;
+    }
+    const defaultAddress =
+      addresses.find((address) => address.isDefault) ?? addresses[0];
+    onSelect(defaultAddress.id);
   }, [addresses, onSelect, selectedId]);
+
+  const heading =
+    title ?? (type === "BILLING" ? "Billing address" : "Shipping address");
+  const empty =
+    emptyMessage ??
+    (type === "BILLING"
+      ? "Add a billing address to continue."
+      : "Add a delivery address to continue checkout.");
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-medium text-[#3D2B1F]">Shipping address</h3>
+        <h3 className="text-lg font-medium text-[#3D2B1F]">{heading}</h3>
         <Button
           variant="outline"
           size="sm"
           onClick={() => setShowForm((value) => !value)}
-          disabled={addresses.length >= 5 && !showForm}
+          disabled={totalCount >= 5 && !showForm}
         >
           <Plus className="size-4" />
           Add address
@@ -65,9 +98,7 @@ export function AddressPicker({ selectedId, onSelect }: AddressPickerProps) {
       {addressesQuery.isLoading ? (
         <p className="text-sm text-muted-foreground">Loading addresses...</p>
       ) : addresses.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          Add a delivery address to continue checkout.
-        </p>
+        <p className="text-sm text-muted-foreground">{empty}</p>
       ) : (
         <div className="grid gap-3">
           {addresses.map((address) => (
@@ -83,10 +114,15 @@ export function AddressPicker({ selectedId, onSelect }: AddressPickerProps) {
 
       {showForm && (
         <ShopAddressForm
+          defaultType={type}
+          lockType
           loading={createMutation.isPending}
           onCancel={() => setShowForm(false)}
           onSubmit={async (payload) => {
-            await createMutation.mutateAsync(payload);
+            await createMutation.mutateAsync({
+              ...payload,
+              type,
+            });
           }}
         />
       )}

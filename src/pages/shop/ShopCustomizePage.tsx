@@ -207,6 +207,7 @@ export function ShopCustomizePage() {
         <div className="space-y-3">
           <Label>Shipping address</Label>
           <AddressPicker
+            type="SHIPPING"
             selectedId={shippingAddressId}
             onSelect={setShippingAddressId}
           />

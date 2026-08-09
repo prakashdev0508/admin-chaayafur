@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { StarRating } from "@/components/reviews/StarRating";
 import { ReviewFormDialog } from "@/components/reviews/ReviewFormDialog";
 import { OTPLoginDialog } from "@/components/shop/OTPLoginDialog";
+import { ProductDescription } from "@/components/shop/ProductDescription";
 import { getProduct } from "@/services/products.service";
 import {
   createProductReview,
@@ -474,9 +475,7 @@ export function ShopProductPage() {
           )}
 
           {product.description && (
-            <p className="max-w-prose text-[15px] leading-relaxed text-[#6B5C4F]">
-              {product.description}
-            </p>
+            <ProductDescription description={product.description} />
           )}
 
           {featurePreview.length > 0 && (

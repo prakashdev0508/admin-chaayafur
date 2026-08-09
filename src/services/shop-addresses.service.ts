@@ -1,6 +1,7 @@
 import { apiRequest } from "@/lib/api";
 import type {
   CreateAddressPayload,
+  CreateAddressResult,
   CustomerAddress,
   UpdateAddressPayload,
 } from "@/types/address";
@@ -10,21 +11,33 @@ export function listCustomerAddresses() {
 }
 
 export function createCustomerAddress(payload: CreateAddressPayload) {
-  return apiRequest<CustomerAddress>("/addresses", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  }, "customer");
+  return apiRequest<CreateAddressResult>(
+    "/addresses",
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+    "customer",
+  );
 }
 
 export function updateCustomerAddress(id: number, payload: UpdateAddressPayload) {
-  return apiRequest<CustomerAddress>(`/addresses/${id}`, {
-    method: "PATCH",
-    body: JSON.stringify(payload),
-  }, "customer");
+  return apiRequest<CustomerAddress>(
+    `/addresses/${id}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    },
+    "customer",
+  );
 }
 
 export function deleteCustomerAddress(id: number) {
-  return apiRequest<void>(`/addresses/${id}`, {
-    method: "DELETE",
-  }, "customer");
+  return apiRequest<void>(
+    `/addresses/${id}`,
+    {
+      method: "DELETE",
+    },
+    "customer",
+  );
 }
