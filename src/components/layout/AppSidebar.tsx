@@ -340,6 +340,8 @@ export function AppSidebar({ onOpenSearch }: AppSidebarProps) {
         ) : null}
       </SidebarContent>
 
+      <hr className="mx-2" />
+
       <SidebarFooter>
         <SidebarMenu>
           {canSearch && onOpenSearch && (
@@ -369,17 +371,7 @@ export function AppSidebar({ onOpenSearch }: AppSidebarProps) {
               />
             </SidebarMenuItem>
           )}
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              tooltip="Get Help"
-              render={
-                <button type="button">
-                  <HelpCircle />
-                  <span>Get Help</span>
-                </button>
-              }
-            />
-          </SidebarMenuItem>
+<hr className="my-1" />
           <SidebarMenuItem>
             <DropdownMenu>
               <DropdownMenuTrigger

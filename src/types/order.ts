@@ -130,6 +130,7 @@ export type OrderListItem = {
   customerId: number;
   customerPhone: string;
   status: OrderStatus;
+  cancellationReason?: string | null;
   totalAmount: string;
   paymentMethod: string;
   createdAt: string;
@@ -147,6 +148,8 @@ export type Order = {
   addressId: number;
   billingAddressId: number | null;
   status: OrderStatus;
+  /** Set when cancelled (staff reason or system message). */
+  cancellationReason?: string | null;
   subtotalAmount: string;
   discountAmount: string;
   shippingAmount?: string;
@@ -208,6 +211,8 @@ export type ListOrdersParams = {
 
 export type UpdateOrderPayload = {
   status?: OrderStatus;
+  /** Required when status is CANCELLED (min 3 chars). */
+  cancellationReason?: string;
   shippingAddressId?: number;
   billingAddressId?: number;
   deliveryFloor?: number;

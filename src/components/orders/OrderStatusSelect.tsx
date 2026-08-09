@@ -9,6 +9,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { StatusBadge } from "@/components/ui/status-badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { CancelOrderDialog } from "@/components/orders/CancelOrderDialog";
 import { usePermission } from "@/hooks/usePermission";
 import {
   getOrderStatusLabel,
@@ -17,6 +23,7 @@ import {
 } from "@/lib/order-status";
 import { PERMISSIONS } from "@/lib/roles";
 import { toOrderStatusSelectItems } from "@/lib/select-items";
+import { isSuperAdminSlug } from "@/lib/staff-utils";
 import { cn } from "@/lib/utils";
 import type { StatusVariant } from "@/lib/status-variants";
 import type { OrderStatus, UpdateOrderPayload } from "@/types/order";
@@ -36,18 +43,26 @@ const capsuleBase =
 
 type OrderStatusSelectProps = {
   status: OrderStatus;
+  orderNumber: string;
   onUpdate: (payload: UpdateOrderPayload) => Promise<unknown>;
   className?: string;
 };
 
 export function OrderStatusSelect({
   status,
+  orderNumber,
   onUpdate,
   className,
 }: OrderStatusSelectProps) {
-  const { hasPermission } = usePermission();
+  const { hasPermission, myPermissions } = usePermission();
   const canUpdate = hasPermission(PERMISSIONS.UPDATE_ORDERS);
+  const isSuperAdmin = isSuperAdminSlug(
+    myPermissions?.roleSlug ?? myPermissions?.role,
+  );
+  /** Cancelled orders are read-only for everyone except SUPER_ADMIN. */
+  const showEditable = canUpdate && (status !== "CANCELLED" || isSuperAdmin);
   const [saving, setSaving] = useState(false);
+  const [cancelOpen, setCancelOpen] = useState(false);
 
   const statusItems = useMemo(
     () => toOrderStatusSelectItems(status),
@@ -55,12 +70,51 @@ export function OrderStatusSelect({
   );
   const variant = getOrderStatusVariant(status);
 
-  if (!canUpdate) {
-    return (
+  if (!showEditable) {
+    const badge = (
       <StatusBadge variant={variant} className={cn("h-7 px-2.5", className)}>
         {getOrderStatusLabel(status)}
       </StatusBadge>
     );
+
+    if (status === "CANCELLED") {
+      return (
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <span className="inline-flex cursor-default outline-none">
+                {badge}
+              </span>
+            }
+          />
+          <TooltipContent side="bottom" className="max-w-[16rem] text-center">
+            To reopen this order, please contact a Super Admin.
+          </TooltipContent>
+        </Tooltip>
+      );
+    }
+
+    return badge;
+  }
+
+  async function applyStatus(
+    next: OrderStatus,
+    extra?: Pick<UpdateOrderPayload, "cancellationReason">,
+  ) {
+    setSaving(true);
+    try {
+      await onUpdate({ status: next, ...extra });
+      toast.success(
+        next === "CANCELLED" ? "Order cancelled" : "Order status updated",
+      );
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to update status",
+      );
+      throw error;
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function handleChange(value: string | null) {
@@ -75,48 +129,59 @@ export function OrderStatusSelect({
       return;
     }
 
-    setSaving(true);
+    if (next === "CANCELLED") {
+      setCancelOpen(true);
+      return;
+    }
+
     try {
-      await onUpdate({ status: next });
-      toast.success("Order status updated");
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Failed to update status",
-      );
-    } finally {
-      setSaving(false);
+      await applyStatus(next);
+    } catch {
+      // toast already shown
     }
   }
 
   return (
-    <Select
-      value={status}
-      onValueChange={(v) => void handleChange(v)}
-      items={statusItems}
-      disabled={saving}
-    >
-      <SelectTrigger
-        className={cn(
-          capsuleBase,
-          capsuleVariantStyles[variant],
-          className,
-        )}
-        aria-label="Order fulfillment status"
+    <>
+      <Select
+        value={status}
+        onValueChange={(v) => void handleChange(v)}
+        items={statusItems}
+        disabled={saving}
       >
-        <SelectValue />
-        {saving ? (
-          <Loader2 className="size-3 shrink-0 animate-spin opacity-70" />
-        ) : (
-          <ChevronDown className="size-3 shrink-0 opacity-70" />
-        )}
-      </SelectTrigger>
-      <SelectContent align="end">
-        {statusItems.map((item) => (
-          <SelectItem key={item.value} value={item.value}>
-            {item.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+        <SelectTrigger
+          className={cn(
+            capsuleBase,
+            capsuleVariantStyles[variant],
+            className,
+          )}
+          aria-label="Order fulfillment status"
+        >
+          <SelectValue />
+          {saving ? (
+            <Loader2 className="size-3 shrink-0 animate-spin opacity-70" />
+          ) : (
+            <ChevronDown className="size-3 shrink-0 opacity-70" />
+          )}
+        </SelectTrigger>
+        <SelectContent align="end">
+          {statusItems.map((item) => (
+            <SelectItem key={item.value} value={item.value}>
+              {item.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      <CancelOrderDialog
+        open={cancelOpen}
+        onOpenChange={setCancelOpen}
+        orderNumber={orderNumber}
+        loading={saving}
+        onConfirm={async (cancellationReason) => {
+          await applyStatus("CANCELLED", { cancellationReason });
+        }}
+      />
+    </>
   );
 }
