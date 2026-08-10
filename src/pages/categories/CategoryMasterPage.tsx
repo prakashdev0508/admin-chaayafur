@@ -180,6 +180,11 @@ export function CategoryMasterPage() {
       return createSubCategory(payload.data as CreateSubCategoryPayload);
     },
     onSuccess: async (saved, variables) => {
+      const resolvedImageUrl =
+        saved.imageUrl ??
+        saved.image?.url ??
+        variables.data.image?.url;
+
       queryClient.setQueryData<CategoryTreeItem[]>(
         queryKeys.categories.adminTree,
         (old) => {
@@ -196,6 +201,7 @@ export function CategoryMasterPage() {
                       heading: saved.heading,
                       description: saved.description ?? null,
                       isActive: saved.isActive,
+                      imageUrl: resolvedImageUrl ?? sub.imageUrl ?? null,
                     }
                   : sub,
               ),
@@ -212,6 +218,7 @@ export function CategoryMasterPage() {
             categoryId: saved.categoryId,
             productsCount: saved.productsCount ?? 0,
             isActive: saved.isActive ?? true,
+            imageUrl: resolvedImageUrl ?? null,
           };
 
           return current.map((category) =>
@@ -653,57 +660,74 @@ export function CategoryMasterPage() {
                           />
                         </div>
                       ) : (
-                        <ul className="divide-y rounded-lg border">
+                        <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                           {visibleSubs.map((sub) => (
                             <li
                               key={sub.id}
                               className={cn(
-                                "flex flex-wrap items-center gap-3 px-4 py-3.5 sm:flex-nowrap",
+                                "overflow-hidden rounded-xl border bg-background transition",
                                 sub.isActive === false && "opacity-60",
                               )}
                             >
-                              <div className="min-w-0 flex-1">
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <p className="leading-tight font-medium">
-                                    {sub.name}
-                                  </p>
+                              <div className="relative aspect-4/3 bg-muted">
+                                {sub.imageUrl ? (
+                                  <img
+                                    src={sub.imageUrl}
+                                    alt=""
+                                    className="absolute inset-0 size-full object-cover"
+                                  />
+                                ) : (
+                                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 text-muted-foreground/60">
+                                    <ImageIcon className="size-7" />
+                                    <span className="text-xs">No image</span>
+                                  </div>
+                                )}
+                                <div className="absolute top-2.5 left-2.5">
                                   <StatusBadge
                                     variant={
                                       sub.isActive === false
                                         ? "warning"
                                         : "success"
                                     }
+                                    className="bg-background/95 shadow-sm"
                                   >
                                     {sub.isActive === false
                                       ? "Inactive"
                                       : "Active"}
                                   </StatusBadge>
                                 </div>
-                                <p className="mt-0.5 font-mono text-xs text-muted-foreground">
-                                  /{sub.slug}
-                                </p>
-                                {sub.heading ? (
-                                  <p className="mt-1 line-clamp-1 text-sm text-muted-foreground">
-                                    {sub.heading}
-                                  </p>
-                                ) : null}
                               </div>
-                              <div className="flex shrink-0 items-center gap-3">
-                                <span className="text-sm text-muted-foreground tabular-nums">
-                                  {sub.productsCount ?? 0} products
-                                </span>
-                                {canUpdate ? (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() =>
-                                      setSubDialog({ open: true, sub })
-                                    }
-                                  >
-                                    <Pencil className="size-3.5" />
-                                    Edit
-                                  </Button>
-                                ) : null}
+                              <div className="flex flex-col gap-3 p-3.5">
+                                <div className="min-w-0">
+                                  <p className="truncate leading-tight font-medium">
+                                    {sub.name}
+                                  </p>
+                                  <p className="mt-0.5 truncate font-mono text-xs text-muted-foreground">
+                                    /{sub.slug}
+                                  </p>
+                                  {sub.heading ? (
+                                    <p className="mt-1.5 line-clamp-1 text-sm text-muted-foreground">
+                                      {sub.heading}
+                                    </p>
+                                  ) : null}
+                                </div>
+                                <div className="flex items-center justify-between gap-2 border-t pt-3">
+                                  <span className="text-sm text-muted-foreground tabular-nums">
+                                    {sub.productsCount ?? 0} products
+                                  </span>
+                                  {canUpdate ? (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() =>
+                                        setSubDialog({ open: true, sub })
+                                      }
+                                    >
+                                      <Pencil className="size-3.5" />
+                                      Edit
+                                    </Button>
+                                  ) : null}
+                                </div>
                               </div>
                             </li>
                           ))}

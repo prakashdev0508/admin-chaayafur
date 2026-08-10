@@ -19,8 +19,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { SubCategoryImageUploader } from "@/components/categories/SubCategoryImageUploader";
 import { slugify } from "@/lib/product-utils";
 import type {
+  CategoryImageInput,
   CategoryTreeItem,
   CreateSubCategoryPayload,
   SubCategoryTreeItem,
@@ -56,6 +58,7 @@ export function SubCategoryFormDialog({
   const [heading, setHeading] = useState(initial?.heading ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
   const [isActive, setIsActive] = useState(initial?.isActive ?? true);
+  const [image, setImage] = useState<CategoryImageInput | null>(null);
   const [slugTouched, setSlugTouched] = useState(false);
 
   useEffect(() => {
@@ -68,6 +71,7 @@ export function SubCategoryFormDialog({
       setHeading(initial?.heading ?? "");
       setDescription(initial?.description ?? "");
       setIsActive(initial?.isActive ?? true);
+      setImage(initial?.imageUrl ? { url: initial.imageUrl } : null);
       setSlugTouched(false);
     }
   }, [open, initial, defaultCategoryId, categories]);
@@ -95,6 +99,14 @@ export function SubCategoryFormDialog({
       heading: heading.trim() || undefined,
       description: description.trim() || undefined,
       isActive,
+      ...(image?.url
+        ? {
+            image: {
+              url: image.url,
+              ...(image.storageKey ? { storageKey: image.storageKey } : {}),
+            },
+          }
+        : {}),
     };
 
     if (initial) {
@@ -110,7 +122,7 @@ export function SubCategoryFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>
             {initial ? "Edit sub-category" : "Add sub-category"}
@@ -141,28 +153,30 @@ export function SubCategoryFormDialog({
               </Select>
             </div>
           )}
-          <div className="space-y-2">
-            <Label htmlFor="sub-name">Name</Label>
-            <Input
-              id="sub-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Beds"
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="sub-slug">Slug</Label>
-            <Input
-              id="sub-slug"
-              value={slug}
-              onChange={(e) => {
-                setSlugTouched(true);
-                setSlug(e.target.value);
-              }}
-              placeholder="beds"
-              required
-            />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="sub-name">Name</Label>
+              <Input
+                id="sub-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Beds"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="sub-slug">Slug</Label>
+              <Input
+                id="sub-slug"
+                value={slug}
+                onChange={(e) => {
+                  setSlugTouched(true);
+                  setSlug(e.target.value);
+                }}
+                placeholder="beds"
+                required
+              />
+            </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="sub-heading">Heading</Label>
@@ -182,6 +196,14 @@ export function SubCategoryFormDialog({
               rows={3}
             />
           </div>
+
+          <SubCategoryImageUploader
+            image={image}
+            previewUrl={initial?.imageUrl}
+            onChange={setImage}
+            disabled={loading}
+          />
+
           <div className="flex items-center justify-between rounded-lg border px-3 py-2.5">
             <div className="space-y-0.5">
               <Label htmlFor="sub-active">Active on storefront</Label>

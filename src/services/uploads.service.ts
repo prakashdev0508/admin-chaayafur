@@ -100,6 +100,16 @@ export function uploadCategoryImage(file: File) {
   ).then(normalizeUploadResponse);
 }
 
+export function uploadSubCategoryImage(file: File) {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  return apiFormRequest<UploadApiResult | UploadApiResult[]>(
+    "/uploads/sub-category-images",
+    formData,
+  ).then(normalizeUploadResponse);
+}
+
 export function uploadBannerImage(file: File) {
   const formData = new FormData();
   formData.append("file", file);
