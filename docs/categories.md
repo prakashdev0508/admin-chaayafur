@@ -19,6 +19,7 @@ Category (top-level)  →  SubCategory  →  Product
 - **`isActive`** — hide categories/sub-categories from the public tree without deleting them
 - **`isSignatureCollection`** — CMS flag for featured/signature collections; filter with `GET /categories?isSignatureCollection=true`
 - **Category image** — optional single image via [uploads.md](./uploads.md) (`POST /uploads/category-images`), then attach on create/update
+- **Sub-category image** — optional single image via [uploads.md](./uploads.md) (`POST /uploads/sub-category-images`), then attach on create/update
 - **No delete endpoints** — update records as needed; set `isActive: false` to deactivate
 
 ### Who can access?
@@ -32,6 +33,7 @@ Category (top-level)  →  SubCategory  →  Product
 | `GET /categories/:id` | `view-categories` | Yes | Yes | Yes |
 | `PATCH /categories/:id` | `update-categories` | Yes | Yes | No |
 | `POST /uploads/category-images` | `create-categories` **or** `update-categories` | Yes | Yes | No |
+| `POST /uploads/sub-category-images` | `create-categories` **or** `update-categories` | Yes | Yes | No |
 | `POST /sub-categories` | `create-categories` | Yes | Yes | No |
 | `GET /sub-categories` | `view-categories` | Yes | Yes | Yes |
 | `GET /sub-categories/:id` | `view-categories` | Yes | Yes | Yes |
@@ -94,7 +96,7 @@ Category (top-level)  →  SubCategory  →  Product
 | **Auth** | Public — no Bearer token required |
 | **Status** | `200` |
 
-Returns **active** top-level categories with nested **active** sub-categories, sorted by latest `updatedAt` first (for storefront navigation). Includes `isSignatureCollection` and `imageUrl`.
+Returns **active** top-level categories with nested **active** sub-categories, sorted by latest `updatedAt` first (for storefront navigation). Includes `isSignatureCollection` and `imageUrl` on categories and sub-categories.
 
 ```json
 {
@@ -115,6 +117,7 @@ Returns **active** top-level categories with nested **active** sub-categories, s
           "heading": "Beds",
           "description": "Beds · Beds",
           "categoryId": 1,
+          "imageUrl": "https://cdn.example.com/sub-categories/beds.webp",
           "productsCount": 0
         }
       ]
@@ -160,6 +163,7 @@ Returns **all** categories and sub-categories, including inactive records. Sorte
           "heading": "Beds",
           "description": "Beds · Beds",
           "categoryId": 1,
+          "imageUrl": null,
           "productsCount": 0,
           "isActive": false,
           "updatedAt": "2026-07-13T09:30:00.000Z"
@@ -206,7 +210,11 @@ Use `PATCH /api/v1/categories/:id` or `PATCH /api/v1/sub-categories/:id`:
   "slug": "beds",
   "categoryId": 1,
   "heading": "Beds",
-  "description": "Beds · Beds"
+  "description": "Beds · Beds",
+  "image": {
+    "url": "https://cdn.example.com/sub-categories/beds.webp",
+    "storageKey": "sub-categories/2026/08/uuid.webp"
+  }
 }
 ```
 
@@ -218,6 +226,7 @@ Use `PATCH /api/v1/categories/:id` or `PATCH /api/v1/sub-categories/:id`:
 | `heading` | string | No | Navigation column group |
 | `description` | string | No | — |
 | `isActive` | boolean | No (default `true`) |
+| `image` | object | No | `{ url, storageKey? }` from [uploads.md](./uploads.md) |
 
 ### GET /api/v1/sub-categories
 
@@ -250,6 +259,10 @@ curl "http://localhost:5000/api/v1/sub-categories?categoryId=1&limit=50" \
     "description": "Beds · Beds",
     "categoryId": 1,
     "isActive": true,
+    "image": {
+      "url": "https://cdn.example.com/sub-categories/beds.webp",
+      "storageKey": "sub-categories/2026/08/uuid.webp"
+    },
     "category": {
       "id": 1,
       "name": "Bedroom",

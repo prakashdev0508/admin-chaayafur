@@ -29,6 +29,9 @@ export type SubCategory = {
     slug: string;
   };
   isActive?: boolean;
+  /** Present on tree responses; detail may use nested `image` instead */
+  imageUrl?: string | null;
+  image?: CategoryImageInput | null;
   productsCount?: number;
   createdAt?: string;
   updatedAt?: string;
@@ -42,6 +45,7 @@ export type SubCategoryTreeItem = {
   description?: string | null;
   categoryId: number;
   isActive?: boolean;
+  imageUrl?: string | null;
   productsCount?: number;
   updatedAt?: string;
 };
@@ -68,6 +72,7 @@ export type CreateSubCategoryPayload = {
   heading?: string;
   description?: string;
   isActive?: boolean;
+  image?: CategoryImageInput;
 };
 
 export type UpdateSubCategoryPayload = Partial<
