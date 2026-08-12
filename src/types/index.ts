@@ -80,7 +80,15 @@ export type {
   ListAuditLogsParams,
 } from "@/types/audit-log";
 
-export type { InvoiceLineItem, Invoice, InvoiceEmailResult } from "@/types/invoice";
+export type {
+  InvoiceType,
+  InvoiceGenerateType,
+  InvoiceLineItem,
+  Invoice,
+  OrderInvoices,
+  GenerateInvoicePayload,
+  InvoiceEmailResult,
+} from "@/types/invoice";
 
 export type {
   SocialLinks,

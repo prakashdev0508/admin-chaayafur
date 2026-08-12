@@ -1,6 +1,6 @@
 import { apiRequest } from "@/lib/api";
 import type { PaginatedResponse } from "@/types/api";
-import type { Invoice } from "@/types/invoice";
+import type { InvoiceGenerateType, OrderInvoices } from "@/types/invoice";
 import type {
   CreateOrderPayload,
   ListOrdersParams,
@@ -44,5 +44,17 @@ export function getShopOrderTracking(id: number) {
 }
 
 export function getShopOrderInvoice(orderId: number) {
-  return apiRequest<Invoice>(`/orders/${orderId}/invoice`, {}, "customer");
+  return apiRequest<OrderInvoices>(
+    `/orders/${orderId}/invoice`,
+    {},
+    "customer",
+  );
+}
+
+export function getShopOrderInvoicePdfUrl(
+  orderId: number,
+  invoiceType: InvoiceGenerateType = "txi",
+) {
+  const baseUrl = import.meta.env.VITE_BASE_URL?.replace(/\/$/, "") ?? "";
+  return `${baseUrl}/orders/${orderId}/invoice/pdf?invoiceType=${invoiceType}`;
 }

@@ -1,6 +1,6 @@
 # Invoices API
 
-JSON invoice snapshots for confirmed orders, plus downloadable PDF stored on Cloudflare R2.
+JSON invoice snapshots for confirmed orders, plus downloadable PDFs stored on Cloudflare R2. Each order can have **two** invoices: a **Performa** invoice when payment is received, and a **Tax invoice** when the order is delivered.
 
 [← Back to index](./README.md) · [Orders](./orders.md) · [Payments](./payments.md) · [Site Settings](./site-settings.md)
 
@@ -8,28 +8,63 @@ JSON invoice snapshots for confirmed orders, plus downloadable PDF stored on Clo
 
 ## Overview
 
-- Invoices are **auto-generated** when an order is confirmed via Razorpay payment webhook (not when staff confirms via admin PATCH)
-- Staff can create/refresh an invoice with `POST /orders/:id/invoice/generate`, or email it with `POST /orders/:id/invoice/email`
-- Generation is **idempotent** — calling confirm/payment complete twice does not create duplicate invoices
-- On generate/regenerate, a **PDF** is built with `pdfkit`, uploaded to R2 (`invoices/{year}/{month}/…`), and linked via `pdfUrl`
-- PDF layout matches a branded Magento-style invoice: logo + store header, brown/charcoal hero bar, bill-to block, items table, totals, thank-you footer
-- Logo comes from **site settings** (`logoStorageKey` / `logoUrl`); WebP logos are converted to PNG for PDFKit; brand contact/GSTIN/support email also come from settings
-- Theme colors are brown (`#8B5E3C`) + charcoal — not yellow
+### Invoice types
+
+| Type | DB enum | Number prefix | When generated | Template |
+|------|---------|---------------|----------------|----------|
+| **Performa** | `PERFORMA` | `PF-YYYYMMDD-XXXX` | Order becomes `CONFIRMED` (payment received) | `performa-invoice.html` |
+| **Tax** | `TAX` | `TXI-YYYYMMDD-XXXX` | Order becomes `DELIVERED` | `tax-invoice.html` |
+
+Each order stores at most one row per type (`@@unique([orderId, invoiceType])`). Both have their own `pdfUrl` / `pdfStorageKey`.
+
+### Auto-generation (background worker)
+
+Invoice PDFs are **not** generated inline in the HTTP request. Instead, the API enqueues an `invoice_jobs` row and a background worker renders/uploads the PDF.
+
+| Trigger | Invoice type enqueued |
+|---------|----------------------|
+| Razorpay paid webhook (`PENDING` → `CONFIRMED`) | Performa (`PERFORMA`) |
+| Staff `PATCH` order → `CONFIRMED` | Performa (`PERFORMA`) |
+| Staff `PATCH` order → `DELIVERED` | Tax (`TAX`) |
+| Staff edits items / floor on a confirmed order (before delivery) when an invoice already exists | Performa refresh (`force: true`) |
+
+Worker behaviour (same pattern as [upload-jobs.md](./upload-jobs.md)):
+
+- Poll interval: **10 seconds**
+- Max attempts per job: **3** (failed jobs are requeued until attempts exhausted)
+- Stale `PROCESSING` jobs (> 15 minutes) are requeued; after 3 attempts they become `FAILED`
+- Disable on secondary instances: `INVOICE_JOB_WORKER_ENABLED=false`
+
+Staff can still **manually** generate/refresh either type via `POST /orders/:id/invoice/generate` (synchronous — bypasses the queue).
+
+### PDF rendering
+
+- Both templates are rendered via Chromium (`puppeteer-core` + `@sparticuz/chromium` on serverless), uploaded to R2 (`invoices/{year}/{month}/…`), and linked via `pdfUrl`
+- Logo, phone, email, showroom address, and GSTIN come from **site settings**; legal company name, PAN, website, HSN, GST rate, and terms come from **invoice env config** (see `.env.example`)
+- Made in India logo is loaded from `public/madeinindia.png`
+- Static décor assets live under `src/modules/invoices/templates/assets/` (`bill-decor.png`, `ship-decor.png`, `quality-badge.png`) and are injected as data URIs at PDF render time
+- Invoice text uses bundled **Noto Sans** (`templates/assets/fonts/`) via `@font-face` data URIs; PDF generation waits for `document.fonts.ready` before capture
+- Layout is **compact** (smaller logo/header) on both templates
+- **No signature image** — both templates show: *This is a computer generated Invoice*
+- Bank details and QR code blocks are **not** shown; footer social glyphs are visual-only
+
+### Performa vs Tax template differences
+
+| Feature | Performa (`PF`) | Tax (`TXI`) |
+|---------|-----------------|-------------|
+| Title | PERFORMA INVOICE | TAX INVOICE |
+| Line-item columns | Item Description, EDD, HSN Code, Tax %, Qty, Net Value, Total | S. No., Description, HSN, Qty, Unit, Rate, Taxable Value, GST rate/amount, Total |
+| EDD column | Order `createdAt` (formatted) | — |
+| Tax summary | **Total Tax** only (no CGST/SGST split) | Total Taxable Value + CGST + SGST |
+| Signature | Computer-generated text | Computer-generated text |
+
+### Pricing / tax math
+
+- Product prices are treated as **GST-inclusive** by default (`INVOICE_GST_RATE`, default `18`) so taxable value / CGST / SGST are reverse-calculated for the PDF
+- The invoice JSON snapshot `taxAmount` field remains `0` (tax is computed at render time)
+- Shipping and floor-delivery charges appear as extra line items when non-zero; discounts reduce taxable/GST before the grand total
 - Invoice data is a **snapshot** at generation time (billing address, line items, prices)
-- Line items include customization names and **product-level price adjustments** snapped from the order (`woodPriceAdjustment`, `polishPriceAdjustment`, `fabricPriceAdjustment`)
-- PDF secondary line shows wood / polish / fabric with `+₹` when an adjustment is non-zero
-- `totalAmount` = subtotal − discount + shipping + floor delivery + tax
-- Floor delivery charge (`floorDeliveryAmount`) is snapshotted from the order (`deliveryFloor ×` site rate) and shown on the PDF totals
-- Invoice numbers follow the format `INV-YYYYMMDD-XXXX` (sequential per day)
-
-### When is an invoice created?
-
-| Trigger | Example |
-|---------|---------|
-| Razorpay paid webhook | Auto-confirms `PENDING` order → invoice generated |
-| Staff `POST /orders/:id/invoice/generate` | Manual create/refresh + PDF upload |
-| Staff `POST /orders/:id/invoice/email` | Creates invoice if missing, then emails PDF |
-| Staff sets order status to `CONFIRMED` | **Does not** auto-generate an invoice |
+- Line items include customization names and **product-level price adjustments** snapped from the order
 
 ### Who can access?
 
@@ -53,16 +88,137 @@ JSON invoice snapshots for confirmed orders, plus downloadable PDF stored on Clo
 
 ---
 
-## POST /api/v1/orders/:id/invoice/email
+## GET /api/v1/orders/:id/invoice
 
-Create the invoice (and PDF) if missing, then email the PDF to the customer’s shipping/billing address email.
+Returns **both** invoice types for an order. Either (or both) may be `null` if not yet generated.
+
+| | |
+|---|---|
+| **Auth** | Bearer (customer or staff JWT) |
+| **Status** | `200` or `404` when neither invoice exists |
+
+### Success response
+
+```json
+{
+  "success": true,
+  "data": {
+    "performa": {
+      "id": 1,
+      "orderId": 1,
+      "invoiceType": "PERFORMA",
+      "invoiceNumber": "PF-20260710-0001",
+      "issuedAt": "2026-07-10T12:08:00.000Z",
+      "billingName": "John Doe",
+      "billingAddress": "456 Business Park, Mumbai, Maharashtra, 400002, IN",
+      "subtotal": "5000.00",
+      "discountAmount": "500.00",
+      "shippingAmount": "499.00",
+      "deliveryFloor": 3,
+      "liftAccessAvailable": false,
+      "floorDeliveryAmount": "900.00",
+      "taxAmount": "0.00",
+      "totalAmount": "5899.00",
+      "pdfUrl": "https://cdn.example.com/invoices/2026/07/uuid-pf.pdf",
+      "lineItems": [ "..." ],
+      "createdAt": "2026-07-10T12:08:00.000Z",
+      "updatedAt": "2026-07-10T12:08:00.000Z",
+      "order": {
+        "orderNumber": "ORD-20260710-0001",
+        "customer": { "id": 1, "phone": "+919876543210" }
+      }
+    },
+    "tax": null
+  }
+}
+```
+
+After delivery, `tax` is populated with `invoiceType: "TAX"` and `invoiceNumber` like `TXI-20260715-0001`.
+
+### Line item fields
+
+| Field | Description |
+|-------|-------------|
+| `name` | Product name with selected customizations in parentheses when present |
+| `unitPrice` | Captured order line unit price (base + adjustments) |
+| `hsnCode` | Product HSN when set; template falls back to `INVOICE_HSN` |
+| `woodName` / `polishName` / `fabricName` | Selected option names (or `null`) |
+| `woodPriceAdjustment` / `polishPriceAdjustment` / `fabricPriceAdjustment` | Snapshotted product-level adjustments |
+
+---
+
+## POST /api/v1/orders/:id/invoice/generate
+
+Generate or refresh a **single** invoice type synchronously (creates snapshot + uploads PDF immediately).
 
 | | |
 |---|---|
 | **Auth** | Staff Bearer (`update-orders`) |
 | **Status** | `200` |
 
-- Creates invoice snapshot if none exists
+### Request body (required)
+
+```json
+{
+  "invoiceType": "pf"
+}
+```
+
+| `invoiceType` | Maps to |
+|---------------|---------|
+| `"pf"` | Performa (`PERFORMA`) |
+| `"txi"` | Tax (`TAX`) |
+
+Returns `400` if `invoiceType` is missing or not one of `pf` / `txi`.
+
+- Creates the invoice if missing; regenerates snapshot if one already exists
+- Always re-uploads a new PDF (`pdfUrl` / `pdfStorageKey` updated; previous R2 object deleted when replaced)
+- Requires R2 env vars (`503` if storage is not configured)
+
+```bash
+# Performa
+curl -X POST http://localhost:5000/api/v1/orders/1/invoice/generate \
+  -H "Authorization: Bearer $STAFF_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"invoiceType":"pf"}'
+
+# Tax invoice
+curl -X POST http://localhost:5000/api/v1/orders/1/invoice/generate \
+  -H "Authorization: Bearer $STAFF_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"invoiceType":"txi"}'
+```
+
+### Success response
+
+Single invoice object (same shape as each entry in `GET /orders/:id/invoice`):
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": 2,
+    "orderId": 1,
+    "invoiceType": "TAX",
+    "invoiceNumber": "TXI-20260715-0001",
+    "pdfUrl": "https://cdn.example.com/invoices/2026/07/uuid-txi.pdf",
+    "totalAmount": "5899.00"
+  }
+}
+```
+
+---
+
+## POST /api/v1/orders/:id/invoice/email
+
+Create the **tax** invoice (and PDF) if missing, then email the PDF to the customer’s shipping/billing address email.
+
+| | |
+|---|---|
+| **Auth** | Staff Bearer (`update-orders`) |
+| **Status** | `200` |
+
+- Creates/regenerates the **Tax (`TXI`)** invoice only
 - Builds/uploads PDF when possible (R2)
 - Sends Resend email with PDF attached (+ download link when `pdfUrl` is available)
 - Returns `400` if the order has no customer email on shipping/billing address
@@ -81,7 +237,7 @@ curl -X POST http://localhost:5000/api/v1/orders/1/invoice/email \
     "sent": true,
     "orderId": 1,
     "orderNumber": "ORD-20260716-0001",
-    "invoiceNumber": "INV-20260716-0001",
+    "invoiceNumber": "TXI-20260716-0001",
     "to": "priya@example.com",
     "pdfUrl": "https://cdn.example.com/invoices/2026/07/uuid.pdf"
   }
@@ -90,124 +246,26 @@ curl -X POST http://localhost:5000/api/v1/orders/1/invoice/email \
 
 ---
 
-## POST /api/v1/orders/:id/invoice/generate
-
-Generate or refresh the invoice snapshot, build a PDF with `pdfkit`, upload it to Cloudflare R2, and return the invoice including `pdfUrl`.
-
-| | |
-|---|---|
-| **Auth** | Staff Bearer (`update-orders`) |
-| **Status** | `200` |
-
-- Creates the invoice if missing; regenerates snapshot if one already exists
-- Always re-uploads a new PDF (`pdfUrl` / `pdfStorageKey` updated; previous R2 object deleted when replaced)
-- If an older invoice has `pdfUrl` but a missing `pdfStorageKey`, the previous object key is derived from the public URL when possible
-- Requires R2 env vars (`503` if storage is not configured)
-
-```bash
-curl -X POST http://localhost:5000/api/v1/orders/1/invoice/generate \
-  -H "Authorization: Bearer $STAFF_TOKEN"
-```
-
-### Success response
-
-Same shape as `GET /orders/:id/invoice`, with a non-null `pdfUrl`:
-
-```json
-{
-  "success": true,
-  "data": {
-    "id": 1,
-    "orderId": 1,
-    "invoiceNumber": "INV-20260714-0001",
-    "pdfUrl": "https://cdn.example.com/invoices/2026/07/uuid.pdf",
-    "totalAmount": "14999.00"
-  }
-}
-```
-
----
-
-## GET /api/v1/orders/:id/invoice
-
-Get the JSON invoice for an order.
-
-| | |
-|---|---|
-| **Auth** | Bearer (customer or staff JWT) |
-| **Status** | `200` |
-
-### Success response
-
-```json
-{
-  "success": true,
-  "data": {
-    "id": 1,
-    "orderId": 1,
-    "invoiceNumber": "INV-20260710-0001",
-    "issuedAt": "2026-07-10T12:30:00.000Z",
-    "billingName": "John Doe",
-    "billingAddress": "456 Business Park, Mumbai, Maharashtra, 400002, IN",
-    "subtotal": "5000.00",
-    "discountAmount": "500.00",
-    "shippingAmount": "499.00",
-    "deliveryFloor": 3,
-    "floorDeliveryAmount": "900.00",
-    "taxAmount": "0.00",
-    "totalAmount": "5899.00",
-    "pdfUrl": "https://cdn.example.com/invoices/2026/07/uuid.pdf",
-    "lineItems": [
-      {
-        "productId": 1,
-        "name": "Dining Table (Sheesham / Matte / Linen Beige)",
-        "slug": "dining-table",
-        "quantity": 2,
-        "unitPrice": "30000.00",
-        "lineTotal": "60000.00",
-        "woodName": "Sheesham",
-        "woodColor": "#8B5E3C",
-        "woodPriceAdjustment": "3000.00",
-        "polishName": "Matte",
-        "polishColor": "#E8E8E8",
-        "polishPriceAdjustment": "500.00",
-        "fabricName": "Linen Beige",
-        "fabricColor": "#D4C4A8",
-        "fabricPriceAdjustment": "1500.00"
-      }
-    ],
-    "createdAt": "2026-07-10T12:30:00.000Z",
-    "updatedAt": "2026-07-10T12:30:00.000Z",
-    "order": {
-      "orderNumber": "ORD-20260710-0001",
-      "customer": {
-        "id": 1,
-        "phone": "+919876543210"
-      }
-    }
-  }
-}
-```
-
-### Line item fields
-
-| Field | Description |
-|-------|-------------|
-| `name` | Product name with selected customizations in parentheses when present |
-| `unitPrice` | Captured order line unit price (base + adjustments) |
-| `woodName` / `polishName` / `fabricName` | Selected option names (or `null`) |
-| `woodPriceAdjustment` / `polishPriceAdjustment` / `fabricPriceAdjustment` | Snapshotted product-level adjustments |
-
----
-
 ## GET /api/v1/orders/:id/invoice/pdf
 
-Redirects to the public R2 PDF URL. If an older invoice has no PDF yet, the API generates and uploads one on demand (requires R2 configured).
+Redirects to the public R2 PDF URL. If the requested invoice has no PDF yet, the API generates and uploads one on demand (requires R2 configured).
+
+### Query parameters
+
+| Param | Required | Values | Default |
+|-------|----------|--------|---------|
+| `invoiceType` | No | `pf` (Performa) or `txi` (Tax) | `txi` |
 
 ```bash
-curl -L http://localhost:5000/api/v1/orders/1/invoice/pdf \
+# Tax invoice (default)
+curl -L "http://localhost:5000/api/v1/orders/1/invoice/pdf" \
   -H "Authorization: Bearer $CUSTOMER_TOKEN" \
-  -o invoice.pdf
+  -o tax-invoice.pdf
+
+# Performa invoice
+curl -L "http://localhost:5000/api/v1/orders/1/invoice/pdf?invoiceType=pf" \
+  -H "Authorization: Bearer $CUSTOMER_TOKEN" \
+  -o performa-invoice.pdf
 ```
 
 ### Errors
@@ -215,4 +273,35 @@ curl -L http://localhost:5000/api/v1/orders/1/invoice/pdf \
 | Status | When |
 |--------|------|
 | `403` | Customer accessing another customer's invoice |
-| `404` | Order not confirmed / invoice missing, or PDF unavailable (e.g. R2 not configured) |
+| `404` | Invoice missing for requested type, or PDF unavailable (e.g. R2 not configured) |
+
+---
+
+## Environment
+
+```env
+# Invoice PDF templates (see .env.example for full list)
+INVOICE_COMPANY_NAME=FURNITURES TALES INDIA PRIVATE LIMITED
+INVOICE_GST_RATE=18
+INVOICE_PRICES_TAX_INCLUSIVE=true
+
+# Background worker (default: enabled)
+INVOICE_JOB_WORKER_ENABLED=true
+```
+
+---
+
+## Order detail embed
+
+`GET /orders/:id` includes a compact `invoice` summary for the **tax** invoice only (when it exists):
+
+```json
+"invoice": {
+  "id": 2,
+  "invoiceNumber": "TXI-20260715-0001",
+  "issuedAt": "2026-07-15T10:00:00.000Z",
+  "totalAmount": "5899.00"
+}
+```
+
+Use `GET /orders/:id/invoice` for both Performa and Tax JSON payloads.

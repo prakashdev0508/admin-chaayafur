@@ -84,7 +84,7 @@ Order (PENDING) + Payment (PENDING) + stock decremented + Razorpay link
         ↓
 Customer pays via paymentLinkUrl
         ↓
-Razorpay webhook → Order CONFIRMED + invoice (or CANCELLED + stock restored)
+Razorpay webhook → Order CONFIRMED + Performa invoice job (or CANCELLED + stock restored)
 ```
 
 ### Order statuses
@@ -92,11 +92,11 @@ Razorpay webhook → Order CONFIRMED + invoice (or CANCELLED + stock restored)
 | Status | Description |
 |--------|-------------|
 | `PENDING` | New order, awaiting Razorpay payment |
-| `CONFIRMED` | Payment received; invoice generated on payment webhook (not on staff confirm) |
+| `CONFIRMED` | Payment received; **Performa** invoice (`PF-…`) enqueued on payment webhook or staff confirm |
 | `UNDER_PRODUCTION` | Product is under production / manufacturing |
 | `PACKING` | Product packing in progress |
 | `SHIPPED` | Order shipped |
-| `DELIVERED` | Order delivered |
+| `DELIVERED` | Order delivered; **Tax** invoice (`TXI-…`) enqueued |
 | `REFUND_INITIATED` | Legacy enum value — refunds no longer set this; use `Refund.status` / `?refundStatus=` |
 | `PARTIALLY_REFUNDED` | Legacy enum value — refunds no longer set this |
 | `REFUNDED` | Legacy enum value — full refund sets `Payment.status = REFUNDED` only; order status stays operational |
@@ -498,12 +498,7 @@ Same structure as [POST /orders](#post-apiv1orders) success response. After paym
       "createdAt": "2026-07-10T12:00:00.000Z",
       "updatedAt": "2026-07-10T12:08:00.000Z"
     },
-    "invoice": {
-      "id": 1,
-      "invoiceNumber": "INV-20260710-0001",
-      "issuedAt": "2026-07-10T12:08:00.000Z",
-      "totalAmount": "4500.00"
-    }
+    "invoice": null
   }
 }
 ```
@@ -662,9 +657,10 @@ All fields optional; at least one required.
 
 | Change | Effect |
 |--------|--------|
-| → `CONFIRMED` | Order-received email sent; invoice is **not** auto-generated (use generate/email APIs) |
+| → `CONFIRMED` | Order-received email sent; **Performa** invoice job enqueued |
+| → `DELIVERED` | Delivered email sent; **Tax** invoice job enqueued |
 | → `CANCELLED` | Requires `cancellationReason`; stock restored for all line items; cancelled email sent |
-| `items` changed on confirmed order with invoice | Invoice regenerated |
+| `items` / floor changed on confirmed order (before delivery) with invoice | **Performa** invoice job enqueued (`force`) |
 | `items` changed | `totalAmount` and `payment.amount` recalculated; stock delta applied |
 
 ### Audit
@@ -734,52 +730,15 @@ See [admin-audit-logs.md](./admin-audit-logs.md) for full audit log documentatio
 
 ## GET /api/v1/orders/:id/invoice
 
-JSON invoice snapshot for a confirmed order. Returns `404` if no invoice exists yet (order still `PENDING`).
+Returns **both** invoice types (`performa` and `tax`) for a confirmed order. Either may be `null` until generated. Returns `404` when neither exists.
 
 | | |
 |---|---|
 | **Auth** | Bearer (customer or staff JWT) |
 | **Permission** | Staff: `view-orders`; customer: own order only |
-| **Status** | `200` |
+| **Status** | `200` or `404` |
 
-### Success response `200`
-
-```json
-{
-  "success": true,
-  "data": {
-    "id": 1,
-    "orderId": 1,
-    "invoiceNumber": "INV-20260710-0001",
-    "issuedAt": "2026-07-10T12:08:00.000Z",
-    "billingName": "John Doe",
-    "billingAddress": "456 Business Park, Mumbai, Maharashtra, 400002, IN",
-    "subtotal": "5000.00",
-    "discountAmount": "500.00",
-    "taxAmount": "0.00",
-    "totalAmount": "4500.00",
-    "lineItems": [
-      {
-        "productId": 1,
-        "name": "Oak Dining Table",
-        "slug": "oak-dining-table",
-        "quantity": 2,
-        "unitPrice": "2500.00",
-        "lineTotal": "5000.00"
-      }
-    ],
-    "createdAt": "2026-07-10T12:08:00.000Z",
-    "updatedAt": "2026-07-10T12:08:00.000Z",
-    "order": {
-      "orderNumber": "ORD-20260710-0001",
-      "customer": { "id": 1, "phone": "9876543210" }
-    }
-  }
-}
-```
-
-See [invoices.md](./invoices.md) for full invoice documentation, including
-`POST /orders/:id/invoice/generate` and `POST /orders/:id/invoice/email`.
+See [invoices.md](./invoices.md) for full request/response examples, `POST /orders/:id/invoice/generate` (`invoiceType`: `pf` \| `txi`), `POST /orders/:id/invoice/email`, and `GET /orders/:id/invoice/pdf?invoiceType=pf|txi`.
 
 ---
 
@@ -909,14 +868,16 @@ See [reviews.md](./reviews.md) for create/update APIs. Reviews appear only after
 
 ### `invoice` summary (embedded on order detail)
 
+Compact summary of the **tax** invoice only (`TXI-…`). `null` until the order is delivered and the tax invoice exists.
+
 | Field | Type | Description |
 |-------|------|-------------|
-| `id` | integer | Invoice ID |
-| `invoiceNumber` | string | e.g. `INV-20260710-0001` |
+| `id` | integer | Tax invoice ID |
+| `invoiceNumber` | string | e.g. `TXI-20260715-0001` |
 | `issuedAt` | string | ISO timestamp |
 | `totalAmount` | string | Invoice total |
 
-For the full invoice JSON (line items, tax, billing name), use `GET /orders/:id/invoice`.
+For both Performa (`PF-…`) and Tax (`TXI-…`) JSON (line items, billing name, `pdfUrl`), use `GET /orders/:id/invoice`.
 
 ### Staff-only fields
 

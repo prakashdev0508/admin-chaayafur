@@ -1,3 +1,8 @@
+export type InvoiceType = "PERFORMA" | "TAX";
+
+/** Body value for POST /orders/:id/invoice/generate */
+export type InvoiceGenerateType = "pf" | "txi";
+
 export type InvoiceLineItem = {
   productId: number;
   name: string;
@@ -5,6 +10,7 @@ export type InvoiceLineItem = {
   quantity: number;
   unitPrice: string;
   lineTotal: string;
+  hsnCode?: string | null;
   woodName?: string | null;
   woodColor?: string | null;
   woodPriceAdjustment?: string | null;
@@ -19,6 +25,7 @@ export type InvoiceLineItem = {
 export type Invoice = {
   id: number;
   orderId: number;
+  invoiceType: InvoiceType;
   invoiceNumber: string;
   issuedAt: string;
   billingName: string;
@@ -26,6 +33,9 @@ export type Invoice = {
   subtotal: string;
   discountAmount?: string;
   shippingAmount?: string;
+  deliveryFloor?: number;
+  liftAccessAvailable?: boolean;
+  floorDeliveryAmount?: string;
   taxAmount: string;
   totalAmount: string;
   pdfUrl?: string | null;
@@ -43,6 +53,16 @@ export type Invoice = {
       phone: string;
     };
   };
+};
+
+/** GET /orders/:id/invoice — both types; either may be null */
+export type OrderInvoices = {
+  performa: Invoice | null;
+  tax: Invoice | null;
+};
+
+export type GenerateInvoicePayload = {
+  invoiceType: InvoiceGenerateType;
 };
 
 /** POST /orders/:id/invoice/email */

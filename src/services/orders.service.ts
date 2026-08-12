@@ -1,7 +1,13 @@
 import { buildQueryString } from "@/lib/build-query";
 import { apiRequest } from "@/lib/api";
 import type { PaginatedResponse } from "@/types/api";
-import type { Invoice, InvoiceEmailResult } from "@/types/invoice";
+import type {
+  GenerateInvoicePayload,
+  Invoice,
+  InvoiceEmailResult,
+  InvoiceGenerateType,
+  OrderInvoices,
+} from "@/types/invoice";
 import type {
   Order,
   OrderListItem,
@@ -49,12 +55,16 @@ export function getOrderAuditLogs(
 }
 
 export function getOrderInvoice(orderId: number) {
-  return apiRequest<Invoice>(`/orders/${orderId}/invoice`);
+  return apiRequest<OrderInvoices>(`/orders/${orderId}/invoice`);
 }
 
-export function generateOrderInvoice(orderId: number) {
+export function generateOrderInvoice(
+  orderId: number,
+  payload: GenerateInvoicePayload,
+) {
   return apiRequest<Invoice>(`/orders/${orderId}/invoice/generate`, {
     method: "POST",
+    body: JSON.stringify(payload),
   });
 }
 
@@ -62,6 +72,14 @@ export function emailOrderInvoice(orderId: number) {
   return apiRequest<InvoiceEmailResult>(`/orders/${orderId}/invoice/email`, {
     method: "POST",
   });
+}
+
+export function getOrderInvoicePdfUrl(
+  orderId: number,
+  invoiceType: InvoiceGenerateType = "txi",
+) {
+  const baseUrl = import.meta.env.VITE_BASE_URL?.replace(/\/$/, "") ?? "";
+  return `${baseUrl}/orders/${orderId}/invoice/pdf?invoiceType=${invoiceType}`;
 }
 
 export function getOrderRefund(orderId: number) {

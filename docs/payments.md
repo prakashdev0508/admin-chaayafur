@@ -11,7 +11,7 @@ Razorpay Payment Links integration. Payments are created at checkout and updated
 - Payments are **created automatically** when an order is placed — there is no customer `POST /payments`
 - Checkout returns a **`paymentLinkUrl`** — redirect the customer to complete payment on Razorpay
 - Payment status is updated by **Razorpay webhooks** (`payment_link.paid`, failure/expiry events)
-- On successful payment: order → `CONFIRMED`, invoice generated
+- On successful payment: order → `CONFIRMED`, **Performa** invoice job enqueued
 - On failed/expired payment: order → `CANCELLED`, stock restored
 - Staff can issue a **two-phase full refund** — see [refund.md](./refund.md) (initiate → complete → PROCESSED/FAILED)
 - Webhooks also handle `refund.processed` / `refund.failed` (documented in [refund.md](./refund.md))
@@ -243,7 +243,7 @@ Customer pays via paymentLinkUrl
     → Razorpay sends webhook to POST /payments/webhooks/razorpay
 
 payment_link.paid
-    → Payment COMPLETED, Order CONFIRMED, invoice generated
+    → Payment COMPLETED, Order CONFIRMED, Performa invoice job enqueued
 
 payment_link.expired / payment.failed / payment_link.cancelled
     → Payment FAILED, Order CANCELLED, stock restored

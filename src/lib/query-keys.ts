@@ -159,6 +159,7 @@ export const queryKeys = {
         ["shop", "orders", "list", params] as const,
       detail: (id: number) => ["shop", "orders", "detail", id] as const,
       tracking: (id: number) => ["shop", "orders", "tracking", id] as const,
+      invoice: (id: number) => ["shop", "orders", "invoice", id] as const,
     },
     cart: ["shop", "cart"] as const,
     addresses: {
