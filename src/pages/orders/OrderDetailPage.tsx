@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ClipboardList,
+  Download,
   Eye,
   FileText,
   LifeBuoy,
@@ -207,16 +208,20 @@ export function OrderDetailPage() {
   });
 
   const generateInvoiceMutation = useMutation({
-    mutationFn: () => generateOrderInvoice(orderId),
-    onSuccess: (invoice) => {
-      queryClient.setQueryData(queryKeys.orders.invoice(orderId), invoice);
+    mutationFn: (invoiceType: "pf" | "txi") =>
+      generateOrderInvoice(orderId, { invoiceType }),
+    onSuccess: (invoice, invoiceType) => {
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.orders.invoice(orderId),
+      });
       void queryClient.invalidateQueries({
         queryKey: queryKeys.orders.detail(orderId),
       });
+      const label = invoiceType === "pf" ? "Performa" : "Tax";
       toast.success(
         invoice.pdfUrl
-          ? "Invoice generated with PDF"
-          : "Invoice generated",
+          ? `${label} invoice generated with PDF`
+          : `${label} invoice generated`,
       );
     },
     onError: (error) => {
@@ -237,8 +242,8 @@ export function OrderDetailPage() {
       });
       toast.success(
         result.sent
-          ? `Invoice emailed to ${result.to}`
-          : "Invoice email requested",
+          ? `Tax invoice emailed to ${result.to}`
+          : "Tax invoice email requested",
       );
     },
     onError: (error) => {
@@ -972,18 +977,84 @@ export function OrderDetailPage() {
 
         <TabsContent value="invoice" className="mt-0">
           <Card>
-            <CardHeader>
-              <CardTitle>Invoice</CardTitle>
+            <CardHeader className="flex flex-col gap-3 space-y-0 sm:flex-row sm:items-center sm:justify-between">
+              <CardTitle>Invoices</CardTitle>
+              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+                {invoiceQuery.data?.performa?.pdfUrl ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="min-h-11 w-full justify-start gap-2 sm:min-h-8 sm:w-auto"
+                    render={
+                      <a
+                        href={invoiceQuery.data.performa.pdfUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        aria-label="Download Performa invoice PDF"
+                      >
+                        <Download className="size-3.5" />
+                        Performa PDF
+                      </a>
+                    }
+                  />
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="min-h-11 w-full sm:min-h-8 sm:w-auto"
+                    disabled
+                    title="Performa PDF not available yet"
+                  >
+                    <Download className="size-3.5" />
+                    Performa PDF
+                  </Button>
+                )}
+                {invoiceQuery.data?.tax?.pdfUrl ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="min-h-11 w-full justify-start gap-2 sm:min-h-8 sm:w-auto"
+                    render={
+                      <a
+                        href={invoiceQuery.data.tax.pdfUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        aria-label="Download Tax invoice PDF"
+                      >
+                        <Download className="size-3.5" />
+                        Tax PDF
+                      </a>
+                    }
+                  />
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="min-h-11 w-full sm:min-h-8 sm:w-auto"
+                    disabled
+                    title="Tax PDF not available yet"
+                  >
+                    <Download className="size-3.5" />
+                    Tax PDF
+                  </Button>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
               <InvoicePanel
-                invoice={invoiceQuery.data}
+                invoices={invoiceQuery.data}
                 loading={invoiceQuery.isLoading}
                 notFound={invoiceNotFound}
                 canGenerate={canGenerateInvoice}
-                generating={generateInvoiceMutation.isPending}
+                generatingType={
+                  generateInvoiceMutation.isPending
+                    ? (generateInvoiceMutation.variables ?? null)
+                    : null
+                }
                 emailing={emailInvoiceMutation.isPending}
-                onGenerate={() => generateInvoiceMutation.mutate()}
+                onGenerate={(invoiceType) =>
+                  generateInvoiceMutation.mutate(invoiceType)
+                }
                 onEmail={() => emailInvoiceMutation.mutate()}
               />
             </CardContent>

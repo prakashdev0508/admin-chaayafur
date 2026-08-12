@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { LifeBuoy, MessageCircleQuestion, Star } from "lucide-react";
+import { Download, LifeBuoy, MessageCircleQuestion, Star } from "lucide-react";
 import { TrackingTimeline } from "@/components/shared/TrackingTimeline";
 import { CustomizationMaterialsHighlight } from "@/components/customization-requests/CustomizationMaterialsHighlight";
 import { CreateSupportTicketDialog } from "@/components/shop/CreateSupportTicketDialog";
@@ -11,7 +11,11 @@ import { ReviewFormDialog } from "@/components/reviews/ReviewFormDialog";
 import { StarRating } from "@/components/reviews/StarRating";
 import { Button } from "@/components/ui/button";
 import { buttonVariants } from "@/components/ui/button";
-import { getShopOrder, getShopOrderTracking } from "@/services/shop-orders.service";
+import {
+  getShopOrder,
+  getShopOrderInvoice,
+  getShopOrderTracking,
+} from "@/services/shop-orders.service";
 import { listOrderSupportTickets } from "@/services/shop-support-tickets.service";
 import { verifyPayment } from "@/services/shop-payments.service";
 import {
@@ -37,6 +41,7 @@ import { formatCurrency, formatDate } from "@/lib/format";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
+import type { Invoice } from "@/types/invoice";
 import type { SupportTicketType } from "@/types/support-ticket";
 import type { OrderReview, ProductReview } from "@/types/review";
 
@@ -45,6 +50,53 @@ type ProductReviewTarget = {
   productName: string;
   existing?: ProductReview;
 };
+
+function ShopInvoiceCard({
+  title,
+  invoice,
+}: {
+  title: string;
+  invoice: Invoice;
+}) {
+  return (
+    <div className="rounded-xl border border-[#E8DFD3] bg-[#F8F1E8] p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+            {title}
+          </p>
+          <p className="mt-1 font-mono text-sm font-medium">
+            {invoice.invoiceNumber}
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Issued {formatDate(invoice.issuedAt)} ·{" "}
+            {formatCurrency(invoice.totalAmount)}
+          </p>
+        </div>
+        {invoice.pdfUrl ? (
+          <Button
+            variant="outline"
+            size="sm"
+            className="shrink-0 bg-white"
+            render={
+              <a
+                href={invoice.pdfUrl}
+                target="_blank"
+                rel="noreferrer"
+                aria-label={`Download ${title} PDF`}
+              >
+                <Download className="size-3.5" />
+                Download PDF
+              </a>
+            }
+          />
+        ) : (
+          <p className="text-xs text-muted-foreground">PDF not ready yet</p>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export function ShopOrderPage() {
   const { id } = useParams();
@@ -71,6 +123,14 @@ export function ShopOrderPage() {
     enabled: Number.isFinite(orderId),
     refetchInterval: (query) =>
       query.state.data?.currentStatus === "PENDING" ? 4000 : false,
+  });
+
+  const invoiceQuery = useQuery({
+    queryKey: queryKeys.shop.orders.invoice(orderId),
+    queryFn: () => getShopOrderInvoice(orderId),
+    enabled: Number.isFinite(orderId),
+    retry: (count, error) =>
+      !(error instanceof ApiError && error.statusCode === 404) && count < 1,
   });
 
   const ticketsQuery = useQuery({
@@ -121,6 +181,19 @@ export function ShopOrderPage() {
     if (tracking?.currentStatus !== "PENDING") return;
     void orderQuery.refetch();
   }, [tracking?.currentStatus, orderQuery]);
+
+  useEffect(() => {
+    if (
+      !tracking?.currentStatus ||
+      tracking.currentStatus === "PENDING" ||
+      tracking.currentStatus === "CANCELLED"
+    ) {
+      return;
+    }
+    void queryClient.invalidateQueries({
+      queryKey: queryKeys.shop.orders.invoice(orderId),
+    });
+  }, [tracking?.currentStatus, orderId, queryClient]);
 
   async function handleRetryPayment() {
     if (!order) return;
@@ -455,15 +528,55 @@ export function ShopOrderPage() {
               )}
             </div>
           )}
-          {order.invoice && (
-            <div className="mt-4 rounded-lg bg-[#F8F1E8] p-3 text-sm">
-              <p className="font-medium">Invoice {order.invoice.invoiceNumber}</p>
-              <p className="text-muted-foreground">
-                Issued {formatDate(order.invoice.issuedAt)} ·{" "}
-                {formatCurrency(order.invoice.totalAmount)}
-              </p>
-            </div>
-          )}
+          {(() => {
+            const invoices = invoiceQuery.data;
+            const performa = invoices?.performa ?? null;
+            const tax = invoices?.tax ?? null;
+            const invoiceNotFound =
+              invoiceQuery.error instanceof ApiError &&
+              invoiceQuery.error.statusCode === 404;
+
+            if (invoiceQuery.isLoading && !order.invoice) {
+              return (
+                <div className="mt-4 rounded-lg bg-[#F8F1E8] p-3 text-sm text-muted-foreground">
+                  Loading invoices…
+                </div>
+              );
+            }
+
+            if (performa || tax) {
+              return (
+                <div className="mt-4 space-y-3">
+                  {performa ? (
+                    <ShopInvoiceCard
+                      title="Performa invoice"
+                      invoice={performa}
+                    />
+                  ) : null}
+                  {tax ? (
+                    <ShopInvoiceCard title="Tax invoice" invoice={tax} />
+                  ) : null}
+                </div>
+              );
+            }
+
+            // Fallback: tax summary embedded on order detail until full fetch
+            if (order.invoice && !invoiceNotFound) {
+              return (
+                <div className="mt-4 rounded-lg bg-[#F8F1E8] p-3 text-sm">
+                  <p className="font-medium">
+                    Tax invoice {order.invoice.invoiceNumber}
+                  </p>
+                  <p className="text-muted-foreground">
+                    Issued {formatDate(order.invoice.issuedAt)} ·{" "}
+                    {formatCurrency(order.invoice.totalAmount)}
+                  </p>
+                </div>
+              );
+            }
+
+            return null;
+          })()}
         </section>
       </div>
 
