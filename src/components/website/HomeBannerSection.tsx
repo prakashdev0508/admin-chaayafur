@@ -213,7 +213,7 @@ export function HomeBannerSection({
           <div className="relative">
             <div
               className={cn(
-                "flex gap-4 overflow-x-auto pb-2",
+                "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4",
                 reorderBusy && "pointer-events-none opacity-70",
               )}
             >
@@ -222,9 +222,9 @@ export function HomeBannerSection({
                 return (
                   <div
                     key={banner.id}
-                    className="relative w-[260px] shrink-0 overflow-hidden rounded-xl border bg-card"
+                    className="relative min-w-0 overflow-hidden rounded-xl border bg-card"
                   >
-                    <div className="relative aspect-[16/10] bg-muted">
+                    <div className="relative aspect-16/10 bg-muted">
                       <img
                         src={banner.imageUrl}
                         alt={banner.title ?? "Banner"}
@@ -244,7 +244,7 @@ export function HomeBannerSection({
                       )}
                     </div>
                     <div className="space-y-3 p-3">
-                      <div>
+                      <div className="min-w-0">
                         <p className="truncate font-medium">
                           {banner.title || "---"}
                         </p>
@@ -252,7 +252,7 @@ export function HomeBannerSection({
                           {banner.redirectUrl}
                         </p>
                       </div>
-                      <div className="flex items-center gap-1">
+                      <div className="flex min-w-0 items-center gap-1">
                         {canUpdate && (
                           <>
                             <Button
@@ -260,7 +260,7 @@ export function HomeBannerSection({
                               variant="outline"
                               size="icon-sm"
                               disabled={index === 0 || reorderBusy}
-                              aria-label="Move left"
+                              aria-label="Move earlier"
                               onClick={() =>
                                 reorderMutation.mutate({
                                   current: banner,
@@ -281,7 +281,7 @@ export function HomeBannerSection({
                               disabled={
                                 index === banners.length - 1 || reorderBusy
                               }
-                              aria-label="Move right"
+                              aria-label="Move later"
                               onClick={() =>
                                 reorderMutation.mutate({
                                   current: banner,
@@ -310,7 +310,7 @@ export function HomeBannerSection({
                               variant="ghost"
                               size="sm"
                               className={cn(
-                                "ml-auto h-7 px-2 text-xs",
+                                "ml-auto h-7 shrink-0 px-2 text-xs",
                                 banner.isActive && "text-destructive",
                               )}
                               disabled={
