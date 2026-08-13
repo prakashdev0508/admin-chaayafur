@@ -56,12 +56,15 @@ import { SettingsPage } from "@/pages/settings/SettingsPage";
 import { ReviewListPage } from "@/pages/reviews/ReviewListPage";
 import { ContactInquiryListPage } from "@/pages/contact/ContactInquiryListPage";
 import { ContactInquiryDetailPage } from "@/pages/contact/ContactInquiryDetailPage";
+import { CareerApplicationListPage } from "@/pages/careers/CareerApplicationListPage";
+import { CareerApplicationDetailPage } from "@/pages/careers/CareerApplicationDetailPage";
 import { CustomizationRequestListPage } from "@/pages/customization-requests/CustomizationRequestListPage";
 import { CustomizationRequestDetailPage } from "@/pages/customization-requests/CustomizationRequestDetailPage";
 import { ShopHomePage } from "@/pages/shop/ShopHomePage";
 import { ShopCatalogPage } from "@/pages/shop/ShopCatalogPage";
 import { ShopProductPage } from "@/pages/shop/ShopProductPage";
 import { ShopContactPage } from "@/pages/shop/ShopContactPage";
+import { ShopCareersPage } from "@/pages/shop/ShopCareersPage";
 import { CartPage } from "@/pages/shop/CartPage";
 import { CheckoutPage } from "@/pages/shop/CheckoutPage";
 import { ShopOrderPage } from "@/pages/shop/ShopOrderPage";
@@ -83,6 +86,7 @@ const App = () => {
         <Route path="/shop/products" element={<ShopCatalogPage />} />
         <Route path="/shop/products/:id" element={<ShopProductPage />} />
         <Route path="/shop/contact" element={<ShopContactPage />} />
+        <Route path="/shop/careers" element={<ShopCareersPage />} />
         <Route path="/shop/cart" element={<CartPage />} />
         <Route element={<CustomerProtectedRoute />}>
           <Route path="/shop/checkout" element={<CheckoutPage />} />
@@ -334,6 +338,17 @@ const App = () => {
             <Route path="contact" element={<ContactInquiryListPage />} />
             <Route path="contact/:id" element={<ContactInquiryDetailPage />} />
             <Route path="settings" element={<SettingsPage />} />
+          </Route>
+          <Route
+            element={
+              <PermissionRoute permission={PERMISSIONS.VIEW_CAREERS} />
+            }
+          >
+            <Route path="careers" element={<CareerApplicationListPage />} />
+            <Route
+              path="careers/:id"
+              element={<CareerApplicationDetailPage />}
+            />
           </Route>
         </Route>
       </Route>

@@ -66,6 +66,21 @@ export const WALLET_WITHDRAWAL_STATUS_FILTER_ITEMS: SelectOption[] = [
   { value: "REJECTED", label: "Rejected" },
 ];
 
+export const CAREER_STATUS_FILTER_ITEMS: SelectOption[] = [
+  { value: "all", label: "All statuses" },
+  { value: "PENDING", label: "Pending" },
+  { value: "SHORTLISTED", label: "Shortlisted" },
+  { value: "REJECTED", label: "Rejected" },
+  { value: "HIRED", label: "Hired" },
+];
+
+export const CAREER_STATUS_ITEMS: SelectOption[] = [
+  { value: "PENDING", label: "Pending" },
+  { value: "SHORTLISTED", label: "Shortlisted" },
+  { value: "REJECTED", label: "Rejected" },
+  { value: "HIRED", label: "Hired" },
+];
+
 export const PAYMENT_STATUS_FILTER_ITEMS: SelectOption[] = [
   { value: "all", label: "All statuses" },
   { value: "PENDING", label: "Pending" },

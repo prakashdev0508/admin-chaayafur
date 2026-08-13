@@ -98,6 +98,13 @@ export type {
 } from "@/types/site-settings";
 
 export type {
+  CareerApplicationStatus,
+  CareerApplication,
+  ListCareerApplicationsParams,
+  UpdateCareerApplicationPayload,
+} from "@/types/career";
+
+export type {
   ShippingPincode,
   ListPincodesParams,
   UpsertPincodesPayload,

@@ -98,6 +98,9 @@ export function ShopLayout() {
             <NavLink to="/shop/contact" className={navLinkClass}>
               Contact
             </NavLink>
+            <NavLink to="/shop/careers" className={navLinkClass}>
+              Careers
+            </NavLink>
             <NavLink to="/shop/customize" className={navLinkClass}>
               Custom design
             </NavLink>
@@ -223,6 +226,9 @@ export function ShopLayout() {
               </Link>
               <Link to="/shop/contact" className="hover:text-foreground">
                 Contact
+              </Link>
+              <Link to="/shop/careers" className="hover:text-foreground">
+                Careers
               </Link>
               <Link to="/login" className="hover:text-foreground">
                 Admin
