@@ -46,6 +46,8 @@ export const PERMISSIONS = {
   VIEW_WALLETS: "view-wallets",
   UPDATE_WALLETS: "update-wallets",
   VIEW_REFERRALS: "view-referrals",
+  VIEW_CAREERS: "view-careers",
+  UPDATE_CAREERS: "update-careers",
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];

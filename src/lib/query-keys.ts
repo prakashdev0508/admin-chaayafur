@@ -216,6 +216,12 @@ export const queryKeys = {
       ["contact-inquiries", "list", params] as const,
     detail: (id: number) => ["contact-inquiries", "detail", id] as const,
   },
+  careers: {
+    all: ["careers"] as const,
+    list: (params: Record<string, unknown>) =>
+      ["careers", "list", params] as const,
+    detail: (id: number) => ["careers", "detail", id] as const,
+  },
   customizationRequests: {
     all: ["customization-requests"] as const,
     list: (params: Record<string, unknown>) =>

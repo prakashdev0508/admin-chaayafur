@@ -27,6 +27,7 @@ const routePermissions: Record<string, Permission | Permission[] | []> = {
   "/staff/new": PERMISSIONS.CREATE_STAFF,
   "/account": [],
   "/contact": PERMISSIONS.VIEW_SETTINGS,
+  "/careers": PERMISSIONS.VIEW_CAREERS,
   "/settings": PERMISSIONS.VIEW_SETTINGS,
 };
 
