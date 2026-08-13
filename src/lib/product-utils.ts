@@ -99,7 +99,12 @@ export function productToFormValues(product: Product): ProductFormValues {
     priceWithoutDiscount: product.priceWithoutDiscount ?? "",
     hsnCode: product.hsnCode ?? "",
     stock: String(product.stock),
-    subCategoryId: String(product.subCategoryId),
+    categoryId: String(
+      product.subCategory?.categoryId ??
+        product.subCategory?.category?.id ??
+        "",
+    ),
+    subCategoryId: String(product.subCategoryId ?? product.subCategory?.id ?? ""),
     isActive: product.isActive,
     isBestSeller: product.isBestSeller ?? false,
     isFeaturedProduct: product.isFeaturedProduct ?? false,

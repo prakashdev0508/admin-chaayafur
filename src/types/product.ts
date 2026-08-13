@@ -181,6 +181,7 @@ export type ProductFormValues = {
   priceWithoutDiscount: string;
   hsnCode: string;
   stock: string;
+  categoryId: string;
   subCategoryId: string;
   isActive: boolean;
   isBestSeller: boolean;
