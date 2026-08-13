@@ -21,7 +21,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { fetchCategoriesTree } from "@/services/categories.service";
+import { fetchAdminCategoriesTree } from "@/services/categories.service";
 import { listFabrics } from "@/services/fabrics.service";
 import { listWoods } from "@/services/woods.service";
 import { ProductImageUploader } from "@/components/products/ProductImageUploader";
@@ -31,7 +31,6 @@ import { formatCurrency } from "@/lib/format";
 import { parseMoney } from "@/lib/customization-pricing";
 import { slugify } from "@/lib/product-utils";
 import { cn } from "@/lib/utils";
-import type { CategoryTreeItem } from "@/types/category";
 import type { ProductFormValues } from "@/types/product";
 
 export const emptyProductFormValues: ProductFormValues = {
@@ -42,6 +41,7 @@ export const emptyProductFormValues: ProductFormValues = {
   priceWithoutDiscount: "",
   hsnCode: "",
   stock: "",
+  categoryId: "",
   subCategoryId: "",
   isActive: true,
   isBestSeller: false,
@@ -80,23 +80,22 @@ export function ProductForm({
   submitLabel,
 }: ProductFormProps) {
   const [values, setValues] = useState<ProductFormValues>(defaultValues);
-  const [categoryId, setCategoryId] = useState("");
+  const [categoryId, setCategoryId] = useState(defaultValues.categoryId ?? "");
   const [featureInput, setFeatureInput] = useState("");
-  const [categoriesTree, setCategoriesTree] = useState<CategoryTreeItem[]>([]);
   const [slugTouched, setSlugTouched] = useState(mode === "edit");
   const [validationError, setValidationError] = useState<string | null>(null);
   const [isImageUploading, setIsImageUploading] = useState(false);
 
   useEffect(() => {
     setValues(defaultValues);
-    setCategoryId("");
+    setCategoryId(defaultValues.categoryId ?? "");
   }, [defaultValues]);
 
-  useEffect(() => {
-    fetchCategoriesTree()
-      .then(setCategoriesTree)
-      .catch(() => setCategoriesTree([]));
-  }, []);
+  const categoriesQuery = useQuery({
+    queryKey: queryKeys.categories.adminTree,
+    queryFn: fetchAdminCategoriesTree,
+  });
+  const categoriesTree = categoriesQuery.data ?? [];
 
   const woodsQuery = useQuery({
     queryKey: queryKeys.woods.list({ limit: 100 }),
@@ -113,6 +112,17 @@ export function ProductForm({
   useEffect(() => {
     if (!values.subCategoryId || categoriesTree.length === 0) return;
 
+    const selected = categoriesTree.find(
+      (category) => String(category.id) === categoryId,
+    );
+    if (
+      selected?.subCategories.some(
+        (sub) => String(sub.id) === values.subCategoryId,
+      )
+    ) {
+      return;
+    }
+
     for (const category of categoriesTree) {
       const match = category.subCategories.find(
         (sub) => String(sub.id) === values.subCategoryId,
@@ -122,7 +132,7 @@ export function ProductForm({
         return;
       }
     }
-  }, [values.subCategoryId, categoriesTree]);
+  }, [values.subCategoryId, categoriesTree, categoryId]);
 
   const selectedCategory = categoriesTree.find(
     (category) => String(category.id) === categoryId,
@@ -132,7 +142,10 @@ export function ProductForm({
   const categoryItems = useMemo(
     () =>
       categoriesTree.map((category) => ({
-        label: category.name,
+        label:
+          category.isActive === false
+            ? `${category.name} (Inactive)`
+            : category.name,
         value: String(category.id),
       })),
     [categoriesTree],
@@ -141,7 +154,7 @@ export function ProductForm({
   const subCategoryItems = useMemo(
     () =>
       subCategories.map((sub) => ({
-        label: sub.name,
+        label: sub.isActive === false ? `${sub.name} (Inactive)` : sub.name,
         value: String(sub.id),
       })),
     [subCategories],
@@ -320,23 +333,36 @@ export function ProductForm({
                 <Select
                   value={categoryId || null}
                   onValueChange={(value) => {
-                    if (!value) return;
+                    if (!value || value === categoryId) return;
                     setCategoryId(value);
                     updateField("subCategoryId", "");
                   }}
                   items={categoryItems}
+                  disabled={categoriesQuery.isLoading}
                 >
                   <SelectTrigger className="h-10 w-full">
-                    <SelectValue placeholder="Select category" />
+                    <SelectValue
+                      placeholder={
+                        categoriesQuery.isLoading
+                          ? "Loading categories…"
+                          : "Select category"
+                      }
+                    />
                   </SelectTrigger>
                   <SelectContent>
                     {categoriesTree.map((category) => (
                       <SelectItem key={category.id} value={String(category.id)}>
                         {category.name}
+                        {category.isActive === false ? " (Inactive)" : ""}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                {categoriesQuery.isError ? (
+                  <p className="text-xs text-destructive">
+                    Could not load categories. Refresh and try again.
+                  </p>
+                ) : null}
               </div>
               <div className="space-y-2">
                 <Label>Sub-category</Label>
@@ -345,15 +371,17 @@ export function ProductForm({
                   onValueChange={(value) => {
                     if (value) updateField("subCategoryId", value);
                   }}
-                  disabled={!categoryId}
+                  disabled={!categoryId || categoriesQuery.isLoading}
                   items={subCategoryItems}
                 >
                   <SelectTrigger className="h-10 w-full">
                     <SelectValue
                       placeholder={
-                        categoryId
-                          ? "Select sub-category"
-                          : "Select a category first"
+                        categoriesQuery.isLoading
+                          ? "Loading sub-categories…"
+                          : categoryId
+                            ? "Select sub-category"
+                            : "Select a category first"
                       }
                     />
                   </SelectTrigger>
@@ -361,6 +389,7 @@ export function ProductForm({
                     {subCategories.map((sub) => (
                       <SelectItem key={sub.id} value={String(sub.id)}>
                         {sub.name}
+                        {sub.isActive === false ? " (Inactive)" : ""}
                       </SelectItem>
                     ))}
                   </SelectContent>
