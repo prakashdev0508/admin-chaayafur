@@ -21,6 +21,9 @@ Staff authentication and authorization for the Chaaya Furnitures admin backend.
 |---------|--------------|---------|
 | Secret | `JWT_SECRET` | required |
 | Expiry | `JWT_EXPIRES_IN` | `7d` |
+| Admin frontend URL | `FRONTEND_URL` | used for password reset links |
+| Reset token TTL | `PASSWORD_RESET_TTL_MS` | `3600000` (1 hour) |
+| Reset resend cooldown | `PASSWORD_RESET_RESEND_COOLDOWN_MS` | `60000` |
 
 ### JWT payload
 
@@ -68,6 +71,8 @@ Staff authentication and authorization for the Chaaya Furnitures admin backend.
 | Method | Endpoint | Auth | Access |
 |--------|----------|------|--------|
 | `POST` | `/api/v1/auth/login` | Public | Anyone |
+| `POST` | `/api/v1/auth/forgot-password` | Public | Anyone |
+| `POST` | `/api/v1/auth/reset-password` | Public | Anyone |
 | `GET` | `/api/v1/auth/roles-permissions` | Bearer | Any staff |
 | `GET` | `/api/v1/auth/permissions` | Bearer | `SUPER_ADMIN` |
 | `GET` | `/api/v1/auth/roles` | Bearer | `SUPER_ADMIN` |
@@ -151,6 +156,109 @@ Staff login. Returns JWT access token.
 curl -X POST http://localhost:5000/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"admin@chaaya.com","password":"change-me-admin"}'
+```
+
+---
+
+## POST /api/v1/auth/forgot-password
+
+Send a password reset email to an active staff account. Public. Always returns the same `200` message so callers cannot tell whether the email exists.
+
+The email CTA is `{FRONTEND_URL}/reset-password?token=...`. The raw token is one-time, hashed (SHA-256) in the database, and expires after `PASSWORD_RESET_TTL_MS` (default 1 hour). Repeat requests within the cooldown do not send another email.
+
+| | |
+|---|---|
+| **Auth** | Public |
+| **Status** | `200` |
+
+### Request body
+
+```json
+{
+  "email": "admin@chaaya.com"
+}
+```
+
+| Field | Type | Required | Rules |
+|-------|------|----------|-------|
+| `email` | string | Yes | Valid email |
+
+### Success response
+
+```json
+{
+  "success": true,
+  "data": {
+    "message": "If an account exists for this email, a password reset link has been sent."
+  }
+}
+```
+
+### Errors
+
+| Status | When |
+|--------|------|
+| `400` | Invalid payload |
+| `503` | Resend is disabled or `FRONTEND_URL` is empty |
+
+### cURL
+
+```bash
+curl -X POST http://localhost:5000/api/v1/auth/forgot-password \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@chaaya.com"}'
+```
+
+---
+
+## POST /api/v1/auth/reset-password
+
+Set a new staff password using the token from the reset email.
+
+| | |
+|---|---|
+| **Auth** | Public |
+| **Status** | `200` |
+
+### Request body
+
+```json
+{
+  "token": "a1b2c3d4e5f6...",
+  "newPassword": "newSecurePassword123"
+}
+```
+
+| Field | Type | Required | Rules |
+|-------|------|----------|-------|
+| `token` | string | Yes | Token from the reset email query string |
+| `newPassword` | string | Yes | Min 6, max 128 characters |
+
+### Success response
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "email": "admin@chaaya.com",
+    "message": "Password updated successfully"
+  }
+}
+```
+
+### Errors
+
+| Status | When |
+|--------|------|
+| `400` | Invalid payload, or invalid / expired token |
+
+### cURL
+
+```bash
+curl -X POST http://localhost:5000/api/v1/auth/reset-password \
+  -H "Content-Type: application/json" \
+  -d '{"token":"a1b2c3d4e5f6...","newPassword":"newSecurePassword123"}'
 ```
 
 ---

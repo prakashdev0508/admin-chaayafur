@@ -23,6 +23,7 @@ import {
 import { cn } from "@/lib/utils";
 import { getAdminProduct } from "@/services/products.service";
 import { ProductDetailSkeleton } from "@/components/products/ProductPageSkeletons";
+import { ProductStorefrontQr } from "@/components/products/ProductStorefrontQr";
 import type { Product } from "@/types/product";
 import type { ProductPolish } from "@/types/wood";
 
@@ -514,6 +515,8 @@ export function ProductDetailPage() {
           )}
 
           <Separator />
+
+          <ProductStorefrontQr slug={product.slug} productName={product.name} />
 
           <div className="rounded-xl border bg-muted/20 p-4 text-sm">
             <p className="mb-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
