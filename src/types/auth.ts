@@ -87,6 +87,25 @@ export type LoginPayload = {
   password: string;
 };
 
+export type ForgotPasswordPayload = {
+  email: string;
+};
+
+export type ForgotPasswordResponse = {
+  message: string;
+};
+
+export type ResetPasswordPayload = {
+  token: string;
+  newPassword: string;
+};
+
+export type ResetPasswordResponse = {
+  id: number;
+  email: string;
+  message: string;
+};
+
 export type LoginResponse = {
   accessToken: string;
   user: StaffUser;

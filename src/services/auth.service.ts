@@ -4,6 +4,10 @@ import type { PaginatedResponse } from "@/types/api";
 import type {
   LoginPayload,
   LoginResponse,
+  ForgotPasswordPayload,
+  ForgotPasswordResponse,
+  ResetPasswordPayload,
+  ResetPasswordResponse,
   RolesPermissionsMap,
   StaffUser,
   StaffListItem,
@@ -22,6 +26,28 @@ import type {
 export function loginStaff(payload: LoginPayload) {
   return apiRequest<LoginResponse>(
     "/auth/login",
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+    false,
+  );
+}
+
+export function forgotStaffPassword(payload: ForgotPasswordPayload) {
+  return apiRequest<ForgotPasswordResponse>(
+    "/auth/forgot-password",
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+    false,
+  );
+}
+
+export function resetStaffPasswordWithToken(payload: ResetPasswordPayload) {
+  return apiRequest<ResetPasswordResponse>(
+    "/auth/reset-password",
     {
       method: "POST",
       body: JSON.stringify(payload),

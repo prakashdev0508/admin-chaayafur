@@ -6,6 +6,8 @@ import { PermissionRoute } from "@/components/auth/PermissionRoute";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { ShopLayout } from "@/components/layout/ShopLayout";
 import { LoginPage } from "@/pages/auth/LoginPage";
+import { ForgotPasswordPage } from "@/pages/auth/ForgotPasswordPage";
+import { ResetPasswordPage } from "@/pages/auth/ResetPasswordPage";
 import { DashboardPage } from "@/pages/dashboard/DashboardPage";
 import { ReportsPage } from "@/pages/reports/ReportsPage";
 import { CategoryMasterPage } from "@/pages/categories/CategoryMasterPage";
@@ -108,6 +110,8 @@ const App = () => {
 
       <Route element={<GuestRoute />}>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
       </Route>
 
       <Route element={<ProtectedRoute />}>
