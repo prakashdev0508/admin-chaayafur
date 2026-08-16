@@ -4,6 +4,43 @@ export function quotationImageProxyUrl(sourceUrl: string) {
   return `${QUOTATION_IMAGE_PROXY_PATH}?url=${encodeURIComponent(sourceUrl)}`;
 }
 
+export function unwrapQuotationImageUrl(src: string) {
+  try {
+    const parsed = new URL(src, "https://local.invalid");
+    if (
+      parsed.pathname === QUOTATION_IMAGE_PROXY_PATH ||
+      parsed.pathname === "/api/quotation-image"
+    ) {
+      return parsed.searchParams.get("url") ?? src;
+    }
+  } catch {
+    // Keep the original src.
+  }
+  return src;
+}
+
+export async function inlineImagesAsJpegDataUrls(root: HTMLElement) {
+  const images = [...root.querySelectorAll("img")];
+  await Promise.all(
+    images.map(async (image) => {
+      const src = image.currentSrc || image.getAttribute("src");
+      if (!src || src.startsWith("data:")) return;
+      const jpeg = await loadJpegDataUrl(unwrapQuotationImageUrl(src));
+      if (!jpeg) return;
+      image.removeAttribute("crossorigin");
+      image.src = jpeg;
+      await new Promise<void>((resolve) => {
+        if (image.complete) {
+          resolve();
+          return;
+        }
+        image.addEventListener("load", () => resolve(), { once: true });
+        image.addEventListener("error", () => resolve(), { once: true });
+      });
+    }),
+  );
+}
+
 export async function loadJpegDataUrl(url: string): Promise<string | null> {
   if (url.startsWith("data:image/jpeg") || url.startsWith("data:image/jpg")) {
     return url;
@@ -31,6 +68,14 @@ async function fetchAndRasterize(url: string): Promise<string | null> {
     if (!response.ok) return null;
     const blob = await response.blob();
     if (blob.size === 0) return null;
+    const contentType = blob.type || response.headers.get("content-type") || "";
+    if (
+      contentType &&
+      !contentType.startsWith("image/") &&
+      !contentType.includes("octet-stream")
+    ) {
+      return null;
+    }
     return await rasterizeBlob(blob);
   } catch {
     return null;

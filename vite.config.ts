@@ -11,7 +11,8 @@ function quotationImageProxy(): Plugin {
     next: () => void,
   ) => {
     const requestUrl = req.url ?? "";
-    if (!requestUrl.startsWith("/__quotation-image")) {
+    if (!requestUrl.startsWith("/__quotation-image") &&
+      !requestUrl.startsWith("/api/quotation-image")) {
       next();
       return;
     }
