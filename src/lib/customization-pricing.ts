@@ -22,7 +22,7 @@ type OptionWithAdjustment = {
 } | null | undefined;
 
 /**
- * unitPrice = base + wood adj + polish adj + fabric adj
+ * unitPrice = base + wood adj + polish adj + fabric adj + selected customization prices
  * Missing options contribute 0.
  */
 export function computeCustomizationUnitPrice(
@@ -31,13 +31,19 @@ export function computeCustomizationUnitPrice(
     wood?: OptionWithAdjustment;
     polish?: OptionWithAdjustment;
     fabric?: OptionWithAdjustment;
+    customization?: Array<{ price?: string | number | null } | null | undefined>;
   },
 ): number {
+  const customizationTotal = (options?.customization ?? []).reduce(
+    (sum, option) => sum + parseMoney(option?.price),
+    0,
+  );
   return (
     parseMoney(basePrice) +
     parseMoney(options?.wood?.priceAdjustment) +
     parseMoney(options?.polish?.priceAdjustment) +
-    parseMoney(options?.fabric?.priceAdjustment)
+    parseMoney(options?.fabric?.priceAdjustment) +
+    customizationTotal
   );
 }
 

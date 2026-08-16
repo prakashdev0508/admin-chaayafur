@@ -16,13 +16,11 @@ import { ProductBulkPreparePage } from "@/pages/products/ProductBulkPreparePage"
 import { AddProductPage } from "@/pages/products/AddProductPage";
 import { EditProductPage } from "@/pages/products/EditProductPage";
 import { ProductDetailPage } from "@/pages/products/ProductDetailPage";
+import { CreateQuotationPage } from "@/pages/quotations/CreateQuotationPage";
+import { EditQuotationPage } from "@/pages/quotations/EditQuotationPage";
+import { QuotationDetailPage } from "@/pages/quotations/QuotationDetailPage";
+import { QuotationListPage } from "@/pages/quotations/QuotationListPage";
 import { UploadJobListPage } from "@/pages/upload-jobs/UploadJobListPage";
-import { WoodListPage } from "@/pages/woods/WoodListPage";
-import { AddWoodPage } from "@/pages/woods/AddWoodPage";
-import { EditWoodPage } from "@/pages/woods/EditWoodPage";
-import { FabricListPage } from "@/pages/fabrics/FabricListPage";
-import { AddFabricPage } from "@/pages/fabrics/AddFabricPage";
-import { EditFabricPage } from "@/pages/fabrics/EditFabricPage";
 import { OrderListPage } from "@/pages/orders/OrderListPage";
 import { OrderDetailPage } from "@/pages/orders/OrderDetailPage";
 import { PaymentListPage } from "@/pages/payments/PaymentListPage";
@@ -155,6 +153,37 @@ const App = () => {
           </Route>
           <Route
             element={
+              <PermissionRoute permission={PERMISSIONS.VIEW_QUOTATIONS} />
+            }
+          >
+            <Route path="quotations" element={<QuotationListPage />} />
+          </Route>
+          <Route
+            element={
+              <PermissionRoute permission={PERMISSIONS.CREATE_QUOTATIONS} />
+            }
+          >
+            <Route path="quotations/new" element={<CreateQuotationPage />} />
+          </Route>
+          <Route
+            element={
+              <PermissionRoute permission={PERMISSIONS.VIEW_QUOTATIONS} />
+            }
+          >
+            <Route path="quotations/:id" element={<QuotationDetailPage />} />
+          </Route>
+          <Route
+            element={
+              <PermissionRoute permission={PERMISSIONS.UPDATE_QUOTATIONS} />
+            }
+          >
+            <Route
+              path="quotations/:id/edit"
+              element={<EditQuotationPage />}
+            />
+          </Route>
+          <Route
+            element={
               <PermissionRoute permission={PERMISSIONS.CREATE_PRODUCTS} />
             }
           >
@@ -170,30 +199,6 @@ const App = () => {
             }
           >
             <Route path="products/:id/edit" element={<EditProductPage />} />
-          </Route>
-          <Route
-            element={
-              <PermissionRoute permission={PERMISSIONS.VIEW_PRODUCTS} />
-            }
-          >
-            <Route path="woods" element={<WoodListPage />} />
-            <Route path="fabrics" element={<FabricListPage />} />
-          </Route>
-          <Route
-            element={
-              <PermissionRoute permission={PERMISSIONS.CREATE_PRODUCTS} />
-            }
-          >
-            <Route path="woods/new" element={<AddWoodPage />} />
-            <Route path="fabrics/new" element={<AddFabricPage />} />
-          </Route>
-          <Route
-            element={
-              <PermissionRoute permission={PERMISSIONS.UPDATE_PRODUCTS} />
-            }
-          >
-            <Route path="woods/:id/edit" element={<EditWoodPage />} />
-            <Route path="fabrics/:id/edit" element={<EditFabricPage />} />
           </Route>
           <Route
             element={<PermissionRoute permission={PERMISSIONS.VIEW_ORDERS} />}

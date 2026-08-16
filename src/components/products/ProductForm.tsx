@@ -21,14 +21,18 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { fetchAdminCategoriesTree } from "@/services/categories.service";
-import { listFabrics } from "@/services/fabrics.service";
-import { listWoods } from "@/services/woods.service";
 import { ProductImageUploader } from "@/components/products/ProductImageUploader";
-import { ProductCustomizationEditor } from "@/components/products/ProductCustomizationEditor";
+import { ProductOptionGroupsEditor } from "@/components/products/ProductOptionGroupsEditor";
 import { queryKeys } from "@/lib/query-keys";
 import { formatCurrency } from "@/lib/format";
 import { parseMoney } from "@/lib/customization-pricing";
+import {
+  MAX_PRODUCT_CUSTOMIZATION_OPTIONS,
+  maxCustomizationFormPrices,
+  validateProductCustomizationForm,
+} from "@/lib/product-customization";
 import { slugify } from "@/lib/product-utils";
 import { cn } from "@/lib/utils";
 import type { ProductFormValues } from "@/types/product";
@@ -49,9 +53,7 @@ export const emptyProductFormValues: ProductFormValues = {
   isMostPopular: false,
   isNewArrival: false,
   productFeatures: [],
-  woods: [],
-  polishes: [],
-  fabrics: [],
+  customization: [],
   images: [],
 };
 
@@ -85,6 +87,9 @@ export function ProductForm({
   const [slugTouched, setSlugTouched] = useState(mode === "edit");
   const [validationError, setValidationError] = useState<string | null>(null);
   const [isImageUploading, setIsImageUploading] = useState(false);
+  const [section, setSection] = useState<"details" | "customization">(
+    "details",
+  );
 
   useEffect(() => {
     setValues(defaultValues);
@@ -96,18 +101,6 @@ export function ProductForm({
     queryFn: fetchAdminCategoriesTree,
   });
   const categoriesTree = categoriesQuery.data ?? [];
-
-  const woodsQuery = useQuery({
-    queryKey: queryKeys.woods.list({ limit: 100 }),
-    queryFn: () => listWoods({ limit: 100 }),
-  });
-  const catalogWoods = woodsQuery.data?.items ?? [];
-
-  const fabricsQuery = useQuery({
-    queryKey: queryKeys.fabrics.list({ limit: 100 }),
-    queryFn: () => listFabrics({ limit: 100 }),
-  });
-  const catalogFabrics = fabricsQuery.data?.items ?? [];
 
   useEffect(() => {
     if (!values.subCategoryId || categoriesTree.length === 0) return;
@@ -189,25 +182,8 @@ export function ProductForm({
   };
 
   const basePrice = parseMoney(values.price);
-  const maxWoodAdj = Math.max(
-    0,
-    ...values.woods
-      .filter((w) => w.isActive)
-      .map((w) => parseMoney(w.priceAdjustment)),
-  );
-  const maxPolishAdj = Math.max(
-    0,
-    ...values.polishes
-      .filter((p) => p.isActive)
-      .map((p) => parseMoney(p.priceAdjustment)),
-  );
-  const maxFabricAdj = Math.max(
-    0,
-    ...values.fabrics
-      .filter((f) => f.isActive)
-      .map((f) => parseMoney(f.priceAdjustment)),
-  );
-  const maxUnitPrice = basePrice + maxWoodAdj + maxPolishAdj + maxFabricAdj;
+  const maxUnitPrice =
+    basePrice + maxCustomizationFormPrices(values.customization);
   const hasCustomizationPremium = maxUnitPrice > basePrice;
 
   const activeMerchCount = MERCH_TAGS.filter((t) => values[t.key]).length;
@@ -235,32 +211,25 @@ export function ProductForm({
     if (values.images.length > 10) {
       return "Maximum 10 images allowed";
     }
-    for (const wood of values.woods) {
-      const adj = parseFloat(wood.priceAdjustment);
-      if (wood.priceAdjustment.trim() && (!Number.isFinite(adj) || adj < 0)) {
-        return "Wood price adjustments must be ≥ 0";
-      }
-    }
-    for (const polish of values.polishes) {
-      const adj = parseFloat(polish.priceAdjustment);
-      if (polish.priceAdjustment.trim() && (!Number.isFinite(adj) || adj < 0)) {
-        return "Polish price adjustments must be ≥ 0";
-      }
-    }
-    for (const fabric of values.fabrics) {
-      const adj = parseFloat(fabric.priceAdjustment);
-      if (fabric.priceAdjustment.trim() && (!Number.isFinite(adj) || adj < 0)) {
-        return "Fabric price adjustments must be ≥ 0";
-      }
-    }
+    const customizationError = validateProductCustomizationForm(
+      values.customization,
+    );
+    if (customizationError) return customizationError;
     return null;
   };
+
+  const optionGroupCount = new Set(
+    values.customization.map((o) => o.groupName.trim()).filter(Boolean),
+  ).size;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const err = validate();
     if (err) {
       setValidationError(err);
+      const customizationIssue =
+        /customization|option “|options must|duplicate option/i.test(err);
+      setSection(customizationIssue ? "customization" : "details");
       return;
     }
     setValidationError(null);
@@ -274,19 +243,38 @@ export function ProductForm({
       onSubmit={handleSubmit}
       className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_19rem] xl:grid-cols-[minmax(0,1fr)_21rem]"
     >
-      <div className="min-w-0 space-y-5">
+      <div className="min-w-0">
+        <Tabs
+          value={section}
+          onValueChange={(value) =>
+            setSection(value as "details" | "customization")
+          }
+          className="gap-4"
+        >
+          <TabsList className="grid h-11 w-full grid-cols-2 p-1">
+            <TabsTrigger value="details" className="gap-2">
+              <Package />
+              Details
+            </TabsTrigger>
+            <TabsTrigger value="customization" className="gap-2">
+              <Layers />
+              Customization
+              {optionGroupCount > 0 ? (
+                <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-muted-foreground">
+                  {optionGroupCount}
+                </span>
+              ) : null}
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="details" className="mt-0 space-y-5">
         <Card className="overflow-hidden shadow-xs">
           <CardHeader className="border-b bg-muted/20 pb-4">
-            <div className="flex items-start gap-3">
-              <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border bg-background">
-                <Package className="size-4 text-muted-foreground" />
-              </div>
-              <div>
-                <CardTitle>Product details</CardTitle>
-                <CardDescription>
-                  Name, category, and storefront copy
-                </CardDescription>
-              </div>
+            <div>
+              <CardTitle>Product details</CardTitle>
+              <CardDescription>
+                Name, category, and storefront copy
+              </CardDescription>
             </div>
           </CardHeader>
           <CardContent className="space-y-5 pt-5">
@@ -452,37 +440,32 @@ export function ProductForm({
           disabled={isSubmitting}
           onUploadingChange={setIsImageUploading}
         />
+          </TabsContent>
 
-        <Card className="overflow-hidden shadow-xs">
-          <CardHeader className="border-b bg-muted/20 pb-4">
-            <div className="flex items-start gap-3">
-              <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border bg-background">
-                <Layers className="size-4 text-muted-foreground" />
-              </div>
-              <div>
-                <CardTitle>Customization & pricing</CardTitle>
-                <CardDescription>
-                  Assign woods, polishes, and fabrics with per-product
-                  adjustments
-                </CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="pt-5">
-            <ProductCustomizationEditor
-              catalogWoods={catalogWoods}
-              catalogFabrics={catalogFabrics}
-              woodsLoading={woodsQuery.isLoading}
-              fabricsLoading={fabricsQuery.isLoading}
-              woods={values.woods}
-              polishes={values.polishes}
-              fabrics={values.fabrics}
-              onWoodsChange={(woods) => updateField("woods", woods)}
-              onPolishesChange={(polishes) => updateField("polishes", polishes)}
-              onFabricsChange={(fabrics) => updateField("fabrics", fabrics)}
-            />
-          </CardContent>
-        </Card>
+          <TabsContent value="customization" className="mt-0">
+            <Card className="overflow-hidden shadow-xs">
+              <CardContent className="space-y-5 pt-5">
+                <div className="flex items-start justify-between gap-4">
+                  <p className="text-sm text-muted-foreground">
+                    Work on one group at a time. Customers pick a single value;
+                    photos and extra prices show on the storefront.
+                  </p>
+                  <div className="shrink-0 rounded-md border bg-muted/20 px-2.5 py-1 text-xs tabular-nums text-muted-foreground">
+                    {values.customization.length} /{" "}
+                    {MAX_PRODUCT_CUSTOMIZATION_OPTIONS}
+                  </div>
+                </div>
+                <ProductOptionGroupsEditor
+                  options={values.customization}
+                  onChange={(customization) =>
+                    updateField("customization", customization)
+                  }
+                  disabled={isSubmitting}
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
 
       <aside className="space-y-4 lg:sticky lg:top-4 lg:self-start">
@@ -638,16 +621,18 @@ export function ProductForm({
               value={String(values.images.length)}
             />
             <SummaryRow
-              label="Woods"
-              value={String(values.woods.length)}
+              label="Option groups"
+              value={String(
+                new Set(
+                  values.customization
+                    .map((o) => o.groupName.trim())
+                    .filter(Boolean),
+                ).size,
+              )}
             />
             <SummaryRow
-              label="Polishes"
-              value={String(values.polishes.length)}
-            />
-            <SummaryRow
-              label="Fabrics"
-              value={String(values.fabrics.length)}
+              label="Options"
+              value={String(values.customization.length)}
             />
             <SummaryRow
               label="Features"

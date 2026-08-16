@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,10 +11,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { CustomizationMaterialFields } from "@/components/customization-requests/CustomizationMaterialFields";
-import { listFabrics } from "@/services/fabrics.service";
-import { listWoods } from "@/services/woods.service";
-import { queryKeys } from "@/lib/query-keys";
 import {
   CUSTOMIZATION_FIELD_LIMITS,
   type CustomizationRequest,
@@ -38,35 +33,12 @@ export function CustomizationRequestEditCard({
   const [productName, setProductName] = useState(request.productName);
   const [description, setDescription] = useState(request.description);
   const [quantity, setQuantity] = useState(String(request.quantity));
-  const [woodId, setWoodId] = useState<number | null>(request.woodId ?? null);
-  const [polishId, setPolishId] = useState<number | null>(
-    request.polishId ?? null,
-  );
-  const [fabricId, setFabricId] = useState<number | null>(
-    request.fabricId ?? null,
-  );
   const [clearImage, setClearImage] = useState(false);
-
-  const woodsQuery = useQuery({
-    queryKey: queryKeys.woods.list({ limit: 100 }),
-    queryFn: () => listWoods({ limit: 100 }),
-  });
-
-  const fabricsQuery = useQuery({
-    queryKey: queryKeys.fabrics.list({ limit: 100 }),
-    queryFn: () => listFabrics({ limit: 100 }),
-  });
-
-  const woods = woodsQuery.data?.items ?? [];
-  const fabrics = fabricsQuery.data?.items ?? [];
 
   useEffect(() => {
     setProductName(request.productName);
     setDescription(request.description);
     setQuantity(String(request.quantity));
-    setWoodId(request.woodId ?? null);
-    setPolishId(request.polishId ?? null);
-    setFabricId(request.fabricId ?? null);
     setClearImage(false);
   }, [request]);
 
@@ -105,9 +77,6 @@ export function CustomizationRequestEditCard({
       productName: trimmedName,
       description: trimmedDescription,
       quantity: parsedQuantity,
-      woodId: woodId ?? null,
-      polishId: polishId ?? null,
-      fabricId: fabricId ?? null,
     };
 
     if (clearImage) {
@@ -166,18 +135,6 @@ export function CustomizationRequestEditCard({
             disabled={disabled}
           />
         </div>
-
-        <CustomizationMaterialFields
-          woods={woods}
-          fabrics={fabrics}
-          woodId={woodId}
-          polishId={polishId}
-          fabricId={fabricId}
-          onWoodChange={setWoodId}
-          onPolishChange={setPolishId}
-          onFabricChange={setFabricId}
-          disabled={disabled}
-        />
 
         {request.referenceImage?.url && (
           <div className="space-y-2">

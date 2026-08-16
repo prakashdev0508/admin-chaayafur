@@ -32,7 +32,16 @@ export function CartMaterialChips({
               : "border-border bg-muted/40 px-2.5 py-1 text-xs",
           )}
         >
-          {chip.color && (
+          {chip.image ? (
+            <img
+              src={chip.image}
+              alt=""
+              className={cn(
+                "rounded-full object-cover",
+                isSm ? "size-2" : "size-2.5",
+              )}
+            />
+          ) : chip.color ? (
             <span
               className={cn(
                 "rounded-full border border-black/10",
@@ -41,7 +50,7 @@ export function CartMaterialChips({
               style={{ backgroundColor: chip.color }}
               aria-hidden
             />
-          )}
+          ) : null}
           <span className="text-muted-foreground">{chip.label}:</span>
           {chip.name}
           {chip.priceAdjustmentLabel && (

@@ -20,10 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { CustomizationMaterialFields } from "@/components/customization-requests/CustomizationMaterialFields";
 import { fetchAdminCategoriesTree } from "@/services/categories.service";
-import { listFabrics } from "@/services/fabrics.service";
-import { listWoods } from "@/services/woods.service";
 import { queryKeys } from "@/lib/query-keys";
 import type {
   ConvertCustomizationRequestPayload,
@@ -54,15 +51,6 @@ export function ConvertCustomizationRequestDialog({
   const [shippingAmount, setShippingAmount] = useState("0");
   const [deliveryFloor, setDeliveryFloor] = useState("0");
   const [liftAccessAvailable, setLiftAccessAvailable] = useState(false);
-  const [woodId, setWoodId] = useState<number | null>(
-    request.woodId ?? null,
-  );
-  const [polishId, setPolishId] = useState<number | null>(
-    request.polishId ?? null,
-  );
-  const [fabricId, setFabricId] = useState<number | null>(
-    request.fabricId ?? null,
-  );
 
   const categoriesQuery = useQuery({
     queryKey: queryKeys.categories.adminTree,
@@ -70,21 +58,7 @@ export function ConvertCustomizationRequestDialog({
     enabled: open,
   });
 
-  const woodsQuery = useQuery({
-    queryKey: queryKeys.woods.list({ limit: 100 }),
-    queryFn: () => listWoods({ limit: 100 }),
-    enabled: open,
-  });
-
-  const fabricsQuery = useQuery({
-    queryKey: queryKeys.fabrics.list({ limit: 100 }),
-    queryFn: () => listFabrics({ limit: 100 }),
-    enabled: open,
-  });
-
   const categoriesTree = categoriesQuery.data ?? [];
-  const woods = woodsQuery.data?.items ?? [];
-  const fabrics = fabricsQuery.data?.items ?? [];
 
   const selectedCategory = categoriesTree.find(
     (category) => String(category.id) === categoryId,
@@ -95,9 +69,6 @@ export function ConvertCustomizationRequestDialog({
     if (!open) return;
     setProductName(request.productName);
     setQuantity(String(request.quantity));
-    setWoodId(request.woodId ?? null);
-    setPolishId(request.polishId ?? null);
-    setFabricId(request.fabricId ?? null);
     setPrice("");
     setCategoryId("");
     setSubCategoryId("");
@@ -159,9 +130,6 @@ export function ConvertCustomizationRequestDialog({
     if (parsedQuantity !== request.quantity) {
       payload.quantity = parsedQuantity;
     }
-    if (woodId) payload.woodId = woodId;
-    if (polishId) payload.polishId = polishId;
-    if (fabricId) payload.fabricId = fabricId;
 
     try {
       await onSubmit(payload);
@@ -314,17 +282,6 @@ export function ConvertCustomizationRequestDialog({
               onCheckedChange={setLiftAccessAvailable}
             />
           </div>
-
-          <CustomizationMaterialFields
-            woods={woods}
-            fabrics={fabrics}
-            woodId={woodId}
-            polishId={polishId}
-            fabricId={fabricId}
-            onWoodChange={setWoodId}
-            onPolishChange={setPolishId}
-            onFabricChange={setFabricId}
-          />
 
           <div className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2">
             <div>

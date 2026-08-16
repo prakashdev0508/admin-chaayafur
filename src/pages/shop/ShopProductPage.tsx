@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Minus, Plus, Star } from "lucide-react";
@@ -24,7 +24,6 @@ import { queryKeys } from "@/lib/query-keys";
 import { formatCurrency, formatDate } from "@/lib/format";
 import {
   computeCustomizationUnitPrice,
-  formatPriceAdjustment,
   formatUnitPriceAmount,
 } from "@/lib/customization-pricing";
 import {
@@ -32,13 +31,17 @@ import {
   getStockStatus,
   productTagLabels,
 } from "@/lib/product-utils";
-import { getSelectableProductWoods } from "@/types/wood";
-import { getSelectableProductFabrics } from "@/types/fabric";
+import { ProductCustomizationGroupPickers } from "@/components/shared/ProductCustomizationGroupPickers";
+import {
+  buildCustomizationKey,
+  resolveSelectedCustomization,
+  snapshotToPicks,
+} from "@/lib/product-customization";
+import type { CustomizationSelection } from "@/lib/product-customization";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import type { ProductReview } from "@/types/review";
 import type { Order } from "@/types/order";
-import type { ProductPolish } from "@/types/wood";
 import type { CartItem } from "@/types/cart";
 
 async function resolveProductReviewEligibility(productId: number): Promise<{
@@ -81,9 +84,8 @@ export function ShopProductPage() {
   const { isAuthenticated } = useCustomerAuth();
   const [quantity, setQuantity] = useState(1);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
-  const [selectedWoodId, setSelectedWoodId] = useState<number | null>(null);
-  const [selectedPolishId, setSelectedPolishId] = useState<number | null>(null);
-  const [selectedFabricId, setSelectedFabricId] = useState<number | null>(null);
+  const [customizationSelection, setCustomizationSelection] =
+    useState<CustomizationSelection>({});
   const [reviewsPage, setReviewsPage] = useState(1);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
@@ -94,6 +96,12 @@ export function ShopProductPage() {
     queryFn: () => getProduct(productId),
     enabled: Number.isFinite(productId),
   });
+
+  useEffect(() => {
+    setCustomizationSelection({});
+    setActiveImageIndex(0);
+    setQuantity(1);
+  }, [productId]);
 
   const reviewsQuery = useQuery({
     queryKey: queryKeys.shop.reviews.product(productId, {
@@ -130,20 +138,10 @@ export function ShopProductPage() {
   const product = productQuery.data;
   const stockStatus = product ? getStockStatus(product) : null;
   const activeTags = product ? getActiveProductTags(product) : [];
-  const productWoods = product?.woods ?? [];
-  const selectableWoods = getSelectableProductWoods(productWoods);
-  const showWoodSection = productWoods.length > 0;
-  const selectedWood = selectableWoods.find((w) => w.id === selectedWoodId);
-  const woodPolishes = (selectedWood?.polishes ?? []).filter(
-    (p: ProductPolish) => p.isAvailable !== false,
+  const selectedCustomization = resolveSelectedCustomization(
+    product?.customization,
+    customizationSelection,
   );
-  const selectedPolish =
-    woodPolishes.find((p) => p.id === selectedPolishId) ?? null;
-  const productFabrics = product?.fabrics ?? [];
-  const selectableFabrics = getSelectableProductFabrics(productFabrics);
-  const showFabricSection = productFabrics.length > 0;
-  const selectedFabric =
-    selectableFabrics.find((f) => f.id === selectedFabricId) ?? null;
   const canPurchase = stockStatus === "in_stock" || stockStatus === "low_stock";
   const sortedImages = [...(product?.images ?? [])].sort(
     (a, b) => a.sortOrder - b.sortOrder,
@@ -154,9 +152,7 @@ export function ShopProductPage() {
     : null;
   const unitPrice = product
     ? computeCustomizationUnitPrice(product.price, {
-        wood: selectedWood,
-        polish: selectedPolish,
-        fabric: selectedFabric,
+        customization: selectedCustomization,
       })
     : 0;
   const showMrp = mrp != null && !Number.isNaN(mrp) && mrp > unitPrice;
@@ -171,16 +167,10 @@ export function ShopProductPage() {
 
   async function buildCartLine(): Promise<Omit<CartItem, "quantity"> | null> {
     if (!product) return null;
-    const wood = selectableWoods.find((w) => w.id === selectedWoodId);
-    const polish =
-      woodPolishes.find((p) => p.id === selectedPolishId) ?? null;
-    const fabric =
-      selectableFabrics.find((f) => f.id === selectedFabricId) ?? null;
     const computed = computeCustomizationUnitPrice(product.price, {
-      wood,
-      polish,
-      fabric,
+      customization: selectedCustomization,
     });
+    const picks = snapshotToPicks(selectedCustomization);
     return {
       productId: product.id,
       name: product.name,
@@ -188,29 +178,11 @@ export function ShopProductPage() {
       slug: product.slug,
       imageUrl: sortedImages[0]?.url,
       basePrice: product.price,
-      ...(wood
-        ? {
-            woodId: wood.id,
-            woodName: wood.name,
-            woodColor: wood.color,
-            woodPriceAdjustment: wood.priceAdjustment ?? "0",
-          }
+      ...(selectedCustomization.length > 0
+        ? { customization: selectedCustomization }
         : {}),
-      ...(polish
-        ? {
-            polishId: polish.id,
-            polishName: polish.name,
-            polishColor: polish.color,
-            polishPriceAdjustment: polish.priceAdjustment ?? "0",
-          }
-        : {}),
-      ...(fabric
-        ? {
-            fabricId: fabric.id,
-            fabricName: fabric.name,
-            fabricColor: fabric.color,
-            fabricPriceAdjustment: fabric.priceAdjustment ?? "0",
-          }
+      ...(picks.length > 0
+        ? { customizationKey: buildCustomizationKey(picks) }
         : {}),
     };
   }
@@ -364,115 +336,12 @@ export function ShopProductPage() {
             </div>
           </div>
 
-          {showWoodSection && (
-            <OptionSwatches
-              label="Wood"
-              optional
-              clearable={selectedWoodId != null}
-              onClear={() => {
-                setSelectedWoodId(null);
-                setSelectedPolishId(null);
-              }}
-            >
-              {productWoods.map((wood) => {
-                const available = wood.isAvailable;
-                const selected = selectedWoodId === wood.id;
-                return (
-                  <SwatchButton
-                    key={wood.id}
-                    name={wood.name}
-                    color={wood.color}
-                    selected={selected}
-                    disabled={!available}
-                    adjustment={formatPriceAdjustment(wood.priceAdjustment)}
-                    onClick={() => {
-                      if (!available) return;
-                      setSelectedWoodId(wood.id);
-                      setSelectedPolishId(null);
-                    }}
-                  />
-                );
-              })}
-            </OptionSwatches>
-          )}
-
-          {woodPolishes.length > 0 && (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-medium text-[#1F1610]">
-                  Polish
-                  <span className="ml-1 font-normal text-[#9A8B7A]">
-                    (optional)
-                  </span>
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {woodPolishes.map((polish) => {
-                  const selected = selectedPolishId === polish.id;
-                  return (
-                    <button
-                      key={polish.id}
-                      type="button"
-                      onClick={() =>
-                        setSelectedPolishId(selected ? null : polish.id)
-                      }
-                      className={cn(
-                        "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition-colors",
-                        selected
-                          ? "border-[#1F1610] bg-[#1F1610] text-white"
-                          : "border-[#E8DFD3] bg-white text-[#6B5C4F] hover:border-[#C9B59A]",
-                      )}
-                    >
-                      <span
-                        className="size-3 rounded-full border border-black/10"
-                        style={{ backgroundColor: polish.color }}
-                        aria-hidden
-                      />
-                      {polish.name}
-                      {formatPriceAdjustment(polish.priceAdjustment) && (
-                        <span
-                          className={cn(
-                            "text-xs",
-                            selected ? "text-white/70" : "text-[#9A8B7A]",
-                          )}
-                        >
-                          {formatPriceAdjustment(polish.priceAdjustment)}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {showFabricSection && (
-            <OptionSwatches
-              label="Fabric"
-              optional
-              clearable={selectedFabricId != null}
-              onClear={() => setSelectedFabricId(null)}
-            >
-              {productFabrics.map((fabric) => {
-                const available = fabric.isAvailable;
-                const selected = selectedFabricId === fabric.id;
-                return (
-                  <SwatchButton
-                    key={fabric.id}
-                    name={fabric.name}
-                    color={fabric.color}
-                    selected={selected}
-                    disabled={!available}
-                    adjustment={formatPriceAdjustment(fabric.priceAdjustment)}
-                    onClick={() => {
-                      if (!available) return;
-                      setSelectedFabricId(selected ? null : fabric.id);
-                    }}
-                  />
-                );
-              })}
-            </OptionSwatches>
-          )}
+          <ProductCustomizationGroupPickers
+            variant="shop"
+            options={product.customization}
+            selection={customizationSelection}
+            onChange={setCustomizationSelection}
+          />
 
           {product.description && (
             <ProductDescription description={product.description} />
@@ -714,97 +583,3 @@ export function ShopProductPage() {
   );
 }
 
-function OptionSwatches({
-  label,
-  optional,
-  clearable,
-  onClear,
-  children,
-}: {
-  label: string;
-  optional?: boolean;
-  clearable?: boolean;
-  onClear?: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-sm font-medium text-[#1F1610]">
-          {label}
-          {optional && (
-            <span className="ml-1 font-normal text-[#9A8B7A]">(optional)</span>
-          )}
-        </p>
-        {clearable && onClear && (
-          <button
-            type="button"
-            className="text-xs text-[#9A8B7A] underline-offset-2 hover:underline"
-            onClick={onClear}
-          >
-            Clear
-          </button>
-        )}
-      </div>
-      <div className="flex flex-wrap gap-4">{children}</div>
-    </div>
-  );
-}
-
-function SwatchButton({
-  name,
-  color,
-  selected,
-  disabled,
-  adjustment,
-  onClick,
-}: {
-  name: string;
-  color: string;
-  selected: boolean;
-  disabled?: boolean;
-  adjustment?: string | null;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={onClick}
-      title={
-        disabled
-          ? `${name} — not available`
-          : adjustment
-            ? `${name} (${adjustment})`
-            : name
-      }
-      className={cn(
-        "group flex flex-col items-center gap-2 transition-transform active:scale-[0.97]",
-        disabled && "cursor-not-allowed opacity-40",
-      )}
-      aria-pressed={selected}
-      aria-disabled={disabled}
-    >
-      <span
-        className={cn(
-          "flex size-11 items-center justify-center rounded-full border-2 transition-shadow",
-          selected
-            ? "border-[#1F1610] shadow-[0_0_0_3px_rgba(31,22,16,0.12)]"
-            : "border-transparent group-hover:border-[#D9CBB8]",
-        )}
-      >
-        <span
-          className="size-8 rounded-full border border-black/10 shadow-inner"
-          style={{ backgroundColor: color }}
-          aria-hidden
-        />
-      </span>
-      <span className="max-w-18 text-center text-[11px] leading-tight text-[#6B5C4F]">
-        <span className="block truncate font-medium text-[#1F1610]">{name}</span>
-        {adjustment && (
-          <span className="text-[#9A8B7A]">{adjustment}</span>
-        )}
-      </span>
-    </button>
-  );
-}

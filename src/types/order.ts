@@ -1,5 +1,9 @@
 import type { PaymentStatus } from "@/types/payment";
 import type { OrderAddressRef } from "@/lib/order-utils";
+import type {
+  ProductCustomizationOption,
+  ProductCustomizationPick,
+} from "@/types/product";
 
 export type OrderStatus =
   | "PENDING"
@@ -54,6 +58,7 @@ export type OrderItem = {
   fabricName?: string | null;
   fabricColor?: string | null;
   fabricPriceAdjustment?: string | null;
+  customization?: ProductCustomizationOption[];
   wood?: OrderCatalogMaterial | null;
   polish?: OrderCatalogMaterial | null;
   fabric?: OrderCatalogMaterial | null;
@@ -217,13 +222,22 @@ export type UpdateOrderPayload = {
   billingAddressId?: number;
   deliveryFloor?: number;
   liftAccessAvailable?: boolean;
-  items?: { productId: number; quantity: number; woodId?: number }[];
+  items?: OrderLineInput[];
   payment?: { notes: string };
+};
+
+export type OrderLineInput = {
+  productId: number;
+  quantity: number;
+  woodId?: number;
+  polishId?: number;
+  fabricId?: number;
+  customization?: ProductCustomizationPick[];
 };
 
 /** Shop checkout uses `useCart: true`; legacy guest flow may send `items` instead. */
 export type CreateOrderPayload = {
-  items?: { productId: number; quantity: number; woodId?: number }[];
+  items?: OrderLineInput[];
   useCart?: boolean;
   shippingAddressId: number;
   billingAddressId?: number;

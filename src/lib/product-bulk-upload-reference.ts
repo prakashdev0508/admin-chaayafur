@@ -59,21 +59,6 @@ export const PRODUCT_BULK_COLUMN_HELP: ProductBulkColumnHelp[] = [
     required: false,
     hint: "Legacy: comma-separated CDN URLs, max 5 — overrides staged images when present",
   },
-  {
-    column: "woods",
-    required: false,
-    hint: "Comma-separated: id or id:priceAdjustment — e.g. 1,2 or 1:3000,2:6000",
-  },
-  {
-    column: "polishes",
-    required: false,
-    hint: "Same format; each polish must belong to an assigned wood",
-  },
-  {
-    column: "fabrics",
-    required: false,
-    hint: "Comma-separated: id or id:priceAdjustment — e.g. 3,4 or 3:500",
-  },
 ];
 
 /** Backend-appended columns on the result workbook. */
@@ -90,9 +75,3 @@ export const PRODUCT_BULK_RESULT_COLUMNS: ProductBulkColumnHelp[] = [
   },
 ];
 
-export const PRODUCT_BULK_PRICING_NOTES = [
-  "Format: optionId:priceAdjustment per entry, comma-separated.",
-  "Omit :price to default priceAdjustment to 0 (backward compatible).",
-  "Prices are product-specific — the same wood ID can have different prices on different rows.",
-  'If woods is set and polishes is empty/omitted, active polishes of those woods are synced automatically at price 0.',
-] as const;

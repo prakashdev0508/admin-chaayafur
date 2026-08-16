@@ -45,6 +45,17 @@ function fromSnapshots(item: OrderItem): MaterialChip[] {
       ),
     );
   }
+  for (const option of item.customization ?? []) {
+    chips.push(
+      materialChip(
+        option.groupName,
+        option.value,
+        null,
+        formatPriceAdjustment(option.price),
+        option.image,
+      ),
+    );
+  }
   return chips;
 }
 

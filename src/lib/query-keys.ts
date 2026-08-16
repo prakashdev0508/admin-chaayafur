@@ -30,6 +30,12 @@ export const queryKeys = {
     detail: (id: number, params?: Record<string, unknown>) =>
       ["coupons", "detail", id, params] as const,
   },
+  quotations: {
+    all: ["quotations"] as const,
+    list: (params: Record<string, unknown>) =>
+      ["quotations", "list", params] as const,
+    detail: (id: number) => ["quotations", "detail", id] as const,
+  },
   carts: {
     all: ["carts"] as const,
     list: (params: Record<string, unknown>) =>
@@ -64,18 +70,6 @@ export const queryKeys = {
     all: ["staged-product-images"] as const,
     list: (params: Record<string, unknown>) =>
       ["staged-product-images", "list", params] as const,
-  },
-  woods: {
-    all: ["woods"] as const,
-    list: (params: Record<string, unknown>) =>
-      ["woods", "list", params] as const,
-    detail: (id: number) => ["woods", "detail", id] as const,
-  },
-  fabrics: {
-    all: ["fabrics"] as const,
-    list: (params: Record<string, unknown>) =>
-      ["fabrics", "list", params] as const,
-    detail: (id: number) => ["fabrics", "detail", id] as const,
   },
   categories: {
     all: ["categories"] as const,

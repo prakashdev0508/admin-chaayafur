@@ -1,8 +1,18 @@
+import {
+  buildCustomizationKey,
+  snapshotToPicks,
+} from "@/lib/product-customization";
+import type {
+  ProductCustomizationOption,
+  ProductCustomizationPick,
+} from "@/types/product";
+
 export type CartLineRef = {
   productId: number;
   woodId?: number | null;
   polishId?: number | null;
   fabricId?: number | null;
+  customizationKey?: string | null;
 };
 
 export type CartItem = {
@@ -27,6 +37,8 @@ export type CartItem = {
   fabricName?: string | null;
   fabricColor?: string | null;
   fabricPriceAdjustment?: string | null;
+  customization?: ProductCustomizationOption[];
+  customizationKey?: string | null;
 };
 
 export type CartOrderItem = {
@@ -35,6 +47,7 @@ export type CartOrderItem = {
   woodId?: number;
   polishId?: number;
   fabricId?: number;
+  customization?: ProductCustomizationPick[];
 };
 
 /** Line from GET /cart (server-computed pricing). */
@@ -62,6 +75,8 @@ export type ServerCartLine = {
   fabricName?: string | null;
   fabricColor?: string | null;
   fabricPriceAdjustment?: string | null;
+  customization?: ProductCustomizationOption[];
+  customizationKey?: string | null;
 };
 
 export type CartResponse = {
@@ -70,25 +85,42 @@ export type CartResponse = {
   subtotalAmount: string;
 };
 
-/** Stable key for a cart line (product + optional wood / polish / fabric). */
-export function cartLineKey(ref: CartLineRef): string {
+function lineCustomizationKey(
+  ref: Pick<CartLineRef, "customizationKey"> & {
+    customization?: ProductCustomizationOption[] | ProductCustomizationPick[];
+  },
+): string {
+  if (ref.customizationKey) return ref.customizationKey;
+  return buildCustomizationKey(snapshotToPicks(ref.customization));
+}
+
+/** Stable key for a cart line (product + optional wood / polish / fabric / groups). */
+export function cartLineKey(ref: CartLineRef & { customization?: ProductCustomizationOption[] }): string {
   const wood = ref.woodId ?? "none";
   const polish = ref.polishId ?? "none";
   const fabric = ref.fabricId ?? "none";
-  return `${ref.productId}:${wood}:${polish}:${fabric}`;
+  const custom = lineCustomizationKey(ref) || "none";
+  return `${ref.productId}:${wood}:${polish}:${fabric}:${custom}`;
 }
 
 export function cartLineRefFromItem(
   item: Pick<
     CartItem,
-    "productId" | "woodId" | "polishId" | "fabricId"
+    | "productId"
+    | "woodId"
+    | "polishId"
+    | "fabricId"
+    | "customization"
+    | "customizationKey"
   >,
 ): CartLineRef {
+  const customizationKey = lineCustomizationKey(item);
   return {
     productId: item.productId,
     woodId: item.woodId ?? null,
     polishId: item.polishId ?? null,
     fabricId: item.fabricId ?? null,
+    customizationKey: customizationKey || null,
   };
 }
 
@@ -96,18 +128,30 @@ export function cartLineQueryParams(ref: CartLineRef): {
   woodId?: number;
   polishId?: number;
   fabricId?: number;
+  customizationKey?: string;
 } {
-  const params: { woodId?: number; polishId?: number; fabricId?: number } = {};
+  const params: {
+    woodId?: number;
+    polishId?: number;
+    fabricId?: number;
+    customizationKey?: string;
+  } = {};
   if (ref.woodId != null) params.woodId = ref.woodId;
   if (ref.polishId != null) params.polishId = ref.polishId;
   if (ref.fabricId != null) params.fabricId = ref.fabricId;
+  if (ref.customizationKey) params.customizationKey = ref.customizationKey;
   return params;
 }
 
 export function upsertPayloadFromLine(
   line: Pick<
     CartItem,
-    "productId" | "quantity" | "woodId" | "polishId" | "fabricId"
+    | "productId"
+    | "quantity"
+    | "woodId"
+    | "polishId"
+    | "fabricId"
+    | "customization"
   >,
 ): UpsertCartItemPayload {
   const payload: UpsertCartItemPayload = {
@@ -117,6 +161,8 @@ export function upsertPayloadFromLine(
   if (line.woodId != null) payload.woodId = line.woodId;
   if (line.polishId != null) payload.polishId = line.polishId;
   if (line.fabricId != null) payload.fabricId = line.fabricId;
+  const picks = snapshotToPicks(line.customization);
+  if (picks.length > 0) payload.customization = picks;
   return payload;
 }
 
@@ -143,6 +189,9 @@ export function serverCartLineToCartItem(line: ServerCartLine): CartItem {
     fabricName: line.fabricName ?? null,
     fabricColor: line.fabricColor ?? null,
     fabricPriceAdjustment: line.fabricPriceAdjustment ?? null,
+    customization: line.customization ?? [],
+    customizationKey:
+      line.customizationKey ?? (lineCustomizationKey(line) || null),
   };
 }
 
@@ -185,6 +234,7 @@ export type SeedAdminCartPayload = {
   woodId?: number;
   polishId?: number;
   fabricId?: number;
+  customization?: ProductCustomizationPick[];
 };
 
 export type UpsertAdminCartItemPayload = {
@@ -193,6 +243,7 @@ export type UpsertAdminCartItemPayload = {
   woodId?: number;
   polishId?: number;
   fabricId?: number;
+  customization?: ProductCustomizationPick[];
 };
 
 export type UpsertCartItemPayload = {
@@ -201,17 +252,19 @@ export type UpsertCartItemPayload = {
   woodId?: number;
   polishId?: number;
   fabricId?: number;
+  customization?: ProductCustomizationPick[];
 };
 
 export type CartMaterialChip = {
   label: string;
   name: string;
   color?: string | null;
+  image?: string | null;
   /** Formatted adjustment label e.g. "+₹500", when > 0. */
   priceAdjustmentLabel?: string | null;
 };
 
-/** Display chips for wood / polish / fabric on a cart line. */
+/** Display chips for wood / polish / fabric / option groups on a cart line. */
 export function getCartLineMaterialChips(
   item: Pick<
     CartItem,
@@ -224,6 +277,7 @@ export function getCartLineMaterialChips(
     | "fabricName"
     | "fabricColor"
     | "fabricPriceAdjustment"
+    | "customization"
   >,
 ): CartMaterialChip[] {
   const chips: CartMaterialChip[] = [];
@@ -251,12 +305,20 @@ export function getCartLineMaterialChips(
       priceAdjustmentLabel: formatAdj(item.fabricPriceAdjustment),
     });
   }
+  for (const option of item.customization ?? []) {
+    chips.push({
+      label: option.groupName,
+      name: option.value,
+      image: option.image || null,
+      priceAdjustmentLabel: formatAdj(option.price),
+    });
+  }
   return chips;
 }
 
-function formatAdj(value: string | null | undefined): string | null {
+function formatAdj(value: string | number | null | undefined): string | null {
   if (value == null || value === "") return null;
-  const n = parseFloat(value);
+  const n = typeof value === "number" ? value : parseFloat(value);
   if (!Number.isFinite(n) || n <= 0) return null;
   return `+${new Intl.NumberFormat("en-IN", {
     style: "currency",

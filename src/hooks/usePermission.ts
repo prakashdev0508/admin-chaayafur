@@ -9,6 +9,8 @@ import {
 const routePermissions: Record<string, Permission | Permission[] | []> = {
   "/": PERMISSIONS.VIEW_DASHBOARD,
   "/products": PERMISSIONS.VIEW_PRODUCTS,
+  "/quotations": PERMISSIONS.VIEW_QUOTATIONS,
+  "/quotations/new": PERMISSIONS.CREATE_QUOTATIONS,
   "/products/new": PERMISSIONS.CREATE_PRODUCTS,
   "/categories": PERMISSIONS.VIEW_CATEGORIES,
   "/website": PERMISSIONS.VIEW_BANNERS,

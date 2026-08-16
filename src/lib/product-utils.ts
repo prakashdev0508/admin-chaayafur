@@ -5,10 +5,12 @@ import type {
   ProductImageInput,
   ProductListItem,
   ProductMerchandisingTag,
-  ProductPolishFormEntry,
 } from "@/types/product";
 import type { StatusVariant } from "@/lib/status-variants";
-import { parseMoney } from "@/lib/customization-pricing";
+import {
+  customizationToForm,
+  formCustomizationToPayload,
+} from "@/lib/product-customization";
 
 export function formatCurrency(amount: number | string) {
   const value = typeof amount === "string" ? parseFloat(amount) : amount;
@@ -63,33 +65,6 @@ export function getActiveProductTags(
   return tags;
 }
 
-function adjustmentToForm(value: string | number | null | undefined): string {
-  const n = parseMoney(value);
-  return n === 0 ? "0" : String(n);
-}
-
-function polishEntriesFromProduct(product: Product): ProductPolishFormEntry[] {
-  if (product.polishes && product.polishes.length > 0) {
-    return product.polishes.map((p) => ({
-      woodPolishId: p.id,
-      isActive: p.isActive,
-      priceAdjustment: adjustmentToForm(p.priceAdjustment),
-    }));
-  }
-
-  const nested: ProductPolishFormEntry[] = [];
-  for (const wood of product.woods ?? []) {
-    for (const polish of wood.polishes ?? []) {
-      nested.push({
-        woodPolishId: polish.id,
-        isActive: polish.isActive,
-        priceAdjustment: adjustmentToForm(polish.priceAdjustment),
-      });
-    }
-  }
-  return nested;
-}
-
 export function productToFormValues(product: Product): ProductFormValues {
   return {
     name: product.name,
@@ -111,17 +86,7 @@ export function productToFormValues(product: Product): ProductFormValues {
     isMostPopular: product.isMostPopular ?? false,
     isNewArrival: product.isNewArrival ?? false,
     productFeatures: product.productFeatures,
-    woods: (product.woods ?? []).map((w) => ({
-      woodId: w.id,
-      isActive: w.isActive,
-      priceAdjustment: adjustmentToForm(w.priceAdjustment),
-    })),
-    polishes: polishEntriesFromProduct(product),
-    fabrics: (product.fabrics ?? []).map((f) => ({
-      fabricId: f.id,
-      isActive: f.isActive,
-      priceAdjustment: adjustmentToForm(f.priceAdjustment),
-    })),
+    customization: customizationToForm(product.customization),
     images:
       product.images.length > 0
         ? product.images.map((img) => ({
@@ -132,12 +97,6 @@ export function productToFormValues(product: Product): ProductFormValues {
           }))
         : [],
   };
-}
-
-function formAdjustmentToNumber(value: string): number {
-  const n = parseFloat(value.trim());
-  if (!Number.isFinite(n) || n < 0) return 0;
-  return n;
 }
 
 function requireStringField(
@@ -203,25 +162,10 @@ export function formValuesToCreatePayload(
     isMostPopular: values.isMostPopular,
     isNewArrival: values.isNewArrival,
     productFeatures: values.productFeatures,
-    woods: values.woods.map((w) => ({
-      woodId: w.woodId,
-      isActive: w.isActive,
-      priceAdjustment: formAdjustmentToNumber(w.priceAdjustment),
-    })),
-    /** Always send polishes with woods so backend sync does not wipe custom prices. */
-    polishes:
-      values.woods.length === 0
-        ? []
-        : values.polishes.map((p) => ({
-            woodPolishId: p.woodPolishId,
-            isActive: p.isActive,
-            priceAdjustment: formAdjustmentToNumber(p.priceAdjustment),
-          })),
-    fabrics: values.fabrics.map((f) => ({
-      fabricId: f.fabricId,
-      isActive: f.isActive,
-      priceAdjustment: formAdjustmentToNumber(f.priceAdjustment),
-    })),
+    customization: formCustomizationToPayload(values.customization),
+    woods: [],
+    polishes: [],
+    fabrics: [],
     images: images.length > 0 ? images : undefined,
   };
 }

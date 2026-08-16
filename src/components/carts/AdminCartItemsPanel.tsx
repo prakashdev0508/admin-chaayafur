@@ -1,11 +1,12 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Minus, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { CartMaterialChips } from "@/components/shop/CartMaterialChips";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { ProductSearchSelect } from "@/components/shared/ProductSearchSelect";
+import { ProductCartMaterialPickers } from "@/components/shared/ProductCartMaterialPickers";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,21 +21,21 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatCurrency } from "@/lib/format";
 import { queryKeys } from "@/lib/query-keys";
-import { cn } from "@/lib/utils";
+import {
+  customizationPicksFromSelection,
+  type CustomizationSelection,
+} from "@/lib/product-customization";
 import {
   removeAdminCartItem,
   setAdminCartItemQuantity,
   upsertAdminCartItem,
 } from "@/services/admin-carts.service";
-import { getProduct } from "@/services/products.service";
 import {
   cartLineKey,
   cartLineRefFromItem,
   type AdminCartDetail,
   type CartLineRef,
 } from "@/types/cart";
-import { getSelectableProductFabrics } from "@/types/fabric";
-import { getSelectableProductWoods } from "@/types/wood";
 import type { ProductListItem } from "@/types/product";
 
 type AdminCartItemsPanelProps = {
@@ -64,37 +65,11 @@ export function AdminCartItemsPanel({
   const [selectedProduct, setSelectedProduct] = useState<ProductListItem | null>(
     null,
   );
-  const [selectedWoodId, setSelectedWoodId] = useState<number | null>(null);
-  const [selectedPolishId, setSelectedPolishId] = useState<number | null>(null);
-  const [selectedFabricId, setSelectedFabricId] = useState<number | null>(null);
+  const [customizationSelection, setCustomizationSelection] =
+    useState<CustomizationSelection>({});
   const [quantity, setQuantity] = useState("1");
   const [removeLine, setRemoveLine] = useState<CartLineRef | null>(null);
   const [pendingKey, setPendingKey] = useState<string | null>(null);
-
-  const productDetailQuery = useQuery({
-    queryKey: ["admin", "cart-add-product", selectedProduct?.id],
-    queryFn: () => getProduct(selectedProduct!.id),
-    enabled: addOpen && selectedProduct != null,
-  });
-
-  const productWoods = productDetailQuery.data?.woods ?? [];
-  const selectableWoods = getSelectableProductWoods(productWoods);
-  const showWoodPicker = productWoods.length > 0;
-  const selectedWood = selectableWoods.find((w) => w.id === selectedWoodId);
-  const woodPolishes = selectedWood?.polishes ?? [];
-  const productFabrics = productDetailQuery.data?.fabrics ?? [];
-  const selectableFabrics = getSelectableProductFabrics(productFabrics);
-  const showFabricPicker = productFabrics.length > 0;
-
-  useEffect(() => {
-    setSelectedWoodId(null);
-    setSelectedPolishId(null);
-    setSelectedFabricId(null);
-  }, [selectedProduct?.id]);
-
-  useEffect(() => {
-    setSelectedPolishId(null);
-  }, [selectedWoodId]);
 
   const invalidate = async () => {
     await queryClient.invalidateQueries({
@@ -113,9 +88,7 @@ export function AdminCartItemsPanel({
       toast.success("Cart item saved");
       setAddOpen(false);
       setSelectedProduct(null);
-      setSelectedWoodId(null);
-      setSelectedPolishId(null);
-      setSelectedFabricId(null);
+      setCustomizationSelection({});
       setQuantity("1");
       await invalidate();
     },
@@ -299,9 +272,7 @@ export function AdminCartItemsPanel({
           setAddOpen(open);
           if (!open) {
             setSelectedProduct(null);
-            setSelectedWoodId(null);
-            setSelectedPolishId(null);
-            setSelectedFabricId(null);
+            setCustomizationSelection({});
             setQuantity("1");
           }
         }}
@@ -311,7 +282,7 @@ export function AdminCartItemsPanel({
             <DialogTitle>Add or update item</DialogTitle>
             <DialogDescription>
               Search by product name. Quantity replaces any existing line for
-              the same product, wood, polish, and fabric combination.
+              the same product and customization combination.
             </DialogDescription>
           </DialogHeader>
           <form
@@ -330,154 +301,31 @@ export function AdminCartItemsPanel({
               upsertMutation.mutate({
                 productId: selectedProduct.id,
                 quantity: qty,
-                ...(selectedWoodId != null ? { woodId: selectedWoodId } : {}),
-                ...(selectedPolishId != null
-                  ? { polishId: selectedPolishId }
-                  : {}),
-                ...(selectedFabricId != null
-                  ? { fabricId: selectedFabricId }
+                ...(customizationPicksFromSelection(customizationSelection)
+                  .length > 0
+                  ? {
+                      customization: customizationPicksFromSelection(
+                        customizationSelection,
+                      ),
+                    }
                   : {}),
               });
             }}
           >
             <ProductSearchSelect
               value={selectedProduct}
-              onChange={setSelectedProduct}
+              onChange={(product) => {
+                setSelectedProduct(product);
+                setCustomizationSelection({});
+              }}
               disabled={upsertMutation.isPending}
             />
-            {selectedProduct && productDetailQuery.isLoading && (
-              <p className="text-sm text-muted-foreground">Loading options…</p>
-            )}
-            {showWoodPicker && (
-              <div className="space-y-2">
-                <Label>Wood (optional)</Label>
-                <div className="flex flex-wrap gap-2">
-                  {productWoods.map((wood) => {
-                    const available = wood.isAvailable;
-                    const selected = selectedWoodId === wood.id;
-                    return (
-                      <button
-                        key={wood.id}
-                        type="button"
-                        disabled={!available}
-                        onClick={() => {
-                          if (available) {
-                            setSelectedWoodId(selected ? null : wood.id);
-                          }
-                        }}
-                        title={
-                          available
-                            ? wood.name
-                            : `${wood.name} — not available now`
-                        }
-                        className={cn(
-                          "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm",
-                          !available &&
-                            "cursor-not-allowed opacity-50 border-dashed",
-                          available && selected && "border-primary bg-muted",
-                          available &&
-                            !selected &&
-                            "border-border hover:bg-muted/50",
-                        )}
-                      >
-                        <span
-                          className="size-3 rounded-full border border-border"
-                          style={{ backgroundColor: wood.color }}
-                          aria-hidden
-                        />
-                        {wood.name}
-                        {!available && (
-                          <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                            Unavailable
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-                {selectableWoods.length === 0 && (
-                  <p className="text-xs text-destructive">
-                    No woods are currently available for this product.
-                  </p>
-                )}
-              </div>
-            )}
-            {selectedWoodId && woodPolishes.length > 0 && (
-              <div className="space-y-2">
-                <Label>Polish (optional)</Label>
-                <div className="flex flex-wrap gap-2">
-                  {woodPolishes.map((polish) => {
-                    const selected = selectedPolishId === polish.id;
-                    return (
-                      <button
-                        key={polish.id}
-                        type="button"
-                        onClick={() =>
-                          setSelectedPolishId(selected ? null : polish.id)
-                        }
-                        className={cn(
-                          "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm",
-                          selected
-                            ? "border-primary bg-muted"
-                            : "border-border hover:bg-muted/50",
-                        )}
-                      >
-                        <span
-                          className="size-3 rounded-full border border-border"
-                          style={{ backgroundColor: polish.color }}
-                          aria-hidden
-                        />
-                        {polish.name}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-            {showFabricPicker && (
-              <div className="space-y-2">
-                <Label>Fabric (optional)</Label>
-                <div className="flex flex-wrap gap-2">
-                  {productFabrics.map((fabric) => {
-                    const available = fabric.isAvailable;
-                    const selected = selectedFabricId === fabric.id;
-                    return (
-                      <button
-                        key={fabric.id}
-                        type="button"
-                        disabled={!available}
-                        onClick={() => {
-                          if (available) {
-                            setSelectedFabricId(selected ? null : fabric.id);
-                          }
-                        }}
-                        className={cn(
-                          "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm",
-                          !available &&
-                            "cursor-not-allowed opacity-50 border-dashed",
-                          available && selected && "border-primary bg-muted",
-                          available &&
-                            !selected &&
-                            "border-border hover:bg-muted/50",
-                        )}
-                      >
-                        <span
-                          className="size-3 rounded-full border border-border"
-                          style={{ backgroundColor: fabric.color }}
-                          aria-hidden
-                        />
-                        {fabric.name}
-                      </button>
-                    );
-                  })}
-                </div>
-                {selectableFabrics.length === 0 && (
-                  <p className="text-xs text-destructive">
-                    No fabrics are currently available for this product.
-                  </p>
-                )}
-              </div>
-            )}
+            <ProductCartMaterialPickers
+              productId={selectedProduct?.id ?? null}
+              customizationSelection={customizationSelection}
+              onCustomizationChange={setCustomizationSelection}
+              disabled={upsertMutation.isPending}
+            />
             <div className="space-y-2">
               <Label htmlFor="admin-cart-qty">Quantity</Label>
               <Input

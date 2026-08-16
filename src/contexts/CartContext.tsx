@@ -130,6 +130,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
             ...(lineRef.woodId != null ? { woodId: lineRef.woodId } : {}),
             ...(lineRef.polishId != null ? { polishId: lineRef.polishId } : {}),
             ...(lineRef.fabricId != null ? { fabricId: lineRef.fabricId } : {}),
+            ...(item.customization && item.customization.length > 0
+              ? {
+                  customization: item.customization.map((option) => ({
+                    groupName: option.groupName,
+                    value: option.value,
+                  })),
+                }
+              : {}),
           });
           await invalidateCart();
         } finally {
@@ -214,6 +222,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (item.woodId != null) orderItem.woodId = item.woodId;
       if (item.polishId != null) orderItem.polishId = item.polishId;
       if (item.fabricId != null) orderItem.fabricId = item.fabricId;
+      const customization = (item.customization ?? [])
+        .map((option) => ({
+          groupName: option.groupName,
+          value: option.value,
+        }))
+        .filter((pick) => pick.groupName && pick.value);
+      if (customization.length > 0) orderItem.customization = customization;
       return orderItem;
     });
   }, [items]);

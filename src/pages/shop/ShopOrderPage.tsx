@@ -390,13 +390,19 @@ export function ShopOrderPage() {
                             key={`${material.label}-${material.name}`}
                             className="inline-flex items-center gap-1 rounded-full border border-[#D9CBB8] bg-[#FAF7F2] px-2 py-0.5 text-[11px] font-medium"
                           >
-                            {material.color && (
+                            {material.image ? (
+                              <img
+                                src={material.image}
+                                alt=""
+                                className="size-2 rounded-full object-cover"
+                              />
+                            ) : material.color ? (
                               <span
                                 className="size-2 rounded-full border border-[#D9CBB8]"
                                 style={{ backgroundColor: material.color }}
                                 aria-hidden
                               />
-                            )}
+                            ) : null}
                             <span className="text-muted-foreground">
                               {material.label}:
                             </span>

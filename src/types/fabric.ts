@@ -16,39 +16,5 @@ export type ProductFabric = {
   color: string;
   isActive: boolean;
   isAvailable: boolean;
-  /** Product-level adjustment added to base price when selected. */
   priceAdjustment?: string;
-};
-
-export function isProductFabricAvailable(fabric: ProductFabric): boolean {
-  return fabric.isAvailable;
-}
-
-export function getSelectableProductFabrics(
-  fabrics: ProductFabric[] | undefined | null,
-): ProductFabric[] {
-  return (fabrics ?? []).filter(isProductFabricAvailable);
-}
-
-export type ListFabricsParams = {
-  page?: number;
-  limit?: number;
-  isActive?: boolean;
-  name?: string;
-};
-
-export type CreateFabricPayload = {
-  name: string;
-  slug: string;
-  color: string;
-  isActive?: boolean;
-};
-
-export type UpdateFabricPayload = Partial<CreateFabricPayload>;
-
-export type FabricFormValues = {
-  name: string;
-  slug: string;
-  color: string;
-  isActive: boolean;
 };

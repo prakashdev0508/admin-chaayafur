@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft, Download, Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -18,19 +18,12 @@ import { ApiError } from "@/lib/api";
 import { triggerBrowserDownload } from "@/lib/download";
 import {
   PRODUCT_BULK_COLUMN_HELP,
-  PRODUCT_BULK_PRICING_NOTES,
   PRODUCT_BULK_RESULT_COLUMNS,
 } from "@/lib/product-bulk-upload-reference";
 import { PERMISSIONS } from "@/lib/roles";
 import { fetchCategoriesTree } from "@/services/categories.service";
-import { listFabrics } from "@/services/fabrics.service";
 import { downloadProductBulkUploadSample } from "@/services/products.service";
-import { listWoods } from "@/services/woods.service";
 import type { CategoryTreeItem } from "@/types/category";
-import type { Fabric } from "@/types/fabric";
-import type { Wood, WoodPolish } from "@/types/wood";
-
-type PolishRef = WoodPolish & { woodName: string; woodId: number };
 
 export function ProductBulkPreparePage() {
   const { hasPermission } = usePermission();
@@ -38,40 +31,20 @@ export function ProductBulkPreparePage() {
 
   const [downloadingSample, setDownloadingSample] = useState(false);
   const [categoriesTree, setCategoriesTree] = useState<CategoryTreeItem[]>([]);
-  const [woods, setWoods] = useState<Wood[]>([]);
-  const [fabrics, setFabrics] = useState<Fabric[]>([]);
   const [refsLoading, setRefsLoading] = useState(true);
 
   useEffect(() => {
     if (!canCreate) return;
     setRefsLoading(true);
-    Promise.all([
-      fetchCategoriesTree(),
-      listWoods({ limit: 100 }),
-      listFabrics({ limit: 100 }),
-    ])
-      .then(([tree, woodsPage, fabricsPage]) => {
+    fetchCategoriesTree()
+      .then((tree) => {
         setCategoriesTree(tree);
-        setWoods(woodsPage.items);
-        setFabrics(fabricsPage.items);
       })
       .catch(() => {
         toast.error("Could not load reference IDs");
       })
       .finally(() => setRefsLoading(false));
   }, [canCreate]);
-
-  const polishes = useMemo<PolishRef[]>(
-    () =>
-      woods.flatMap((wood) =>
-        (wood.polishes ?? []).map((polish) => ({
-          ...polish,
-          woodName: wood.name,
-          woodId: wood.id,
-        })),
-      ),
-    [woods],
-  );
 
   const handleDownloadSample = async () => {
     setDownloadingSample(true);
@@ -161,16 +134,8 @@ export function ProductBulkPreparePage() {
               <code className="rounded bg-muted px-1 py-0.5 text-xs">
                 images
               </code>{" "}
-              column is required — staged images are matched by slug. Use the ID
-              reference tables for woods, polishes, and fabrics (
-              <code className="rounded bg-muted px-1 py-0.5 text-xs">
-                id
-              </code>{" "}
-              or{" "}
-              <code className="rounded bg-muted px-1 py-0.5 text-xs">
-                id:priceAdjustment
-              </code>
-              ).
+              column is required — staged images are matched by slug. Use the
+              sub-category ID table below.
             </li>
             <li>
               On the Products list, choose{" "}
@@ -262,15 +227,6 @@ export function ProductBulkPreparePage() {
             ))}
           </ul>
 
-          <div className="rounded-lg border bg-muted/20 p-3">
-            <p className="text-xs font-medium">Customization pricing</p>
-            <ul className="mt-1.5 list-disc space-y-1 pl-4 text-xs text-muted-foreground">
-              {PRODUCT_BULK_PRICING_NOTES.map((note) => (
-                <li key={note}>{note}</li>
-              ))}
-            </ul>
-          </div>
-
           <div>
             <p className="mb-1.5 text-xs font-medium">
               Result workbook columns (backend-appended)
@@ -345,126 +301,6 @@ export function ProductBulkPreparePage() {
           )}
         </CardContent>
       </Card>
-
-      <div className="grid gap-6 lg:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardTitle>Wood IDs</CardTitle>
-            <CardDescription>
-              <code className="rounded bg-muted px-1 py-0.5 text-xs">
-                id
-              </code>{" "}
-              or{" "}
-              <code className="rounded bg-muted px-1 py-0.5 text-xs">
-                id:price
-              </code>
-              .{" "}
-              <Link
-                to="/woods"
-                className="underline underline-offset-2 hover:text-foreground"
-              >
-                Manage woods
-              </Link>
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {refsLoading ? (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="size-4 animate-spin" />
-                Loading…
-              </div>
-            ) : woods.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No woods found.</p>
-            ) : (
-              <ul className="max-h-48 space-y-1 overflow-y-auto text-xs">
-                {woods.map((wood) => (
-                  <li key={wood.id} className="flex gap-2">
-                    <span className="font-mono tabular-nums">{wood.id}</span>
-                    <span className="text-muted-foreground">{wood.name}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Polish IDs</CardTitle>
-            <CardDescription>
-              Must belong to an assigned wood. Same{" "}
-              <code className="rounded bg-muted px-1 py-0.5 text-xs">
-                id:price
-              </code>{" "}
-              format.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {refsLoading ? (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="size-4 animate-spin" />
-                Loading…
-              </div>
-            ) : polishes.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No polishes found on loaded woods.
-              </p>
-            ) : (
-              <ul className="max-h-48 space-y-1 overflow-y-auto text-xs">
-                {polishes.map((polish) => (
-                  <li key={polish.id} className="flex gap-2">
-                    <span className="font-mono tabular-nums">{polish.id}</span>
-                    <span className="text-muted-foreground">
-                      {polish.woodName} / {polish.name}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Fabric IDs</CardTitle>
-            <CardDescription>
-              <code className="rounded bg-muted px-1 py-0.5 text-xs">
-                id
-              </code>{" "}
-              or{" "}
-              <code className="rounded bg-muted px-1 py-0.5 text-xs">
-                id:price
-              </code>
-              .{" "}
-              <Link
-                to="/fabrics"
-                className="underline underline-offset-2 hover:text-foreground"
-              >
-                Manage fabrics
-              </Link>
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {refsLoading ? (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="size-4 animate-spin" />
-                Loading…
-              </div>
-            ) : fabrics.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No fabrics found.</p>
-            ) : (
-              <ul className="max-h-48 space-y-1 overflow-y-auto text-xs">
-                {fabrics.map((fabric) => (
-                  <li key={fabric.id} className="flex gap-2">
-                    <span className="font-mono tabular-nums">{fabric.id}</span>
-                    <span className="text-muted-foreground">{fabric.name}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
-      </div>
 
       <Card>
         <CardHeader>

@@ -31,6 +31,10 @@ import { PERMISSIONS } from "@/lib/roles";
 import { usePermission } from "@/hooks/usePermission";
 import { listAdminCarts, seedAdminCart } from "@/services/admin-carts.service";
 import type { ProductListItem } from "@/types/product";
+import {
+  customizationPicksFromSelection,
+  type CustomizationSelection,
+} from "@/lib/product-customization";
 
 export function CartListPage() {
   const navigate = useNavigate();
@@ -48,9 +52,8 @@ export function CartListPage() {
     null,
   );
   const [quantity, setQuantity] = useState("1");
-  const [selectedWoodId, setSelectedWoodId] = useState<number | null>(null);
-  const [selectedPolishId, setSelectedPolishId] = useState<number | null>(null);
-  const [selectedFabricId, setSelectedFabricId] = useState<number | null>(null);
+  const [customizationSelection, setCustomizationSelection] =
+    useState<CustomizationSelection>({});
 
   const params = useMemo(
     () => ({
@@ -84,6 +87,7 @@ export function CartListPage() {
       setSeedOpen(false);
       setCustomerId("");
       setSelectedProduct(null);
+      setCustomizationSelection({});
       setQuantity("1");
       void queryClient.invalidateQueries({ queryKey: queryKeys.carts.all });
       navigate(`/carts/${cart.id}`);
@@ -178,9 +182,7 @@ export function CartListPage() {
           if (!open) {
             setCustomerId("");
             setSelectedProduct(null);
-            setSelectedWoodId(null);
-            setSelectedPolishId(null);
-            setSelectedFabricId(null);
+            setCustomizationSelection({});
             setQuantity("1");
           }
         }}
@@ -214,12 +216,13 @@ export function CartListPage() {
                 customerId: cid,
                 productId: selectedProduct.id,
                 quantity: qty,
-                ...(selectedWoodId != null ? { woodId: selectedWoodId } : {}),
-                ...(selectedPolishId != null
-                  ? { polishId: selectedPolishId }
-                  : {}),
-                ...(selectedFabricId != null
-                  ? { fabricId: selectedFabricId }
+                ...(customizationPicksFromSelection(customizationSelection)
+                  .length > 0
+                  ? {
+                      customization: customizationPicksFromSelection(
+                        customizationSelection,
+                      ),
+                    }
                   : {}),
               });
             }}
@@ -235,17 +238,16 @@ export function CartListPage() {
             </div>
             <ProductSearchSelect
               value={selectedProduct}
-              onChange={setSelectedProduct}
+              onChange={(product) => {
+                setSelectedProduct(product);
+                setCustomizationSelection({});
+              }}
               disabled={seedMutation.isPending}
             />
             <ProductCartMaterialPickers
               productId={selectedProduct?.id ?? null}
-              woodId={selectedWoodId}
-              polishId={selectedPolishId}
-              fabricId={selectedFabricId}
-              onWoodChange={setSelectedWoodId}
-              onPolishChange={setSelectedPolishId}
-              onFabricChange={setSelectedFabricId}
+              customizationSelection={customizationSelection}
+              onCustomizationChange={setCustomizationSelection}
               disabled={seedMutation.isPending}
             />
             <div className="space-y-2">
