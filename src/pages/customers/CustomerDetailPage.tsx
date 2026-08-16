@@ -29,6 +29,7 @@ import { AddressCard } from "@/components/customers/AddressCard";
 import { AuditLogTable } from "@/components/shared/AuditLogTable";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { ProductSearchSelect } from "@/components/shared/ProductSearchSelect";
+import { ProductCartMaterialPickers } from "@/components/shared/ProductCartMaterialPickers";
 import {
   Dialog,
   DialogContent,
@@ -51,10 +52,6 @@ import {
   unblockCustomer,
   updateCustomerAddress,
 } from "@/services/customers.service";
-import {
-  ProductWoodPicker,
-  useWoodSelection,
-} from "@/components/shared/ProductWoodPicker";
 import { seedAdminCart } from "@/services/admin-carts.service";
 import { listCustomerAuditLogs } from "@/services/audit-logs.service";
 import { getAdminWallet } from "@/services/wallets.service";
@@ -64,6 +61,10 @@ import type {
   CustomerAddress,
 } from "@/types/address";
 import type { ProductListItem } from "@/types/product";
+import {
+  customizationPicksFromSelection,
+  type CustomizationSelection,
+} from "@/lib/product-customization";
 import { PERMISSIONS } from "@/lib/roles";
 
 export function CustomerDetailPage() {
@@ -86,10 +87,8 @@ export function CustomerDetailPage() {
     null,
   );
   const [seedQty, setSeedQty] = useState("1");
-  const {
-    woodId: selectedWoodId,
-    setWoodId: setSelectedWoodId,
-  } = useWoodSelection(selectedProduct?.id ?? null);
+  const [customizationSelection, setCustomizationSelection] =
+    useState<CustomizationSelection>({});
 
   const customerQuery = useQuery({
     queryKey: queryKeys.customers.detail(customerId),
@@ -193,6 +192,7 @@ export function CustomerDetailPage() {
       toast.success("Cart created");
       setSeedOpen(false);
       setSelectedProduct(null);
+      setCustomizationSelection({});
       setSeedQty("1");
       invalidate();
     },
@@ -523,7 +523,7 @@ export function CustomerDetailPage() {
           setSeedOpen(open);
           if (!open) {
             setSelectedProduct(null);
-            setSelectedWoodId(null);
+            setCustomizationSelection({});
             setSeedQty("1");
           }
         }}
@@ -552,19 +552,29 @@ export function CustomerDetailPage() {
                 customerId,
                 productId: selectedProduct.id,
                 quantity: qty,
-                ...(selectedWoodId != null ? { woodId: selectedWoodId } : {}),
+                ...(customizationPicksFromSelection(customizationSelection)
+                  .length > 0
+                  ? {
+                      customization: customizationPicksFromSelection(
+                        customizationSelection,
+                      ),
+                    }
+                  : {}),
               });
             }}
           >
             <ProductSearchSelect
               value={selectedProduct}
-              onChange={setSelectedProduct}
+              onChange={(product) => {
+                setSelectedProduct(product);
+                setCustomizationSelection({});
+              }}
               disabled={seedMutation.isPending}
             />
-            <ProductWoodPicker
+            <ProductCartMaterialPickers
               productId={selectedProduct?.id ?? null}
-              value={selectedWoodId}
-              onChange={setSelectedWoodId}
+              customizationSelection={customizationSelection}
+              onCustomizationChange={setCustomizationSelection}
               disabled={seedMutation.isPending}
             />
             <div className="space-y-2">

@@ -11,6 +11,9 @@ export const PERMISSION_LABELS: Record<string, string> = {
   [PERMISSIONS.UPDATE_PRODUCTS]: "Update products",
   [PERMISSIONS.DELETE_PRODUCTS]: "Delete products",
   [PERMISSIONS.VIEW_PRODUCTS]: "View products",
+  [PERMISSIONS.VIEW_QUOTATIONS]: "View quotations",
+  [PERMISSIONS.CREATE_QUOTATIONS]: "Create quotations",
+  [PERMISSIONS.UPDATE_QUOTATIONS]: "Update quotations",
   [PERMISSIONS.CREATE_CATEGORIES]: "Create categories",
   [PERMISSIONS.UPDATE_CATEGORIES]: "Update categories",
   [PERMISSIONS.DELETE_CATEGORIES]: "Delete categories",
@@ -74,6 +77,14 @@ const GROUP_DEFS: { title: string; keys: Permission[] }[] = [
       PERMISSIONS.CREATE_PRODUCTS,
       PERMISSIONS.UPDATE_PRODUCTS,
       PERMISSIONS.DELETE_PRODUCTS,
+    ],
+  },
+  {
+    title: "Quotations",
+    keys: [
+      PERMISSIONS.VIEW_QUOTATIONS,
+      PERMISSIONS.CREATE_QUOTATIONS,
+      PERMISSIONS.UPDATE_QUOTATIONS,
     ],
   },
   {

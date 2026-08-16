@@ -34,6 +34,20 @@ export type ProductFabricAssignment = {
   priceAdjustment?: number;
 };
 
+/** Free-form product option (admin-defined groups). Identity is groupName + value. */
+export type ProductCustomizationOption = {
+  groupName: string;
+  value: string;
+  price: number | string;
+  image?: string | null;
+};
+
+/** Cart / checkout pick — server resolves price and image. */
+export type ProductCustomizationPick = {
+  groupName: string;
+  value: string;
+};
+
 export type Product = {
   id: number;
   name: string;
@@ -50,6 +64,7 @@ export type Product = {
   isMostPopular: boolean;
   isNewArrival: boolean;
   productFeatures: string[];
+  customization?: ProductCustomizationOption[];
   woods?: ProductWood[];
   /** Flat polish assignments (also nested under each wood). */
   polishes?: ProductPolish[];
@@ -77,6 +92,7 @@ export type ProductListItem = {
   isMostPopular: boolean;
   isNewArrival: boolean;
   productFeatures: string[];
+  customization?: ProductCustomizationOption[];
   woods?: ProductWood[];
   polishes?: ProductPolish[];
   fabrics?: ProductFabric[];
@@ -121,6 +137,7 @@ export type CreateProductPayload = {
   isMostPopular?: boolean;
   isNewArrival?: boolean;
   productFeatures?: string[];
+  customization?: ProductCustomizationOption[];
   woods?: ProductWoodAssignment[];
   polishes?: ProductPolishAssignment[];
   fabrics?: ProductFabricAssignment[];
@@ -154,23 +171,12 @@ export type ListStagedProductImagesParams = {
   unconsumed?: boolean;
 };
 
-export type ProductWoodFormEntry = {
-  woodId: number;
-  isActive: boolean;
+export type ProductCustomizationFormEntry = {
+  groupName: string;
+  value: string;
   /** Form string; empty or "0" → 0 on submit. */
-  priceAdjustment: string;
-};
-
-export type ProductPolishFormEntry = {
-  woodPolishId: number;
-  isActive: boolean;
-  priceAdjustment: string;
-};
-
-export type ProductFabricFormEntry = {
-  fabricId: number;
-  isActive: boolean;
-  priceAdjustment: string;
+  price: string;
+  image: string;
 };
 
 export type ProductFormValues = {
@@ -189,8 +195,6 @@ export type ProductFormValues = {
   isMostPopular: boolean;
   isNewArrival: boolean;
   productFeatures: string[];
-  woods: ProductWoodFormEntry[];
-  polishes: ProductPolishFormEntry[];
-  fabrics: ProductFabricFormEntry[];
+  customization: ProductCustomizationFormEntry[];
   images: ProductImageInput[];
 };

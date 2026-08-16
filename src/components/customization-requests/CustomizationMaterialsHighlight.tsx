@@ -4,6 +4,7 @@ export type MaterialChip = {
   label: string;
   name: string;
   color?: string | null;
+  image?: string | null;
   /** Formatted adjustment e.g. "+₹500" when > 0. */
   priceAdjustmentLabel?: string | null;
 };
@@ -54,13 +55,19 @@ export function CustomizationMaterialsHighlight({
                 : "border-amber-200/80 bg-white text-foreground dark:border-amber-800 dark:bg-background",
             )}
           >
-            {material.color && (
+            {material.image ? (
+              <img
+                src={material.image}
+                alt=""
+                className="size-3.5 shrink-0 rounded-full object-cover"
+              />
+            ) : material.color ? (
               <span
                 className="size-3.5 shrink-0 rounded-full border border-black/10"
                 style={{ backgroundColor: material.color }}
                 aria-hidden
               />
-            )}
+            ) : null}
             <span className="text-xs font-normal text-muted-foreground">
               {material.label}
             </span>
@@ -82,6 +89,7 @@ export function materialChip(
   name: string,
   color?: string | null,
   priceAdjustmentLabel?: string | null,
+  image?: string | null,
 ): MaterialChip {
-  return { label, name, color, priceAdjustmentLabel };
+  return { label, name, color, priceAdjustmentLabel, image };
 }

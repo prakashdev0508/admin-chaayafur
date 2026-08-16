@@ -698,7 +698,13 @@ export function OrderDetailPage() {
                               key={`${material.label}-${material.name}`}
                               className="inline-flex items-center gap-1 rounded-full border border-amber-200/80 bg-amber-50/80 px-2 py-0.5 text-[11px] font-medium dark:border-amber-800 dark:bg-amber-950/40"
                             >
-                              {material.color && (
+                              {material.image ? (
+                                <img
+                                  src={material.image}
+                                  alt=""
+                                  className="size-2 rounded-full object-cover"
+                                />
+                              ) : material.color ? (
                                 <span
                                   className="size-2 rounded-full border border-black/10"
                                   style={{
@@ -706,7 +712,7 @@ export function OrderDetailPage() {
                                   }}
                                   aria-hidden
                                 />
-                              )}
+                              ) : null}
                               <span className="text-muted-foreground">
                                 {material.label}:
                               </span>
@@ -780,7 +786,13 @@ export function OrderDetailPage() {
                                     key={`${material.label}-${material.name}`}
                                     className="inline-flex items-center gap-1 rounded-full border border-amber-200/80 bg-amber-50/80 px-2 py-0.5 text-[11px] font-medium dark:border-amber-800 dark:bg-amber-950/40"
                                   >
-                                    {material.color && (
+                                    {material.image ? (
+                                      <img
+                                        src={material.image}
+                                        alt=""
+                                        className="size-2 rounded-full object-cover"
+                                      />
+                                    ) : material.color ? (
                                       <span
                                         className="size-2 rounded-full border border-black/10"
                                         style={{
@@ -788,7 +800,7 @@ export function OrderDetailPage() {
                                         }}
                                         aria-hidden
                                       />
-                                    )}
+                                    ) : null}
                                     <span className="text-muted-foreground">
                                       {material.label}:
                                     </span>

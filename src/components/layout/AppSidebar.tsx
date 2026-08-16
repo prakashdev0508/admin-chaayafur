@@ -18,6 +18,7 @@ import {
   Mail,
   Briefcase,
   FileClock,
+  FileText,
   Gift,
   Search,
   Megaphone,
@@ -118,6 +119,12 @@ const navMain: NavItem[] = [
     url: "/orders",
     icon: ShoppingCart,
     permission: PERMISSIONS.VIEW_ORDERS,
+  },
+  {
+    title: "Quotations",
+    url: "/quotations",
+    icon: FileText,
+    permission: PERMISSIONS.VIEW_QUOTATIONS,
   },
   {
     title: "Support",

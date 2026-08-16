@@ -18,10 +18,12 @@ Create, update, and list furniture products.
 - **`price`** is the selling price (after discount) — used for cart, checkout, and filters
 - **`priceWithoutDiscount`** is optional compare-at / MRP; display-only, does not affect checkout
 - **`hsnCode`** is optional (4–8 digits); tax invoices use it when set, otherwise `INVOICE_HSN`
-- **Product-level customization pricing** — woods, polishes, and fabrics each carry a per-product `priceAdjustment` (default `0`). Cart/checkout unit price = `base price + wood adj + polish adj + fabric adj`. See [Product-level customization pricing](#product-level-customization-pricing)
+- **Product-level customization pricing** — woods, polishes, and fabrics each carry a per-product `priceAdjustment` (default `0`). Products also have a free-form **`customization`** JSON array (`groupName`, `value`, `price`, `image`). Cart/checkout unit price = `base price + wood adj + polish adj + fabric adj + selected customization prices`. See [Product-level customization pricing](#product-level-customization-pricing)
 - **`woods`** — product wood options with nested polishes and `priceAdjustment` (see [woods.md](./woods.md)); detail includes unavailable woods with `isAvailable: false`
 - **`polishes`** — product polish options (also nested under each wood); must belong to an assigned wood
 - **`fabrics`** — product fabric options with `priceAdjustment` (see [fabrics.md](./fabrics.md)); same availability pattern as woods; independent of wood
+- **`customization`** — admin-defined option list `{ groupName, value, price, image }[]`. Identity is `groupName` + `value` (unique per product). Omit on PATCH to leave unchanged; pass `[]` to clear. Max **50** options. Cart/checkout pick by `groupName` + `value` (at most one value per group); server resolves `price` / `image` from this array.
+- **Backfill** — `npm run backfill:product-customization` copies active wood / polish / fabric assignments into `customization` for products that still have an empty array (`--dry-run` supported). Catalog join rows are not deleted.
 - Products link to **`subCategoryId`** (not top-level `categoryId`)
 - Public list responses are **cached** in Upstash Redis (60s default) and return `Cache-Control` headers for CDN edge caching
 - Cache is invalidated automatically when products, categories, or sub-categories are created or updated
@@ -42,7 +44,9 @@ Customization options (Wood, Polish, Fabric) do **not** use a global price. Each
 - Only options assigned to the product are returned on product detail / list and accepted on cart / checkout
 - Polishes must belong to a wood assigned to the same product
 - When `woods` is updated without an explicit `polishes` array, active polishes of the assigned woods are synced automatically at `priceAdjustment: 0` (existing polish prices for still-valid polishes are preserved)
-- Storefront live price: `product.price + selectedWood.priceAdjustment + selectedPolish.priceAdjustment + selectedFabric.priceAdjustment`
+- Storefront live price: `product.price + selectedWood.priceAdjustment + selectedPolish.priceAdjustment + selectedFabric.priceAdjustment + sum(selected customization.price)`
+
+Woods / polishes / fabrics stay assigned as today. Free-form `customization` is additive until those catalog groups are removed.
 
 **Admin create/update example**
 
@@ -57,6 +61,10 @@ Customization options (Wood, Polish, Fabric) do **not** use a global price. Each
   ],
   "fabrics": [
     { "fabricId": 3, "isActive": true, "priceAdjustment": 1500 }
+  ],
+  "customization": [
+    { "groupName": "Wood", "value": "Sheesham", "price": 3000, "image": "https://cdn.example.com/sheesham.webp" },
+    { "groupName": "Fabric", "value": "Linen Beige", "price": 1500, "image": "" }
   ]
 }
 ```
@@ -216,6 +224,9 @@ Authorization: Bearer <accessToken>
   "fabrics": [
     { "fabricId": 3, "isActive": true, "priceAdjustment": 1500 }
   ],
+  "customization": [
+    { "groupName": "Wood", "value": "Sheesham", "price": 3000, "image": "" }
+  ],
   "images": [
     {
       "url": "https://cdn.example.com/products/oak-table.webp",
@@ -248,6 +259,7 @@ Authorization: Bearer <accessToken>
 | `woods` | array | No | `{ woodId, isActive?, priceAdjustment? }[]` — assign woods for this product. Pass `[]` to clear. `priceAdjustment` defaults to `0`. See [woods.md](./woods.md) |
 | `polishes` | array | No | `{ woodPolishId, isActive?, priceAdjustment? }[]` — assign polishes for this product. Each polish must belong to an assigned wood. Pass `[]` to clear. Defaults to `0` when omitted |
 | `fabrics` | array | No | `{ fabricId, isActive?, priceAdjustment? }[]` — assign fabrics for this product. Pass `[]` to clear. `priceAdjustment` defaults to `0`. See [fabrics.md](./fabrics.md) |
+| `customization` | array | No | `{ groupName, value, price, image? }[]`. Max 50. Unique `groupName` + `value`. `price` >= 0. `image` optional URL or `""`. Omit on update to leave unchanged; `[]` clears. |
 | `images` | array | No | Max 5 items. Upload files first via [uploads.md](./uploads.md); include `storageKey` from upload response |
 
 ### Success response `201`
@@ -561,6 +573,7 @@ Partial update. All body fields are optional.
 | `isMostPopular` | boolean | CMS tag |
 | `isNewArrival` | boolean | CMS tag |
 | `productFeatures` | string[] | Replace entire list. Pass `[]` to clear all features |
+| `customization` | array | Replace free-form options. Pass `[]` to clear. Omit to leave unchanged |
 | `woods` | array | Replace wood assignments. `{ woodId, isActive?, priceAdjustment? }[]`. Pass `[]` to clear |
 | `polishes` | array | Replace polish assignments. `{ woodPolishId, isActive?, priceAdjustment? }[]`. Pass `[]` to clear. Must belong to assigned woods |
 | `fabrics` | array | Replace fabric assignments. `{ fabricId, isActive?, priceAdjustment? }[]`. Pass `[]` to clear |
@@ -840,6 +853,7 @@ GET /api/v1/products?minPrice=1000&maxPrice=50000&sortBy=price&sortOrder=asc
 | `subCategoryId` | Sub-category ID |
 | `subCategory` | Nested sub-category + parent category |
 | `productFeatures` | Array of feature strings (empty array if none) |
+| `customization` | Free-form `{ groupName, value, price, image }[]` (empty array if none) |
 | `woods` / `polishes` / `fabrics` | Assigned customizations with `priceAdjustment` (list returns available only) |
 | `isBestSeller` / `isFeaturedProduct` / `isMostPopular` / `isNewArrival` | CMS merchandising flags |
 | `primaryImage` | Lowest `sortOrder` image, or `null` |

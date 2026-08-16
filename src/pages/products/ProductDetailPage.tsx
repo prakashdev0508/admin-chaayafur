@@ -17,15 +17,18 @@ import {
 } from "@/lib/product-utils";
 import {
   computeCustomizationUnitPrice,
-  formatPriceAdjustment,
   parseMoney,
 } from "@/lib/customization-pricing";
 import { cn } from "@/lib/utils";
 import { getAdminProduct } from "@/services/products.service";
 import { ProductDetailSkeleton } from "@/components/products/ProductPageSkeletons";
 import { ProductStorefrontQr } from "@/components/products/ProductStorefrontQr";
+import { ProductCustomizationGroupPickers } from "@/components/shared/ProductCustomizationGroupPickers";
+import {
+  maxCustomizationGroupPrices,
+  resolveSelectedCustomization,
+} from "@/lib/product-customization";
 import type { Product } from "@/types/product";
-import type { ProductPolish } from "@/types/wood";
 
 const stockLabels = {
   in_stock: "In stock",
@@ -51,9 +54,9 @@ export function ProductDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
-  const [selectedWoodId, setSelectedWoodId] = useState<number | null>(null);
-  const [selectedPolishId, setSelectedPolishId] = useState<number | null>(null);
-  const [selectedFabricId, setSelectedFabricId] = useState<number | null>(null);
+  const [customizationSelection, setCustomizationSelection] = useState<
+    Record<string, string>
+  >({});
 
   const productId = Number(id);
 
@@ -77,9 +80,7 @@ export function ProductDetailPage() {
       .then((data) => {
         setProduct(data);
         setActiveImageIndex(0);
-        setSelectedWoodId(null);
-        setSelectedPolishId(null);
-        setSelectedFabricId(null);
+        setCustomizationSelection({});
       })
       .catch((err) => {
         setError(
@@ -116,48 +117,22 @@ export function ProductDetailPage() {
 
   const stockStatus = getStockStatus(product);
   const activeTags = getActiveProductTags(product);
-  const woods = product.woods ?? [];
-  const fabrics = product.fabrics ?? [];
-  const selectedWood = woods.find((w) => w.id === selectedWoodId);
-  const woodPolishes = (selectedWood?.polishes ?? []).filter(
-    (p: ProductPolish) => p.isAvailable !== false,
+  const selectedCustomization = resolveSelectedCustomization(
+    product.customization,
+    customizationSelection,
   );
-  const selectedPolish =
-    woodPolishes.find((p) => p.id === selectedPolishId) ?? null;
-  const selectedFabric = fabrics.find((f) => f.id === selectedFabricId) ?? null;
-
   const mrp = product.priceWithoutDiscount
     ? parseMoney(product.priceWithoutDiscount)
     : null;
   const unitPrice = computeCustomizationUnitPrice(product.price, {
-    wood: selectedWood,
-    polish: selectedPolish,
-    fabric: selectedFabric,
+    customization: selectedCustomization,
   });
   const showMrp = mrp != null && mrp > unitPrice;
   const ratingAverage = product.ratingAverage ?? null;
   const reviewCount = product.reviewCount ?? 0;
-
-  const maxWoodAdj = Math.max(
-    0,
-    ...woods.filter((w) => w.isAvailable).map((w) => parseMoney(w.priceAdjustment)),
-  );
-  const maxFabricAdj = Math.max(
-    0,
-    ...fabrics
-      .filter((f) => f.isAvailable)
-      .map((f) => parseMoney(f.priceAdjustment)),
-  );
-  const maxPolishAdj = Math.max(
-    0,
-    ...woods.flatMap((w) =>
-      (w.polishes ?? [])
-        .filter((p) => p.isAvailable !== false)
-        .map((p) => parseMoney(p.priceAdjustment)),
-    ),
-  );
   const priceCeiling =
-    parseMoney(product.price) + maxWoodAdj + maxPolishAdj + maxFabricAdj;
+    parseMoney(product.price) +
+    maxCustomizationGroupPrices(product.customization);
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
@@ -301,7 +276,7 @@ export function ProductDetailPage() {
                 </>
               )}
             </p>
-            {(selectedWood || selectedPolish || selectedFabric) && (
+            {selectedCustomization.length > 0 && (
               <p className="mt-1 text-xs text-muted-foreground">
                 Preview includes selected customizations
               </p>
@@ -325,194 +300,11 @@ export function ProductDetailPage() {
             </ul>
           )}
 
-          {woods.length > 0 && (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-medium">
-                  Wood
-                  <span className="ml-1 font-normal text-muted-foreground">
-                    (optional)
-                  </span>
-                </p>
-                {selectedWoodId != null && (
-                  <button
-                    type="button"
-                    className="text-xs text-muted-foreground underline-offset-2 hover:underline"
-                    onClick={() => {
-                      setSelectedWoodId(null);
-                      setSelectedPolishId(null);
-                    }}
-                  >
-                    Clear
-                  </button>
-                )}
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {woods.map((wood) => {
-                  const available = wood.isAvailable;
-                  const selected = selectedWoodId === wood.id;
-                  const adj = formatPriceAdjustment(wood.priceAdjustment);
-                  return (
-                    <button
-                      key={wood.id}
-                      type="button"
-                      disabled={!available}
-                      onClick={() => {
-                        if (!available) return;
-                        setSelectedWoodId(wood.id);
-                        setSelectedPolishId(null);
-                      }}
-                      className={cn(
-                        "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition-colors",
-                        !available &&
-                          "cursor-not-allowed border-dashed opacity-50",
-                        available &&
-                          selected &&
-                          "border-foreground bg-muted text-foreground",
-                        available &&
-                          !selected &&
-                          "border-border bg-background text-muted-foreground hover:border-foreground/30 hover:text-foreground",
-                      )}
-                    >
-                      <span
-                        className="size-3.5 rounded-full border border-black/10"
-                        style={{ backgroundColor: wood.color }}
-                        aria-hidden
-                      />
-                      <span>{wood.name}</span>
-                      {adj && (
-                        <span className="text-xs text-muted-foreground">
-                          {adj}
-                        </span>
-                      )}
-                      {!wood.isActive && (
-                        <span className="text-[10px] uppercase tracking-wide">
-                          Off
-                        </span>
-                      )}
-                      {!available && wood.isActive && (
-                        <span className="text-[10px] uppercase tracking-wide">
-                          N/A
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {woodPolishes.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-sm font-medium">
-                    Polish
-                    <span className="ml-1 font-normal text-muted-foreground">
-                      (optional)
-                    </span>
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {woodPolishes.map((polish) => {
-                      const selected = selectedPolishId === polish.id;
-                      const adj = formatPriceAdjustment(polish.priceAdjustment);
-                      return (
-                        <button
-                          key={polish.id}
-                          type="button"
-                          onClick={() =>
-                            setSelectedPolishId(selected ? null : polish.id)
-                          }
-                          className={cn(
-                            "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition-colors",
-                            selected
-                              ? "border-foreground bg-muted text-foreground"
-                              : "border-border bg-background text-muted-foreground hover:border-foreground/30 hover:text-foreground",
-                          )}
-                        >
-                          <span
-                            className="size-3.5 rounded-full border border-black/10"
-                            style={{ backgroundColor: polish.color }}
-                            aria-hidden
-                          />
-                          {polish.name}
-                          {adj && (
-                            <span className="text-xs text-muted-foreground">
-                              {adj}
-                            </span>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {fabrics.length > 0 && (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-medium">
-                  Fabric
-                  <span className="ml-1 font-normal text-muted-foreground">
-                    (optional)
-                  </span>
-                </p>
-                {selectedFabricId != null && (
-                  <button
-                    type="button"
-                    className="text-xs text-muted-foreground underline-offset-2 hover:underline"
-                    onClick={() => setSelectedFabricId(null)}
-                  >
-                    Clear
-                  </button>
-                )}
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {fabrics.map((fabric) => {
-                  const available = fabric.isAvailable;
-                  const selected = selectedFabricId === fabric.id;
-                  const adj = formatPriceAdjustment(fabric.priceAdjustment);
-                  return (
-                    <button
-                      key={fabric.id}
-                      type="button"
-                      disabled={!available}
-                      onClick={() => {
-                        if (!available) return;
-                        setSelectedFabricId(selected ? null : fabric.id);
-                      }}
-                      className={cn(
-                        "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition-colors",
-                        !available &&
-                          "cursor-not-allowed border-dashed opacity-50",
-                        available &&
-                          selected &&
-                          "border-foreground bg-muted text-foreground",
-                        available &&
-                          !selected &&
-                          "border-border bg-background text-muted-foreground hover:border-foreground/30 hover:text-foreground",
-                      )}
-                    >
-                      <span
-                        className="size-3.5 rounded-full border border-black/10"
-                        style={{ backgroundColor: fabric.color }}
-                        aria-hidden
-                      />
-                      <span>{fabric.name}</span>
-                      {adj && (
-                        <span className="text-xs text-muted-foreground">
-                          {adj}
-                        </span>
-                      )}
-                      {!fabric.isActive && (
-                        <span className="text-[10px] uppercase tracking-wide">
-                          Off
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+          <ProductCustomizationGroupPickers
+            options={product.customization}
+            selection={customizationSelection}
+            onChange={setCustomizationSelection}
+          />
 
           <Separator />
 
@@ -543,8 +335,12 @@ export function ProductDetailPage() {
                 value={String(sortedImages.length)}
               />
               <MetaRow
-                label="Woods / polishes / fabrics"
-                value={`${woods.length} / ${woods.reduce((n, w) => n + (w.polishes?.length ?? 0), 0)} / ${fabrics.length}`}
+                label="Option groups"
+                value={String(
+                  new Set(
+                    (product.customization ?? []).map((o) => o.groupName),
+                  ).size,
+                )}
               />
               <MetaRow
                 label="Created"

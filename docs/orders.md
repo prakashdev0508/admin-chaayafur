@@ -10,7 +10,7 @@ Checkout from frontend cart, Razorpay payment links, order tracking, and staff o
 
 - **Backend cart** — see [cart.md](./cart.md); `GET/PATCH /cart` for logged-in customers
 - **Checkout** — send `items` in the body (legacy) or `useCart: true` to charge the saved server cart
-- **Server-side pricing** — totals use `Product.price` plus **product-level** wood / polish / fabric `priceAdjustment` values; frontend prices are never trusted (see [products.md](./products.md#product-level-customization-pricing))
+- **Server-side pricing** — totals use `Product.price` plus **product-level** wood / polish / fabric `priceAdjustment` values and selected free-form `customization` prices; frontend prices are never trusted (see [products.md](./products.md#product-level-customization-pricing))
 - **Order line snapshots** — checkout stores unit price (base + adjustments) and `woodPriceAdjustment` / `polishPriceAdjustment` / `fabricPriceAdjustment` so historical totals stay fixed
 - **Stock is decremented** atomically when the order is created
 - **Stock is restored** when payment fails/expires (webhook) or staff cancels an order
@@ -25,10 +25,11 @@ When `RESEND_API_KEY` is set (and `RESEND_ENABLED` is not `false`), the API send
 
 | Event | When |
 |-------|------|
-| Order received / placed | Order becomes `CONFIRMED` (payment webhook or staff PATCH) |
+| Order received / placed | Order becomes `CONFIRMED` (payment webhook or staff PATCH). Email includes Performa invoice PDF attachment when available. |
 | Order shipped | Staff sets status `SHIPPED` |
 | Order delivered | Staff sets status `DELIVERED` |
-| Order cancelled | Order becomes `CANCELLED` (payment failed/expired webhook, checkout link failure, or staff PATCH) |
+| Order cancelled | Staff sets order to `CANCELLED` |
+| Payment failed | Order becomes `PAYMENT_FAILED` (failed/expired webhook or checkout link failure) |
 
 Env: `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `RESEND_ENABLED`, optional `EMAIL_STORE_URL` for the “View order” CTA. Templates live in `src/modules/email/templates/`.
 
@@ -42,7 +43,7 @@ Env: `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `RESEND_ENABLED`, optional `EMAIL_ST
 
 | `type` | Template |
 |--------|----------|
-| `ORDER_PLACED` | Order received / confirmed |
+| `ORDER_PLACED` | Order received / confirmed (attaches Performa PDF when available) |
 | `ORDER_SHIPPED` | Shipped |
 | `ORDER_DELIVERED` | Delivered |
 | `ORDER_CANCELLED` | Cancelled |
@@ -57,19 +58,21 @@ Recipient must exist on the order shipping/billing address or the API returns `4
 stateDiagram-v2
     [*] --> PENDING: POST /orders
     PENDING --> CONFIRMED: Razorpay paid webhook
-    PENDING --> CANCELLED: Payment failed/expired
+    PENDING --> PAYMENT_FAILED: Payment failed/expired
+    PENDING --> CANCELLED: Staff cancel
     note right of CONFIRMED
       Staff PATCH accepts any OrderStatus
       (no transition graph).
     end note
     DELIVERED --> [*]
     CANCELLED --> [*]
+    PAYMENT_FAILED --> [*]
 ```
 
 Status events are recorded automatically when:
 - Order is placed (`PENDING`, system)
 - Payment succeeds (`CONFIRMED`, system)
-- Payment fails (`CANCELLED`, system)
+- Payment fails (`PAYMENT_FAILED`, system)
 - Staff updates status (`STAFF` actor)
 
 ### Checkout flow
@@ -84,7 +87,7 @@ Order (PENDING) + Payment (PENDING) + stock decremented + Razorpay link
         ↓
 Customer pays via paymentLinkUrl
         ↓
-Razorpay webhook → Order CONFIRMED + Performa invoice job (or CANCELLED + stock restored)
+Razorpay webhook → Order CONFIRMED + Performa invoice (or PAYMENT_FAILED + stock restored)
 ```
 
 ### Order statuses
@@ -92,15 +95,16 @@ Razorpay webhook → Order CONFIRMED + Performa invoice job (or CANCELLED + stoc
 | Status | Description |
 |--------|-------------|
 | `PENDING` | New order, awaiting Razorpay payment |
-| `CONFIRMED` | Payment received; **Performa** invoice (`PF-…`) enqueued on payment webhook or staff confirm |
+| `CONFIRMED` | Payment received; **Performa** invoice (`PF-…`) generated on payment webhook or staff confirm |
 | `UNDER_PRODUCTION` | Product is under production / manufacturing |
 | `PACKING` | Product packing in progress |
 | `SHIPPED` | Order shipped |
-| `DELIVERED` | Order delivered; **Tax** invoice (`TXI-…`) enqueued |
+| `DELIVERED` | Order delivered; **Tax** invoice (`TXI-…`) generated |
 | `REFUND_INITIATED` | Legacy enum value — refunds no longer set this; use `Refund.status` / `?refundStatus=` |
 | `PARTIALLY_REFUNDED` | Legacy enum value — refunds no longer set this |
 | `REFUNDED` | Legacy enum value — full refund sets `Payment.status = REFUNDED` only; order status stays operational |
-| `CANCELLED` | Order cancelled (payment failed / staff cancel); stock restored. Staff cancel requires `cancellationReason`; payment-failure cancels store `Payment failed or expired` |
+| `CANCELLED` | Staff cancelled order; stock restored. Requires `cancellationReason` |
+| `PAYMENT_FAILED` | Payment failed / link expired / checkout link failure; stock restored. System sets `cancellationReason` to `Payment failed or expired` |
 
 Refund lifecycle is tracked on `Refund.status` (`INITIATED` → `PROCESSING` → `PROCESSED` / `FAILED` / `CANCELLED`), not on `Order.status`. See [refund.md](./refund.md).
 
@@ -169,7 +173,7 @@ Create an order from frontend cart items. Creates a Razorpay Payment Link for th
 ```json
 {
   "items": [
-    { "productId": 1, "quantity": 2, "woodId": 2, "polishId": 5, "fabricId": 3 },
+    { "productId": 1, "quantity": 2, "woodId": 2, "polishId": 5, "fabricId": 3, "customization": [{ "groupName": "Finish", "value": "Matte" }] },
     { "productId": 3, "quantity": 1 }
   ],
   "shippingAddressId": 1,
@@ -189,6 +193,7 @@ Create an order from frontend cart items. Creates a Razorpay Payment Link for th
 | `items[].woodId` | integer | No | Optional; must be an active wood **assigned to that product** ([woods.md](./woods.md)) |
 | `items[].polishId` | integer | No | Optional; requires `woodId`; must be an active polish assigned to that product and belonging to that wood |
 | `items[].fabricId` | integer | No | Optional; must be an active fabric **assigned to that product** ([fabrics.md](./fabrics.md)) |
+| `items[].customization` | array | No | `{ groupName, value }[]`. At most one value per group; must match `Product.customization`. Price is resolved server-side. |
 | `shippingAddressId` | integer | Yes | Customer's own address |
 | `billingAddressId` | integer | No | Defaults to `shippingAddressId` when omitted |
 | `billingSameAsShipping` | boolean | No | When `true`, forces billing = shipping (identical snapshots; `billingAddressId` FK stored as `null`). Ignores a different `billingAddressId`. When billing differs, omit this flag and pass the other address id. |
@@ -202,8 +207,8 @@ Create an order from frontend cart items. Creates a Razorpay Payment Link for th
 1. All addresses must belong to the authenticated customer
 2. All products must exist and be `isActive: true`
 3. Sufficient stock for each line item
-4. If `woodId` / `polishId` / `fabricId` is provided, it must be available for that product; omitting customizations is always allowed
-5. `subtotalAmount` = sum of `(base price + wood adj + polish adj + fabric adj) × quantity`
+4. If `woodId` / `polishId` / `fabricId` / `customization` is provided, it must be available for that product; omitting customizations is always allowed
+5. `subtotalAmount` = sum of `(base price + wood adj + polish adj + fabric adj + selected customization prices) × quantity`
 6. Optional coupon validated and discount applied
 7. Shipping address pincode checked for serviceability ([shipping.md](./shipping.md)); `shippingAmount` computed from site settings
 8. `floorDeliveryAmount` = `0` when `liftAccessAvailable` is true or floor is 0; otherwise `deliveryFloor × floorDeliveryChargePerFloor` (independent of free shipping)
@@ -469,7 +474,7 @@ Customers can only access their own orders. Detail also includes refund summary 
 
 ### Success response `200`
 
-Same structure as [POST /orders](#post-apiv1orders) success response. After payment, `status` is `CONFIRMED`, `payment.status` is `COMPLETED`, and `invoice` is populated:
+Same structure as [POST /orders](#post-apiv1orders) success response. After payment, `status` is `CONFIRMED`, `payment.status` is `COMPLETED`, and `invoice` / `performa` show the Performa (`PF-…`) summary:
 
 ```json
 {
@@ -657,10 +662,10 @@ All fields optional; at least one required.
 
 | Change | Effect |
 |--------|--------|
-| → `CONFIRMED` | Order-received email sent; **Performa** invoice job enqueued |
-| → `DELIVERED` | Delivered email sent; **Tax** invoice job enqueued |
+| → `CONFIRMED` | Order-received email sent; **Performa** invoice generated |
+| → `DELIVERED` | Delivered email sent; **Tax** invoice generated |
 | → `CANCELLED` | Requires `cancellationReason`; stock restored for all line items; cancelled email sent |
-| `items` / floor changed on confirmed order (before delivery) with invoice | **Performa** invoice job enqueued (`force`) |
+| `items` / floor changed on confirmed order (before delivery) with invoice | **Performa** invoice regenerated |
 | `items` changed | `totalAmount` and `payment.amount` recalculated; stock delta applied |
 
 ### Audit
@@ -775,7 +780,9 @@ All of `POST /orders` and `GET /orders/:id` return this shape (wrapped in `{ suc
 | `items` | array | Line items (see below) |
 | `customizationRequest` | object \| null | Present when the order came from convert-to-order; includes wood / polish / fabric and reference image |
 | `payment` | object \| null | Payment + Razorpay checkout fields (see [Payment object](#payment-object-fields-on-every-order-detail)) |
-| `invoice` | object \| null | Summary after confirmation; `null` while `PENDING` |
+| `invoice` | object \| null | Best available summary: Performa after payment, else Tax |
+| `performa` | object \| null | Performa (`PF-…`) summary; set when payment is confirmed |
+| `tax` | object \| null | Tax (`TXI-…`) summary; set when order is delivered |
 | `orderReview` | object \| null | Overall order review if submitted (see below) |
 | `productReviews` | array | Product reviews linked to this order |
 
@@ -786,7 +793,7 @@ All of `POST /orders` and `GET /orders/:id` return this shape (wrapped in `{ suc
 | `id` | integer | Order line item ID |
 | `productId` | integer | Product ID |
 | `quantity` | integer | Quantity ordered |
-| `price` | string | Captured unit price at checkout (`base + wood + polish + fabric` adjustments) |
+| `price` | string | Captured unit price at checkout (`base + wood + polish + fabric + customization` adjustments) |
 | `woodId` | integer \| null | Selected wood (cart / customization) |
 | `woodName` | string \| null | Snapshot at checkout |
 | `woodColor` | string \| null | Snapshot at checkout |
@@ -799,6 +806,7 @@ All of `POST /orders` and `GET /orders/:id` return this shape (wrapped in `{ suc
 | `fabricName` | string \| null | Snapshot at checkout |
 | `fabricColor` | string \| null | Snapshot at checkout |
 | `fabricPriceAdjustment` | string | Product-level fabric adjustment snapped at checkout |
+| `customization` | array | Snapshot of selected free-form options `{ groupName, value, price, image }[]` |
 | `wood` | object \| null | Live catalog join when `woodId` is set |
 | `polish` | object \| null | Live catalog join when `polishId` is set |
 | `fabric` | object \| null | Live catalog join when `fabricId` is set |
@@ -866,18 +874,26 @@ See [reviews.md](./reviews.md) for create/update APIs. Reviews appear only after
 | `country` | string |
 | `isDefault` | boolean |
 
-### `invoice` summary (embedded on order detail)
+### Invoice summaries (embedded on order detail)
 
-Compact summary of the **tax** invoice only (`TXI-…`). `null` until the order is delivered and the tax invoice exists.
+| Field | Description |
+|-------|-------------|
+| `performa` | Performa invoice summary (`PF-…`) after payment confirm |
+| `tax` | Tax invoice summary (`TXI-…`) after delivery |
+| `invoice` | Convenience field: `performa` if present, otherwise `tax` |
+
+Each summary includes:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `id` | integer | Tax invoice ID |
-| `invoiceNumber` | string | e.g. `TXI-20260715-0001` |
+| `id` | integer | Invoice ID |
+| `invoiceType` | string \| null | `PERFORMA` or `TAX` |
+| `invoiceNumber` | string | e.g. `PF-20260710-0001` or `TXI-20260715-0001` |
 | `issuedAt` | string | ISO timestamp |
 | `totalAmount` | string | Invoice total |
+| `pdfUrl` | string \| null | Public PDF URL when uploaded |
 
-For both Performa (`PF-…`) and Tax (`TXI-…`) JSON (line items, billing name, `pdfUrl`), use `GET /orders/:id/invoice`.
+For full JSON (line items, billing name), use `GET /orders/:id/invoice`.
 
 ### Staff-only fields
 
@@ -961,7 +977,7 @@ const poll = setInterval(async () => {
   const { data } = await res.json();
   if (data.currentStatus !== 'PENDING') {
     clearInterval(poll);
-    // CONFIRMED → success page; CANCELLED → failure page
+    // CONFIRMED → success page; PAYMENT_FAILED → failure page
   }
 }, 3000);
 

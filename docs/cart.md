@@ -1,6 +1,6 @@
 # Cart API
 
-Persistent server-side cart for logged-in customers. Line keys are `productId` + optional `woodId` + `polishId` + `fabricId`; **all prices are computed from live product + product-level customization adjustments** on every read and at checkout. See [woods.md](./woods.md), [fabrics.md](./fabrics.md), and [products.md](./products.md#product-level-customization-pricing).
+Persistent server-side cart for logged-in customers. Line keys are `productId` + optional `woodId` + `polishId` + `fabricId` + `customizationKey`; **all prices are computed from live product + product-level customization adjustments** on every read and at checkout. See [woods.md](./woods.md), [fabrics.md](./fabrics.md), and [products.md](./products.md#product-level-customization-pricing).
 
 [← Back to index](./README.md) · [Customers](./customers.md) · [Orders](./orders.md) · [Coupons](./coupons.md) · [Products](./products.md)
 
@@ -19,8 +19,9 @@ Persistent server-side cart for logged-in customers. Line keys are `productId` +
   - `ProductWood.priceAdjustment` for the selected wood
   - `ProductPolish.priceAdjustment` for the selected polish
   - `ProductFabric.priceAdjustment` for the selected fabric
+  - Matched `Product.customization[].price` for selected free-form options (`groupName` + `value`)
 - **Stock and availability** are checked when adding/updating lines and again at checkout.
-- **Customization validation** — `woodId` / `polishId` / `fabricId` must be assigned and active for that product (not merely present in the global catalog).
+- **Customization validation** — `woodId` / `polishId` / `fabricId` must be assigned and active for that product (not merely present in the global catalog). Free-form `customization` picks must match `Product.customization` (`groupName` + `value`); at most one value per group.
 - **Coupons** are not stored on the cart; pass `couponCode` on `POST /orders` at checkout (see [orders.md](./orders.md)).
 - After a **successful** checkout with `useCart: true`, cart lines are cleared automatically.
 
@@ -31,6 +32,7 @@ unitPrice = Product.price
           + woodPriceAdjustment
           + polishPriceAdjustment
           + fabricPriceAdjustment
+          + sum(selected customization.price)
 
 lineTotal = unitPrice × quantity
 subtotalAmount = sum(lineTotal)
@@ -71,9 +73,9 @@ Customer routes require `@CustomerOnly()`. Staff routes use permissions above (O
 | Method | Endpoint | Status | Description |
 |--------|----------|--------|-------------|
 | `GET` | `/api/v1/cart` | `200` | Cart lines + computed totals |
-| `POST` | `/api/v1/cart/items` | `200` | Upsert line by `productId` + optional `woodId` / `polishId` / `fabricId` |
-| `PATCH` | `/api/v1/cart/items/:productId?woodId=&polishId=&fabricId=` | `200` | Set quantity for one line |
-| `DELETE` | `/api/v1/cart/items/:productId?woodId=&polishId=&fabricId=` | `200` | Remove one line |
+| `POST` | `/api/v1/cart/items` | `200` | Upsert line by `productId` + optional `woodId` / `polishId` / `fabricId` / `customization` |
+| `PATCH` | `/api/v1/cart/items/:productId?woodId=&polishId=&fabricId=&customizationKey=` | `200` | Set quantity for one line |
+| `DELETE` | `/api/v1/cart/items/:productId?woodId=&polishId=&fabricId=&customizationKey=` | `200` | Remove one line |
 
 ---
 
@@ -102,6 +104,10 @@ Returns the current cart with server-computed pricing (including customization a
         "fabricName": "Linen Beige",
         "fabricColor": "#D4C4A8",
         "fabricPriceAdjustment": "1500.00",
+        "customization": [
+          { "groupName": "Finish", "value": "Matte", "price": 500, "image": "" }
+        ],
+        "customizationKey": "Finish:Matte",
         "quantity": 2,
         "basePrice": "25000.00",
         "unitPrice": "30000.00",
@@ -189,14 +195,14 @@ Same shape as `GET /cart` (full cart after the change).
 curl -X POST "http://localhost:5000/api/v1/cart/items" \
   -H "Authorization: Bearer $CUSTOMER_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"productId":1,"quantity":2,"woodId":2,"polishId":5,"fabricId":3}'
+  -d '{"productId":1,"quantity":2,"woodId":2,"polishId":5,"fabricId":3,"customization":[{"groupName":"Finish","value":"Matte"}]}'
 ```
 
 ---
 
 ## PATCH /api/v1/cart/items/:productId
 
-Set quantity for an existing line. Pass the same `woodId` / `polishId` / `fabricId` query params used when the line was created.
+Set quantity for an existing line. Pass the same `woodId` / `polishId` / `fabricId` / `customizationKey` query params used when the line was created.
 
 ### Request body
 
