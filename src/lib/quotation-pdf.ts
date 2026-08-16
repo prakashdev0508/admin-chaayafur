@@ -1,7 +1,7 @@
 import html2canvas from "html2canvas-pro";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
-import { loadJpegDataUrl } from "@/lib/quotation-image";
+import { inlineImagesAsJpegDataUrls, loadJpegDataUrl } from "@/lib/quotation-image";
 import {
   formatQuoteAmount,
   formatQuoteBannerDate,
@@ -86,6 +86,7 @@ async function waitForImages(root: HTMLElement) {
 }
 
 async function pdfFromSheet(sheet: HTMLElement) {
+  await inlineImagesAsJpegDataUrls(sheet);
   await waitForImages(sheet);
   const width = Math.max(sheet.scrollWidth, sheet.offsetWidth, 1);
   const height = Math.max(sheet.scrollHeight, sheet.offsetHeight, 1);
