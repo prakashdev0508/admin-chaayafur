@@ -14,6 +14,13 @@ export type CustomizationGroup = {
 
 export type CustomizationSelection = Record<string, string>;
 
+export function isCustomizationOptionActive(
+  option: Pick<ProductCustomizationOption, "isActive" | "isAvailable">,
+) {
+  if (option.isAvailable === false) return false;
+  return option.isActive !== false;
+}
+
 export function normalizeCustomizationOptions(
   options: ProductCustomizationOption[] | null | undefined,
 ): ProductCustomizationOption[] {
@@ -22,16 +29,20 @@ export function normalizeCustomizationOptions(
     value: option.value,
     price: parseMoney(option.price),
     image: option.image ?? "",
+    isActive: isCustomizationOptionActive(option),
+    isAvailable: isCustomizationOptionActive(option),
   }));
 }
 
 export function groupProductCustomization(
   options: ProductCustomizationOption[] | null | undefined,
+  activeOnly = false,
 ): CustomizationGroup[] {
   const groups: CustomizationGroup[] = [];
   const indexByName = new Map<string, number>();
 
   for (const option of normalizeCustomizationOptions(options)) {
+    if (activeOnly && !isCustomizationOptionActive(option)) continue;
     const name = option.groupName.trim();
     if (!name) continue;
     const existing = indexByName.get(name);
@@ -54,6 +65,7 @@ export function customizationToForm(
     value: option.value,
     price: String(parseMoney(option.price)),
     image: typeof option.image === "string" ? option.image : "",
+    isActive: isCustomizationOptionActive(option),
   }));
 }
 
@@ -66,6 +78,7 @@ export function formCustomizationToPayload(
       value: entry.value.trim(),
       price: parseMoney(entry.price),
       image: entry.image.trim(),
+      isActive: entry.isActive !== false,
     }))
     .filter((entry) => entry.groupName && entry.value);
 }
@@ -105,7 +118,7 @@ export function validateProductCustomizationForm(
 export function maxCustomizationGroupPrices(
   options: ProductCustomizationOption[] | null | undefined,
 ): number {
-  return groupProductCustomization(options).reduce((sum, group) => {
+  return groupProductCustomization(options, true).reduce((sum, group) => {
     const max = Math.max(0, ...group.options.map((o) => parseMoney(o.price)));
     return sum + max;
   }, 0);
@@ -143,7 +156,7 @@ export function resolveSelectedCustomization(
   options: ProductCustomizationOption[] | null | undefined,
   selection: CustomizationSelection,
 ): ProductCustomizationOption[] {
-  const groups = groupProductCustomization(options);
+  const groups = groupProductCustomization(options, true);
   const selected: ProductCustomizationOption[] = [];
   for (const group of groups) {
     const value = selection[group.groupName];

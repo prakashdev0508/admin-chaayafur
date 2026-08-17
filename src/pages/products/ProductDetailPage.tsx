@@ -4,7 +4,6 @@ import { ArrowLeft, Pencil } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { Separator } from "@/components/ui/separator";
 import { StarRating } from "@/components/reviews/StarRating";
 import { usePermission } from "@/hooks/usePermission";
 import { PERMISSIONS } from "@/lib/roles";
@@ -206,6 +205,51 @@ export function ProductDetailPage() {
           {activeImage?.altText && (
             <p className="text-xs text-muted-foreground">{activeImage.altText}</p>
           )}
+
+          <ProductStorefrontQr slug={product.slug} productName={product.name} />
+
+          <div className="rounded-xl border bg-muted/20 p-4 text-sm">
+            <p className="mb-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+              Admin details
+            </p>
+            <dl className="grid gap-2 sm:grid-cols-2">
+              <MetaRow label="Product ID" value={String(product.id)} />
+              <MetaRow
+                label="Selling price"
+                value={formatCurrency(product.price)}
+              />
+              {product.priceWithoutDiscount && (
+                <MetaRow
+                  label="MRP"
+                  value={formatCurrency(product.priceWithoutDiscount)}
+                />
+              )}
+              <MetaRow label="Stock" value={`${product.stock} units`} />
+              {product.hsnCode && (
+                <MetaRow label="HSN code" value={product.hsnCode} />
+              )}
+              <MetaRow
+                label="Images"
+                value={String(sortedImages.length)}
+              />
+              <MetaRow
+                label="Option groups"
+                value={String(
+                  new Set(
+                    (product.customization ?? []).map((o) => o.groupName),
+                  ).size,
+                )}
+              />
+              <MetaRow
+                label="Created"
+                value={new Date(product.createdAt).toLocaleString("en-IN")}
+              />
+              <MetaRow
+                label="Updated"
+                value={new Date(product.updatedAt).toLocaleString("en-IN")}
+              />
+            </dl>
+          </div>
         </div>
 
         {/* Details — storefront style + admin cues */}
@@ -305,53 +349,6 @@ export function ProductDetailPage() {
             selection={customizationSelection}
             onChange={setCustomizationSelection}
           />
-
-          <Separator />
-
-          <ProductStorefrontQr slug={product.slug} productName={product.name} />
-
-          <div className="rounded-xl border bg-muted/20 p-4 text-sm">
-            <p className="mb-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-              Admin details
-            </p>
-            <dl className="grid gap-2 sm:grid-cols-2">
-              <MetaRow label="Product ID" value={String(product.id)} />
-              <MetaRow
-                label="Selling price"
-                value={formatCurrency(product.price)}
-              />
-              {product.priceWithoutDiscount && (
-                <MetaRow
-                  label="MRP"
-                  value={formatCurrency(product.priceWithoutDiscount)}
-                />
-              )}
-              <MetaRow label="Stock" value={`${product.stock} units`} />
-              {product.hsnCode && (
-                <MetaRow label="HSN code" value={product.hsnCode} />
-              )}
-              <MetaRow
-                label="Images"
-                value={String(sortedImages.length)}
-              />
-              <MetaRow
-                label="Option groups"
-                value={String(
-                  new Set(
-                    (product.customization ?? []).map((o) => o.groupName),
-                  ).size,
-                )}
-              />
-              <MetaRow
-                label="Created"
-                value={new Date(product.createdAt).toLocaleString("en-IN")}
-              />
-              <MetaRow
-                label="Updated"
-                value={new Date(product.updatedAt).toLocaleString("en-IN")}
-              />
-            </dl>
-          </div>
         </div>
       </div>
     </div>

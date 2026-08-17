@@ -3,6 +3,7 @@ import { ImagePlus, Loader2, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MAX_PRODUCT_CUSTOMIZATION_OPTIONS } from "@/lib/product-customization";
 import { parseMoney } from "@/lib/customization-pricing";
@@ -89,7 +90,7 @@ export function ProductOptionGroupsEditor({
     setActiveGroupKey(key);
     onChange([
       ...options,
-      { groupName: name, value: "", price: "0", image: "" },
+      { groupName: name, value: "", price: "0", image: "", isActive: true },
     ]);
     setNewGroupName("");
   };
@@ -118,7 +119,10 @@ export function ProductOptionGroupsEditor({
       toast.error(`Maximum ${MAX_PRODUCT_CUSTOMIZATION_OPTIONS} options`);
       return;
     }
-    onChange([...options, { groupName, value: "", price: "0", image: "" }]);
+    onChange([
+      ...options,
+      { groupName, value: "", price: "0", image: "", isActive: true },
+    ]);
   };
 
   const updateOption = (
@@ -226,10 +230,29 @@ export function ProductOptionGroupsEditor({
                 onChange={(e) => renameGroup(group.name, e.target.value)}
                 aria-label="Group name"
               />
-              <p className="text-xs text-muted-foreground">
-                Customers pick one of these values
-              </p>
-              <div className="ml-auto flex items-center gap-1">
+              <div className="ml-auto flex items-center gap-3">
+                <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Switch
+                    size="sm"
+                    disabled={disabled}
+                    checked={group.rows.some(
+                      (row) => row.option.isActive !== false,
+                    )}
+                    onCheckedChange={(checked) => {
+                      const nextActive = Boolean(checked);
+                      onChange(
+                        options.map((option) =>
+                          option.groupName === group.name
+                            ? { ...option, isActive: nextActive }
+                            : option,
+                        ),
+                      );
+                    }}
+                  />
+                  {group.rows.some((row) => row.option.isActive !== false)
+                    ? "Group on"
+                    : "Group off"}
+                </label>
                 <Button
                   type="button"
                   variant="outline"
@@ -365,7 +388,12 @@ function OptionCard({
   }
 
   return (
-    <div className="flex flex-col overflow-hidden rounded-xl border bg-background shadow-xs">
+    <div
+      className={cn(
+        "flex flex-col overflow-hidden rounded-xl border bg-background shadow-xs",
+        option.isActive === false && "opacity-60",
+      )}
+    >
       <input
         ref={fileRef}
         type="file"
@@ -470,10 +498,21 @@ function OptionCard({
             aria-label="Extra price"
           />
         </div>
+        <p className="text-xs text-muted-foreground">
+          {adj > 0 ? `Adds ${formatCurrency(adj)} to the price` : "No extra charge"}
+        </p>
         <div className="flex items-center justify-between gap-2">
-          <p className="text-xs text-muted-foreground">
-            {adj > 0 ? `Adds ${formatCurrency(adj)} to the price` : "No extra charge"}
-          </p>
+          <label className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Switch
+              size="sm"
+              disabled={disabled}
+              checked={option.isActive !== false}
+              onCheckedChange={(checked) =>
+                onChange({ isActive: Boolean(checked) })
+              }
+            />
+            {option.isActive === false ? "Inactive" : "Active"}
+          </label>
           <button
             type="button"
             disabled={disabled}

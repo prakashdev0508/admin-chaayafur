@@ -193,7 +193,7 @@ Create an order from frontend cart items. Creates a Razorpay Payment Link for th
 | `items[].woodId` | integer | No | Optional; must be an active wood **assigned to that product** ([woods.md](./woods.md)) |
 | `items[].polishId` | integer | No | Optional; requires `woodId`; must be an active polish assigned to that product and belonging to that wood |
 | `items[].fabricId` | integer | No | Optional; must be an active fabric **assigned to that product** ([fabrics.md](./fabrics.md)) |
-| `items[].customization` | array | No | `{ groupName, value }[]`. At most one value per group; must match `Product.customization`. Price is resolved server-side. |
+| `items[].customization` | array | No | `{ groupName, value }[]`. At most one value per group; must match an **active** `Product.customization` option. Price is resolved server-side. |
 | `shippingAddressId` | integer | Yes | Customer's own address |
 | `billingAddressId` | integer | No | Defaults to `shippingAddressId` when omitted |
 | `billingSameAsShipping` | boolean | No | When `true`, forces billing = shipping (identical snapshots; `billingAddressId` FK stored as `null`). Ignores a different `billingAddressId`. When billing differs, omit this flag and pass the other address id. |
@@ -806,7 +806,7 @@ All of `POST /orders` and `GET /orders/:id` return this shape (wrapped in `{ suc
 | `fabricName` | string \| null | Snapshot at checkout |
 | `fabricColor` | string \| null | Snapshot at checkout |
 | `fabricPriceAdjustment` | string | Product-level fabric adjustment snapped at checkout |
-| `customization` | array | Snapshot of selected free-form options `{ groupName, value, price, image }[]` |
+| `customization` | array | Snapshot of selected free-form options `{ groupName, value, price, image, isActive }[]` |
 | `wood` | object \| null | Live catalog join when `woodId` is set |
 | `polish` | object \| null | Live catalog join when `polishId` is set |
 | `fabric` | object \| null | Live catalog join when `fabricId` is set |
