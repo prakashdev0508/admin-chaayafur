@@ -1,7 +1,9 @@
 import { cn } from "@/lib/utils";
-import { formatPriceAdjustment } from "@/lib/customization-pricing";
+import { formatCurrency } from "@/lib/format";
+import { parseMoney } from "@/lib/customization-pricing";
 import {
   groupProductCustomization,
+  isCustomizationOptionActive,
   type CustomizationSelection,
 } from "@/lib/product-customization";
 import type { ProductCustomizationOption } from "@/types/product";
@@ -26,8 +28,8 @@ export function ProductCustomizationGroupPickers({
 
   const isShop = variant === "shop";
 
-  function toggle(groupName: string, value: string) {
-    if (disabled) return;
+  function toggle(groupName: string, value: string, available: boolean) {
+    if (disabled || !available) return;
     const current = selection[groupName];
     const next = { ...selection };
     if (current === value) {
@@ -39,9 +41,14 @@ export function ProductCustomizationGroupPickers({
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       {groups.map((group) => {
         const selectedValue = selection[group.groupName];
+        const selectedIsAvailable = group.options.some(
+          (option) =>
+            option.value === selectedValue &&
+            isCustomizationOptionActive(option),
+        );
         return (
           <div key={group.groupName} className="space-y-3">
             <div className="flex items-center justify-between gap-2">
@@ -61,7 +68,7 @@ export function ProductCustomizationGroupPickers({
                   (optional)
                 </span>
               </p>
-              {selectedValue != null && (
+              {selectedIsAvailable && (
                 <button
                   type="button"
                   className={cn(
@@ -79,49 +86,86 @@ export function ProductCustomizationGroupPickers({
                 </button>
               )}
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               {group.options.map((option) => {
-                const selected = selectedValue === option.value;
-                const adj = formatPriceAdjustment(option.price);
+                const available = isCustomizationOptionActive(option);
+                const selected = available && selectedValue === option.value;
+                const extra = parseMoney(option.price);
                 return (
                   <button
                     key={`${option.groupName}-${option.value}`}
                     type="button"
-                    disabled={disabled}
-                    onClick={() => toggle(option.groupName, option.value)}
+                    disabled={disabled || !available}
+                    aria-disabled={!available}
+                    onClick={() =>
+                      toggle(option.groupName, option.value, available)
+                    }
                     className={cn(
-                      "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition-colors",
+                      "flex flex-col overflow-hidden rounded-xl border text-left transition-colors",
+                      !available && "cursor-not-allowed",
                       isShop
                         ? selected
-                          ? "border-[#1F1610] bg-[#1F1610] text-white"
-                          : "border-[#E8DFD3] bg-white text-[#6B5C4F] hover:border-[#C9B59A]"
+                          ? "border-[#1F1610] bg-white shadow-sm"
+                          : "border-[#E8DFD3] bg-white hover:border-[#C9B59A] disabled:hover:border-[#E8DFD3]"
                         : selected
-                          ? "border-foreground bg-muted text-foreground"
-                          : "border-border bg-background text-muted-foreground hover:border-foreground/30 hover:text-foreground",
+                          ? "border-foreground bg-background shadow-sm"
+                          : "border-border bg-background hover:border-foreground/30 disabled:hover:border-border",
                     )}
                   >
-                    {option.image ? (
-                      <img
-                        src={option.image}
-                        alt=""
-                        className="size-3.5 rounded-full object-cover"
-                      />
-                    ) : null}
-                    <span>{option.value}</span>
-                    {adj && (
+                    <div
+                      className={cn(
+                        "relative aspect-4/3 overflow-hidden",
+                        isShop ? "bg-[#F4EEE6]" : "bg-muted/40",
+                      )}
+                    >
+                      {option.image ? (
+                        <img
+                          src={option.image}
+                          alt=""
+                          className={cn(
+                            "size-full object-cover",
+                            !available && "opacity-50",
+                          )}
+                        />
+                      ) : (
+                        <div
+                          className={cn(
+                            "flex size-full items-center justify-center text-lg font-medium",
+                            isShop ? "text-[#C9B59A]" : "text-muted-foreground",
+                            !available && "opacity-50",
+                          )}
+                        >
+                          {option.value.trim().slice(0, 1).toUpperCase() || "?"}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex flex-1 flex-col gap-0.5 px-3 py-2.5">
+                      <span
+                        className={cn(
+                          "text-sm font-medium leading-snug",
+                          isShop ? "text-[#1F1610]" : "text-foreground",
+                          !available && "opacity-70",
+                        )}
+                      >
+                        {option.value}
+                      </span>
                       <span
                         className={cn(
                           "text-xs",
-                          isShop
-                            ? selected
-                              ? "text-white/70"
-                              : "text-[#9A8B7A]"
+                          available
+                            ? "tabular-nums text-muted-foreground"
                             : "text-muted-foreground",
+                          available && isShop && "text-[#9A8B7A]",
+                          !available && isShop && "text-[#9A8B7A]",
                         )}
                       >
-                        {adj}
+                        {available
+                          ? extra > 0
+                            ? `+${formatCurrency(extra)}`
+                            : "No extra charge"
+                          : "Currently not available"}
                       </span>
-                    )}
+                    </div>
                   </button>
                 );
               })}

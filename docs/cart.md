@@ -21,7 +21,7 @@ Persistent server-side cart for logged-in customers. Line keys are `productId` +
   - `ProductFabric.priceAdjustment` for the selected fabric
   - Matched `Product.customization[].price` for selected free-form options (`groupName` + `value`)
 - **Stock and availability** are checked when adding/updating lines and again at checkout.
-- **Customization validation** — `woodId` / `polishId` / `fabricId` must be assigned and active for that product (not merely present in the global catalog). Free-form `customization` picks must match `Product.customization` (`groupName` + `value`); at most one value per group.
+- **Customization validation** — `woodId` / `polishId` / `fabricId` must be assigned and active for that product (not merely present in the global catalog). Free-form `customization` picks must match an **active** `Product.customization` option (`groupName` + `value`); at most one value per group.
 - **Coupons** are not stored on the cart; pass `couponCode` on `POST /orders` at checkout (see [orders.md](./orders.md)).
 - After a **successful** checkout with `useCart: true`, cart lines are cleared automatically.
 
@@ -105,7 +105,7 @@ Returns the current cart with server-computed pricing (including customization a
         "fabricColor": "#D4C4A8",
         "fabricPriceAdjustment": "1500.00",
         "customization": [
-          { "groupName": "Finish", "value": "Matte", "price": 500, "image": "" }
+          { "groupName": "Finish", "value": "Matte", "price": 500, "image": "", "isActive": true }
         ],
         "customizationKey": "Finish:Matte",
         "quantity": 2,

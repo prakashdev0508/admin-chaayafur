@@ -40,6 +40,10 @@ export type ProductCustomizationOption = {
   value: string;
   price: number | string;
   image?: string | null;
+  /** Omit or true = available. False = show as “currently not available”. */
+  isActive?: boolean;
+  /** Public detail alias of isActive. */
+  isAvailable?: boolean;
 };
 
 /** Cart / checkout pick — server resolves price and image. */
@@ -177,6 +181,7 @@ export type ProductCustomizationFormEntry = {
   /** Form string; empty or "0" → 0 on submit. */
   price: string;
   image: string;
+  isActive: boolean;
 };
 
 export type ProductFormValues = {
