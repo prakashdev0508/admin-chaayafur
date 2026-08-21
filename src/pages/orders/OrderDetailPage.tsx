@@ -139,8 +139,6 @@ export function OrderDetailPage() {
     queryKey: queryKeys.orders.tracking(orderId),
     queryFn: () => getOrderTracking(orderId),
     enabled: Number.isFinite(orderId),
-    refetchInterval: (query) =>
-      query.state.data?.currentStatus === "PENDING" ? 4000 : false,
   });
 
   const invoiceQuery = useQuery({
