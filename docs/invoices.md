@@ -17,25 +17,19 @@ JSON invoice snapshots for confirmed orders, plus downloadable PDFs stored on Cl
 
 Each order stores at most one row per type (`@@unique([orderId, invoiceType])`). Both have their own `pdfUrl` / `pdfStorageKey`.
 
-### Auto-generation (background worker)
+### Auto-generation
 
-Invoice PDFs are **not** generated inline in the HTTP request. Instead, the API enqueues an `invoice_jobs` row and a background worker renders/uploads the PDF.
+Invoice JSON + PDF are generated **synchronously** when the order status changes (same request path; failures are logged and do not roll back the status update).
 
-| Trigger | Invoice type enqueued |
-|---------|----------------------|
+| Trigger | Invoice type generated |
+|---------|------------------------|
 | Razorpay paid webhook (`PENDING` → `CONFIRMED`) | Performa (`PERFORMA`) |
+| Staff `POST /admin/orders/:id/mark-paid` (`PENDING` → `CONFIRMED`) | Performa (`PERFORMA`) |
 | Staff `PATCH` order → `CONFIRMED` | Performa (`PERFORMA`) |
 | Staff `PATCH` order → `DELIVERED` | Tax (`TAX`) |
-| Staff edits items / floor on a confirmed order (before delivery) when an invoice already exists | Performa refresh (`force: true`) |
+| Staff edits items / floor on a confirmed order (before delivery) when an invoice already exists | Performa refresh |
 
-Worker behaviour (same pattern as [upload-jobs.md](./upload-jobs.md)):
-
-- Poll interval: **10 seconds**
-- Max attempts per job: **3** (failed jobs are requeued until attempts exhausted)
-- Stale `PROCESSING` jobs (> 15 minutes) are requeued; after 3 attempts they become `FAILED`
-- Disable on secondary instances: `INVOICE_JOB_WORKER_ENABLED=false`
-
-Staff can still **manually** generate/refresh either type via `POST /orders/:id/invoice/generate` (synchronous — bypasses the queue).
+Staff can also **manually** generate/refresh either type via `POST /orders/:id/invoice/generate`.
 
 ### PDF rendering
 
@@ -248,7 +242,10 @@ curl -X POST http://localhost:5000/api/v1/orders/1/invoice/email \
 
 ## GET /api/v1/orders/:id/invoice/pdf
 
-Redirects to the public R2 PDF URL. If the requested invoice has no PDF yet, the API generates and uploads one on demand (requires R2 configured).
+Redirects to the public R2 PDF URL.
+
+- If a PDF already exists (`pdfUrl` set), that file is served (no re-render).
+- If the invoice row or PDF is missing, the API creates the snapshot (if needed), renders the PDF, uploads it to R2, then redirects.
 
 ### Query parameters
 
@@ -273,7 +270,8 @@ curl -L "http://localhost:5000/api/v1/orders/1/invoice/pdf?invoiceType=pf" \
 | Status | When |
 |--------|------|
 | `403` | Customer accessing another customer's invoice |
-| `404` | Invoice missing for requested type, or PDF unavailable (e.g. R2 not configured) |
+| `404` | Order not found |
+| `503` | PDF could not be generated (R2 not configured, or render/upload failed) |
 
 ---
 
@@ -284,24 +282,36 @@ curl -L "http://localhost:5000/api/v1/orders/1/invoice/pdf?invoiceType=pf" \
 INVOICE_COMPANY_NAME=FURNITURES TALES INDIA PRIVATE LIMITED
 INVOICE_GST_RATE=18
 INVOICE_PRICES_TAX_INCLUSIVE=true
-
-# Background worker (default: enabled)
-INVOICE_JOB_WORKER_ENABLED=true
 ```
 
 ---
 
 ## Order detail embed
 
-`GET /orders/:id` includes a compact `invoice` summary for the **tax** invoice only (when it exists):
+`GET /orders/:id` includes invoice summaries:
+
+- `performa` — Performa (`PF-…`) after payment confirm
+- `tax` — Tax (`TXI-…`) after delivery
+- `invoice` — convenience: performa if present, otherwise tax
 
 ```json
+"performa": {
+  "id": 1,
+  "invoiceType": "PERFORMA",
+  "invoiceNumber": "PF-20260710-0001",
+  "issuedAt": "2026-07-10T12:08:00.000Z",
+  "totalAmount": "5899.00",
+  "pdfUrl": "https://cdn.example.com/invoices/2026/07/uuid-pf.pdf"
+},
+"tax": null,
 "invoice": {
-  "id": 2,
-  "invoiceNumber": "TXI-20260715-0001",
-  "issuedAt": "2026-07-15T10:00:00.000Z",
-  "totalAmount": "5899.00"
+  "id": 1,
+  "invoiceType": "PERFORMA",
+  "invoiceNumber": "PF-20260710-0001",
+  "issuedAt": "2026-07-10T12:08:00.000Z",
+  "totalAmount": "5899.00",
+  "pdfUrl": "https://cdn.example.com/invoices/2026/07/uuid-pf.pdf"
 }
 ```
 
-Use `GET /orders/:id/invoice` for both Performa and Tax JSON payloads.
+Use `GET /orders/:id/invoice` for both Performa and Tax full JSON payloads.

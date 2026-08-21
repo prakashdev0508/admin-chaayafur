@@ -1,6 +1,6 @@
 # Refunds API
 
-Staff refund flow for completed Razorpay payments: initiate with reason → staff email OTP → verify OTP (calls Razorpay) → processed or failed, with a full event timeline.
+Staff refund flow for completed payments: initiate with reason → staff email OTP → verify OTP (Razorpay for checkout; **bookkeeping only** for MANUAL) → processed or failed, with a full event timeline.
 
 [← Back to index](./README.md) · [Payments](./payments.md) · [Orders](./orders.md)
 
@@ -11,9 +11,9 @@ Staff refund flow for completed Razorpay payments: initiate with reason → staf
 ```text
 1. POST /orders/:id/refund                           → Refund row INITIATED (Order.status unchanged)
 2. POST /orders/:id/refund/:refundId/complete        → OTP emailed to completing staff (still INITIATED)
-3. POST /orders/:id/refund/:refundId/complete/verify → Verify OTP → PROCESSING → Razorpay refund API
-4. Gateway result                                    → Refund PROCESSED or FAILED
-5. On PROCESSED                                      → if fully refunded: payment REFUNDED + stock/coupon restored
+3. POST /orders/:id/refund/:refundId/complete/verify → Verify OTP → PROCESSING → Razorpay refund API (skipped for MANUAL)
+4. Gateway result                                    → Refund PROCESSED or FAILED (MANUAL is processed immediately after OTP)
+5. On PROCESSED                                      → if fully refunded: payment REFUNDED + catalog stock/coupon restored
                                                      → if partial: payment stays COMPLETED
 ```
 
@@ -27,7 +27,7 @@ Staff refund flow for completed Razorpay payments: initiate with reason → staf
 - Staff order list supports `?refundStatus=INITIATED` to find orders with an open refund
 - Global refund inbox: `GET /refunds` and `GET /refunds/:id`
 - **Customer emails (Resend)** — refund initiated (includes amount) and refund completed; see [orders.md](./orders.md) for env vars. Recipient = shipping/billing address email; skipped if missing
-- **Staff email OTP (Resend)** — every refund completion (partial or full) requires an OTP sent to the logged-in staff email before Razorpay is called. OTP is single-use (deleted on success), TTL/attempts/resend cooldown reuse `OTP_LENGTH` / `OTP_TTL_MS` / `OTP_MAX_ATTEMPTS` / `OTP_RESEND_COOLDOWN_MS`. Production fails closed if Resend is not configured.
+- **Staff email OTP (Resend)** — every refund completion (partial or full) requires an OTP sent to the logged-in staff email. For `RAZORPAY` payments, OTP verification calls Razorpay. For `MANUAL` payments, OTP verification records the refund in the database only (no bank payout). OTP is single-use (deleted on success), TTL/attempts/resend cooldown reuse `OTP_LENGTH` / `OTP_TTL_MS` / `OTP_MAX_ATTEMPTS` / `OTP_RESEND_COOLDOWN_MS`. Production fails closed if Resend is not configured.
 
 ### Refund statuses
 

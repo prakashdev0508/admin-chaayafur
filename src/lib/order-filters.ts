@@ -1,5 +1,6 @@
 export type OrderFilters = {
   status: string;
+  orderType: string;
   refundStatus: string;
   customerId: string;
   orderNumber: string;
@@ -10,6 +11,7 @@ export type OrderFilters = {
 
 export const defaultOrderFilters: OrderFilters = {
   status: "all",
+  orderType: "all",
   refundStatus: "all",
   customerId: "",
   orderNumber: "",
@@ -21,6 +23,7 @@ export const defaultOrderFilters: OrderFilters = {
 export function countActiveOrderFilters(filters: OrderFilters) {
   let count = 0;
   if (filters.status !== "all") count += 1;
+  if (filters.orderType !== "all") count += 1;
   if (filters.refundStatus !== "all") count += 1;
   if (filters.customerId.trim()) count += 1;
   if (filters.orderNumber.trim()) count += 1;

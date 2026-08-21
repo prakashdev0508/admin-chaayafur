@@ -12,6 +12,8 @@ import type {
   Order,
   OrderListItem,
   OrderTracking,
+  CreateAdminOrderPayload,
+  MarkPaidOrderPayload,
   ListOrdersParams,
   UpdateOrderPayload,
 } from "@/types/order";
@@ -125,4 +127,21 @@ export function cancelOrderRefund(orderId: number, refundId: number) {
     `/orders/${orderId}/refund/${refundId}/cancel`,
     { method: "POST" },
   );
+}
+
+export function createAdminOrder(payload: CreateAdminOrderPayload) {
+  return apiRequest<Order>("/admin/orders", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function markPaidAdminOrder(
+  orderId: number,
+  payload: MarkPaidOrderPayload,
+) {
+  return apiRequest<Order>(`/admin/orders/${orderId}/mark-paid`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }

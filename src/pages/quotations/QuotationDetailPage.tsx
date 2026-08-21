@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ExternalLink, Loader2, Mail, Pencil } from "lucide-react";
 import { toast } from "sonner";
@@ -13,6 +13,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -21,7 +22,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Table,
   TableBody,
@@ -44,21 +54,31 @@ import { PERMISSIONS } from "@/lib/roles";
 import { usePermission } from "@/hooks/usePermission";
 import {
   addQuotationRemark,
+  convertQuotationToOrder,
   getQuotation,
   sendQuotationEmail,
   updateQuotation,
 } from "@/services/quotations.service";
 import type { QuotationStatus } from "@/types/quotation";
+import type { ConvertQuotationToOrderPayload, OrderAddressSnapshot } from "@/types/order";
 
 export function QuotationDetailPage() {
   const { id } = useParams();
   const quotationId = Number(id);
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { hasPermission } = usePermission();
   const canUpdate = hasPermission(PERMISSIONS.UPDATE_QUOTATIONS);
 
   const [status, setStatus] = useState<QuotationStatus | "">("");
   const [remark, setRemark] = useState("");
+  const [convertOpen, setConvertOpen] = useState(false);
+  const [convertPhone, setConvertPhone] = useState("");
+  const [billingSameAsShipping, setBillingSameAsShipping] = useState(true);
+  const [deliveryFloor, setDeliveryFloor] = useState(0);
+  const [liftAccessAvailable, setLiftAccessAvailable] = useState(false);
+  const [shipping, setShipping] = useState<OrderAddressSnapshot | null>(null);
+  const [billing, setBilling] = useState<OrderAddressSnapshot | null>(null);
 
   const { data: quotation, isLoading } = useQuery({
     queryKey: queryKeys.quotations.detail(quotationId),
@@ -120,6 +140,107 @@ export function QuotationDetailPage() {
     },
   });
 
+  const convertMutation = useMutation({
+    mutationFn: (payload: ConvertQuotationToOrderPayload) =>
+      convertQuotationToOrder(quotationId, payload),
+    onSuccess: (order) => {
+      toast.success("Order created from quotation");
+      setConvertOpen(false);
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.quotations.all,
+      });
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.orders.detail(order.id),
+      });
+      navigate(`/orders/${order.id}`);
+    },
+    onError: (error) => {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to convert to order",
+      );
+    },
+  });
+
+  useEffect(() => {
+    if (!convertOpen || !quotation) return;
+
+    const parts = quotation.address
+      .split(",")
+      .map((p) => p.trim())
+      .filter(Boolean);
+
+    const zipMatch = quotation.address.match(/\b(\d{6})\b/);
+    const zipCode = zipMatch?.[1] ?? "";
+    const state = parts.length >= 2 ? parts[parts.length - 2] ?? "" : "";
+    const city = parts.length >= 3 ? parts[parts.length - 3] ?? "" : "";
+    const line1 =
+      parts.length >= 3 ? parts.slice(0, parts.length - 3).join(", ") : "";
+
+    const baseShipping: OrderAddressSnapshot = {
+      name: quotation.customerName,
+      email: quotation.email ?? undefined,
+      phone: quotation.mobileNumber,
+      line1: line1 || quotation.address,
+      line2: undefined,
+      city,
+      state,
+      zipCode,
+      country: "IN",
+    };
+
+    setConvertPhone(quotation.mobileNumber);
+    setBillingSameAsShipping(true);
+    setDeliveryFloor(0);
+    setLiftAccessAvailable(false);
+    setShipping(baseShipping);
+    setBilling(baseShipping);
+  }, [convertOpen, quotation]);
+
+  async function handleConvertToOrder() {
+    const phone = convertPhone.trim();
+    if (!phone) {
+      toast.error("Phone is required");
+      return;
+    }
+    if (!shipping) {
+      toast.error("Shipping details are missing");
+      return;
+    }
+    if (!shipping.name.trim() || !shipping.line1.trim()) {
+      toast.error("Shipping name/address are required");
+      return;
+    }
+    if (!shipping.city.trim() || !shipping.state.trim() || !shipping.zipCode.trim()) {
+      toast.error("Shipping city/state/PIN are required");
+      return;
+    }
+    if (!billingSameAsShipping) {
+      if (!billing) {
+        toast.error("Billing details are required");
+        return;
+      }
+      if (!billing.name.trim() || !billing.line1.trim()) {
+        toast.error("Billing name/address are required");
+        return;
+      }
+      if (!billing.city.trim() || !billing.state.trim() || !billing.zipCode.trim()) {
+        toast.error("Billing city/state/PIN are required");
+        return;
+      }
+    }
+
+    const payload: ConvertQuotationToOrderPayload = {
+      phone,
+      billingSameAsShipping,
+      deliveryFloor,
+      liftAccessAvailable,
+      shipping: { ...shipping, phone },
+      ...(billingSameAsShipping ? {} : { billing: { ...billing!, phone } }),
+    };
+
+    await convertMutation.mutateAsync(payload);
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-24">
@@ -141,6 +262,10 @@ export function QuotationDetailPage() {
   }
 
   const remarks = quotation.followUpRemarks ?? [];
+  const canConvert =
+    canUpdate &&
+    hasPermission(PERMISSIONS.CREATE_ORDERS) &&
+    (quotation.status === "SENT" || quotation.status === "FOLLOW_UP");
 
   return (
     <div className="flex flex-col gap-4">
@@ -186,6 +311,16 @@ export function QuotationDetailPage() {
                   <Mail className="size-4" />
                 )}
                 Send email
+              </Button>
+            ) : null}
+            {canConvert ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setConvertOpen(true)}
+                disabled={convertMutation.isPending}
+              >
+                Convert to order
               </Button>
             ) : null}
           </div>
@@ -414,6 +549,339 @@ export function QuotationDetailPage() {
           ) : null}
         </CardContent>
       </Card>
+
+      <Dialog
+        open={convertOpen}
+        onOpenChange={(open) => {
+          setConvertOpen(open);
+          if (!open) {
+            setShipping(null);
+            setBilling(null);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-[70vw] max-w-[70vw]">
+          <DialogHeader>
+            <DialogTitle>Convert to manual order</DialogTitle>
+            <DialogDescription>
+              Create a MANUAL order from the quoted lines. Stock is decremented for
+              catalog lines only; custom/off-catalog lines are snapshotted as-is.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form
+            className="space-y-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void handleConvertToOrder();
+            }}
+          >
+            <div className="grid gap-4 sm:grid-cols-1">
+              <div className="space-y-2">
+                <Label htmlFor="convert-phone">Customer phone</Label>
+                <Input
+                  id="convert-phone"
+                  value={convertPhone}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    setConvertPhone(next);
+                    setShipping((s) => (s ? { ...s, phone: next } : s));
+                    setBilling((b) => (b ? { ...b, phone: next } : b));
+                  }}
+                />
+              </div>
+
+
+            </div>
+            <div className="space-y-2">
+                <div className="flex items-center">
+                  <div className="flex-1 space-y-1">
+                    <p className="text-sm font-medium">Delivery floor</p>
+                    <Input
+                      type="number"
+                      min={0}
+                      step={1}
+                      value={deliveryFloor}
+                      onChange={(e) =>
+                        setDeliveryFloor(Number.parseInt(e.target.value, 10) || 0)
+                      }
+                    />
+                  </div>
+                  <div className="space-y-1 ml-2">
+                    <p className="text-sm font-medium">Lift access</p>
+                    <Switch
+                      checked={liftAccessAvailable}
+                      onCheckedChange={setLiftAccessAvailable}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2 sm:col-span-2">
+                <div className="flex items-center justify-between gap-3 rounded-lg border p-3">
+                  <div>
+                    <p className="text-sm font-medium">Billing same as shipping</p>
+                    <p className="text-xs text-muted-foreground">
+                      When enabled, backend stores only a shipping snapshot.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={billingSameAsShipping}
+                    onCheckedChange={(v) => setBillingSameAsShipping(v)}
+                  />
+                </div>
+              </div>
+
+            <div className="space-y-2">
+              <Label>Shipping snapshot</Label>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="shipping-name">Name</Label>
+                  <Input
+                    id="shipping-name"
+                    value={shipping?.name ?? ""}
+                    onChange={(e) =>
+                      setShipping((s) =>
+                        s ? { ...s, name: e.target.value } : s,
+                      )
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="shipping-email">Email (optional)</Label>
+                  <Input
+                    id="shipping-email"
+                    value={shipping?.email ?? ""}
+                    onChange={(e) =>
+                      setShipping((s) =>
+                        s
+                          ? {
+                              ...s,
+                              email: e.target.value || undefined,
+                            }
+                          : s,
+                      )
+                    }
+                  />
+                </div>
+
+                <div className="space-y-2 sm:col-span-2">
+                  <Label htmlFor="shipping-line1">Address line 1</Label>
+                  <Input
+                    id="shipping-line1"
+                    value={shipping?.line1 ?? ""}
+                    onChange={(e) =>
+                      setShipping((s) =>
+                        s ? { ...s, line1: e.target.value } : s,
+                      )
+                    }
+                  />
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label htmlFor="shipping-line2">Address line 2 (optional)</Label>
+                  <Input
+                    id="shipping-line2"
+                    value={shipping?.line2 ?? ""}
+                    onChange={(e) =>
+                      setShipping((s) =>
+                        s ? { ...s, line2: e.target.value || undefined } : s,
+                      )
+                    }
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="shipping-city">City</Label>
+                  <Input
+                    id="shipping-city"
+                    value={shipping?.city ?? ""}
+                    onChange={(e) =>
+                      setShipping((s) =>
+                        s ? { ...s, city: e.target.value } : s,
+                      )
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="shipping-state">State</Label>
+                  <Input
+                    id="shipping-state"
+                    value={shipping?.state ?? ""}
+                    onChange={(e) =>
+                      setShipping((s) =>
+                        s ? { ...s, state: e.target.value } : s,
+                      )
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="shipping-zip">PIN code</Label>
+                  <Input
+                    id="shipping-zip"
+                    value={shipping?.zipCode ?? ""}
+                    onChange={(e) =>
+                      setShipping((s) =>
+                        s
+                          ? {
+                              ...s,
+                              zipCode: e.target.value.replace(/\D/g, "").slice(0, 6),
+                            }
+                          : s,
+                      )
+                    }
+                    inputMode="numeric"
+                    maxLength={6}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="shipping-country">Country</Label>
+                  <Input
+                    id="shipping-country"
+                    value={shipping?.country ?? "IN"}
+                    onChange={(e) =>
+                      setShipping((s) =>
+                        s ? { ...s, country: e.target.value } : s,
+                      )
+                    }
+                  />
+                </div>
+              </div>
+            </div>
+
+            {!billingSameAsShipping ? (
+              <div className="space-y-2">
+                <Label>Billing snapshot</Label>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="billing-name">Name</Label>
+                    <Input
+                      id="billing-name"
+                      value={billing?.name ?? ""}
+                      onChange={(e) =>
+                        setBilling((b) =>
+                          b ? { ...b, name: e.target.value } : b,
+                        )
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="billing-email">Email (optional)</Label>
+                    <Input
+                      id="billing-email"
+                      value={billing?.email ?? ""}
+                      onChange={(e) =>
+                        setBilling((b) =>
+                          b
+                            ? { ...b, email: e.target.value || undefined }
+                            : b,
+                        )
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label htmlFor="billing-line1">Address line 1</Label>
+                    <Input
+                      id="billing-line1"
+                      value={billing?.line1 ?? ""}
+                      onChange={(e) =>
+                        setBilling((b) =>
+                          b ? { ...b, line1: e.target.value } : b,
+                        )
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label htmlFor="billing-line2">Address line 2 (optional)</Label>
+                    <Input
+                      id="billing-line2"
+                      value={billing?.line2 ?? ""}
+                      onChange={(e) =>
+                        setBilling((b) =>
+                          b ? { ...b, line2: e.target.value || undefined } : b,
+                        )
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="billing-city">City</Label>
+                    <Input
+                      id="billing-city"
+                      value={billing?.city ?? ""}
+                      onChange={(e) =>
+                        setBilling((b) =>
+                          b ? { ...b, city: e.target.value } : b,
+                        )
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="billing-state">State</Label>
+                    <Input
+                      id="billing-state"
+                      value={billing?.state ?? ""}
+                      onChange={(e) =>
+                        setBilling((b) =>
+                          b ? { ...b, state: e.target.value } : b,
+                        )
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="billing-zip">PIN code</Label>
+                    <Input
+                      id="billing-zip"
+                      value={billing?.zipCode ?? ""}
+                      onChange={(e) =>
+                        setBilling((b) =>
+                          b
+                            ? {
+                                ...b,
+                                zipCode: e.target.value
+                                  .replace(/\D/g, "")
+                                  .slice(0, 6),
+                              }
+                            : b,
+                        )
+                      }
+                      inputMode="numeric"
+                      maxLength={6}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="billing-country">Country</Label>
+                    <Input
+                      id="billing-country"
+                      value={billing?.country ?? "IN"}
+                      onChange={(e) =>
+                        setBilling((b) =>
+                          b ? { ...b, country: e.target.value } : b,
+                        )
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={convertMutation.isPending}
+                onClick={() => setConvertOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={convertMutation.isPending || !shipping}
+              >
+                {convertMutation.isPending ? "Creating…" : "Convert to order"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

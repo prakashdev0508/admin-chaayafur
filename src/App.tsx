@@ -23,6 +23,7 @@ import { QuotationListPage } from "@/pages/quotations/QuotationListPage";
 import { UploadJobListPage } from "@/pages/upload-jobs/UploadJobListPage";
 import { OrderListPage } from "@/pages/orders/OrderListPage";
 import { OrderDetailPage } from "@/pages/orders/OrderDetailPage";
+import { ManualOrderCreatePage } from "@/pages/orders/ManualOrderCreatePage";
 import { PaymentListPage } from "@/pages/payments/PaymentListPage";
 import { PaymentDetailPage } from "@/pages/payments/PaymentDetailPage";
 import { RefundListPage } from "@/pages/refunds/RefundListPage";
@@ -199,6 +200,14 @@ const App = () => {
             }
           >
             <Route path="products/:id/edit" element={<EditProductPage />} />
+          </Route>
+          <Route
+            element={<PermissionRoute permission={PERMISSIONS.CREATE_ORDERS} />}
+          >
+            <Route
+              path="orders/manual/new"
+              element={<ManualOrderCreatePage />}
+            />
           </Route>
           <Route
             element={<PermissionRoute permission={PERMISSIONS.VIEW_ORDERS} />}

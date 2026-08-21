@@ -51,6 +51,9 @@ import { AuditLogTable } from "@/components/shared/AuditLogTable";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { SupportTicketStatusBadge } from "@/components/support-tickets/SupportTicketStatusBadge";
 import { StarRating } from "@/components/reviews/StarRating";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import type {
   OrderRefund,
   InitiateRefundPayload,
@@ -72,12 +75,13 @@ import {
   getOrderRefund,
   getOrderTracking,
   initiateOrderRefund,
+  markPaidAdminOrder,
   updateOrder,
 } from "@/services/orders.service";
 import { listSupportTickets } from "@/services/support-tickets.service";
 import { usePermission } from "@/hooks/usePermission";
 import { PERMISSIONS } from "@/lib/roles";
-import type { UpdateOrderPayload } from "@/types/order";
+import type { MarkPaidOrderPayload, UpdateOrderPayload } from "@/types/order";
 
 export function OrderDetailPage() {
   const { id } = useParams();
@@ -100,6 +104,9 @@ export function OrderDetailPage() {
   const [selectedRefund, setSelectedRefund] = useState<OrderRefund | null>(
     null,
   );
+  const [markPaidOpen, setMarkPaidOpen] = useState(false);
+  const [markPaidTransactionId, setMarkPaidTransactionId] = useState("");
+  const [markPaidNotes, setMarkPaidNotes] = useState("");
 
   const invalidateOrderQueries = () => {
     void queryClient.invalidateQueries({
@@ -177,6 +184,23 @@ export function OrderDetailPage() {
     mutationFn: (payload: UpdateOrderPayload) => updateOrder(orderId, payload),
     onSuccess: () => {
       invalidateOrderQueries();
+    },
+  });
+
+  const markPaidMutation = useMutation({
+    mutationFn: (payload: MarkPaidOrderPayload) =>
+      markPaidAdminOrder(orderId, payload),
+    onSuccess: () => {
+      setMarkPaidOpen(false);
+      setMarkPaidTransactionId("");
+      setMarkPaidNotes("");
+      toast.success("Payment marked as paid");
+      invalidateOrderQueries();
+    },
+    onError: (error) => {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to mark payment",
+      );
     },
   });
 
@@ -271,6 +295,11 @@ export function OrderDetailPage() {
       </div>
     );
   }
+
+  const isManualPending =
+    order.payment.paymentMethod === "MANUAL" &&
+    order.payment.status === "PENDING";
+  const canMarkPaid = isManualPending && (canGenerateInvoice || canRefund);
 
   const invoiceNotFound =
     invoiceQuery.error instanceof ApiError && invoiceQuery.error.statusCode === 404;
@@ -656,9 +685,89 @@ export function OrderDetailPage() {
                   <Eye className="size-4" />
                   View payment details
                 </Link>
+                {canMarkPaid && (
+                  <Button
+                    variant="outline"
+                    className="min-h-11 w-full justify-center"
+                    disabled={markPaidMutation.isPending}
+                    onClick={() => setMarkPaidOpen(true)}
+                  >
+                    {markPaidMutation.isPending ? "Marking..." : "Mark paid"}
+                  </Button>
+                )}
               </CardContent>
             </Card>
           </div>
+
+          <Dialog
+            open={markPaidOpen}
+            onOpenChange={(open) => {
+              setMarkPaidOpen(open);
+              if (!open) {
+                setMarkPaidTransactionId("");
+                setMarkPaidNotes("");
+              }
+            }}
+          >
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Mark manual payment as paid</DialogTitle>
+                <DialogDescription>
+                  This will complete bookkeeping for the offline payment.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <label className="text-sm font-medium" htmlFor="txId">
+                    Transaction ID
+                  </label>
+                  <Input
+                    id="txId"
+                    value={markPaidTransactionId}
+                    onChange={(e) => setMarkPaidTransactionId(e.target.value)}
+                    placeholder="e.g. OTP/UPI reference"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium" htmlFor="markPaidNotes">
+                    Notes (optional)
+                  </label>
+                  <Textarea
+                    id="markPaidNotes"
+                    value={markPaidNotes}
+                    onChange={(e) => setMarkPaidNotes(e.target.value)}
+                    placeholder="Add any admin notes..."
+                  />
+                </div>
+              </div>
+              <DialogFooter className="mt-2">
+                <Button variant="outline" onClick={() => setMarkPaidOpen(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={async () => {
+                    const transactionId = markPaidTransactionId.trim();
+                    if (!transactionId) {
+                      toast.error("Transaction ID is required");
+                      return;
+                    }
+
+                    try {
+                      await markPaidMutation.mutateAsync({
+                        transactionId,
+                        notes: markPaidNotes.trim() || undefined,
+                      });
+                    } catch {
+                      // handled by onError
+                    }
+                  }}
+                  disabled={markPaidMutation.isPending}
+                >
+                  {markPaidMutation.isPending ? "Marking..." : "Mark paid"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
           <Card>
             <CardHeader className="pb-3">
@@ -672,18 +781,24 @@ export function OrderDetailPage() {
                     customization,
                   );
                   const lineTotal = parseFloat(item.price) * item.quantity;
+                  const productLabel =
+                    item.product?.name ?? item.productName ?? "Custom item";
                   return (
                     <div
                       key={item.id}
                       className="rounded-xl border bg-muted/15 p-4"
                     >
                       <div className="flex items-start justify-between gap-3">
-                        <Link
-                          to={`/products/${item.productId}`}
-                          className="min-w-0 font-medium hover:underline"
-                        >
-                          {item.product.name}
-                        </Link>
+                        {item.productId != null && item.product ? (
+                          <Link
+                            to={`/products/${item.productId}`}
+                            className="min-w-0 font-medium hover:underline"
+                          >
+                            {productLabel}
+                          </Link>
+                        ) : (
+                          <span className="min-w-0 font-medium">{productLabel}</span>
+                        )}
                         <span className="shrink-0 font-semibold tabular-nums">
                           {formatCurrency(lineTotal)}
                         </span>
@@ -770,15 +885,21 @@ export function OrderDetailPage() {
                         item,
                         customization,
                       );
+                      const productLabel =
+                        item.product?.name ?? item.productName ?? "Custom item";
                       return (
                         <TableRow key={item.id}>
                           <TableCell className="font-medium">
-                            <Link
-                              to={`/products/${item.productId}`}
-                              className="hover:underline"
-                            >
-                              {item.product.name}
-                            </Link>
+                            {item.productId != null && item.product ? (
+                              <Link
+                                to={`/products/${item.productId}`}
+                                className="hover:underline"
+                              >
+                                {productLabel}
+                              </Link>
+                            ) : (
+                              <span>{productLabel}</span>
+                            )}
                             {itemMaterials.length > 0 && (
                               <div className="mt-2 flex flex-wrap gap-1.5">
                                 {itemMaterials.map((material) => (

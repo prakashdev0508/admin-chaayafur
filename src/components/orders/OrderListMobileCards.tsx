@@ -34,6 +34,9 @@ export function OrderListMobileCards({ orders }: OrderListMobileCardsProps) {
               <p className="mt-0.5 truncate text-sm text-muted-foreground">
                 {order.customerPhone ?? `Customer #${order.customerId}`}
               </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {order.orderType === "MANUAL" ? "Manual" : "Checkout"}
+              </p>
             </div>
             <StatusBadge variant={getOrderStatusVariant(order.status)}>
               {getOrderStatusLabel(order.status)}

@@ -17,6 +17,8 @@ export type OrderStatus =
   | "REFUNDED"
   | "CANCELLED";
 
+export type OrderType = "CHECKOUT" | "MANUAL";
+
 export type OrderItemReview = {
   id: number;
   productId: number;
@@ -43,9 +45,12 @@ export type OrderReviewSummary = {
 
 export type OrderItem = {
   id: number;
-  productId: number;
+  /** Catalog product id; null for off-catalog custom lines. */
+  productId: number | null;
   quantity: number;
   price: string;
+  /** Snapshot display name for this line (catalog or custom). */
+  productName?: string;
   woodId?: number | null;
   woodName?: string | null;
   woodColor?: string | null;
@@ -62,11 +67,12 @@ export type OrderItem = {
   wood?: OrderCatalogMaterial | null;
   polish?: OrderCatalogMaterial | null;
   fabric?: OrderCatalogMaterial | null;
-  product: {
+  /** Present for catalog lines; null/omitted for custom lines. */
+  product?: {
     id: number;
     name: string;
     slug: string;
-  };
+  } | null;
   review?: OrderItemReview | null;
 };
 
@@ -134,6 +140,7 @@ export type OrderListItem = {
   orderNumber: string;
   customerId: number;
   customerPhone: string;
+  orderType: OrderType;
   status: OrderStatus;
   cancellationReason?: string | null;
   totalAmount: string;
@@ -205,6 +212,7 @@ export type ListOrdersParams = {
   page?: number;
   limit?: number;
   status?: OrderStatus;
+  orderType?: OrderType;
   /** Filter orders that have at least one refund with this status */
   refundStatus?: import("@/types/refund").RefundStatus;
   customerId?: number;
@@ -227,13 +235,27 @@ export type UpdateOrderPayload = {
 };
 
 export type OrderLineInput = {
-  productId: number;
-  quantity: number;
-  woodId?: number;
-  polishId?: number;
-  fabricId?: number;
-  customization?: ProductCustomizationPick[];
-};
+  type?: "CATALOG" | "CUSTOM";
+} & (
+  | {
+      type?: "CATALOG";
+      productId: number;
+      quantity: number;
+      woodId?: number;
+      polishId?: number;
+      fabricId?: number;
+      customization?: ProductCustomizationPick[];
+    }
+  | {
+      type: "CUSTOM";
+      productId?: null;
+      productName: string;
+      quantity: number;
+      /** Unit price for the custom/off-catalog line (GST-inclusive). */
+      price: number;
+      image?: { url: string; storageKey: string } | null;
+    }
+);
 
 /** Shop checkout uses `useCart: true`; legacy guest flow may send `items` instead. */
 export type CreateOrderPayload = {
@@ -245,6 +267,47 @@ export type CreateOrderPayload = {
   billingSameAsShipping?: boolean;
   couponCode?: string;
   referralCode?: string;
+  deliveryFloor: number;
+  liftAccessAvailable: boolean;
+};
+
+/** Inline address snapshot stored on MANUAL orders (not the customer's address book). */
+export type OrderAddressSnapshot = {
+  name: string;
+  email?: string;
+  phone?: string;
+  line1: string;
+  line2?: string;
+  city: string;
+  state: string;
+  zipCode: string;
+  country?: string;
+};
+
+export type CreateAdminOrderPayload = {
+  /** Indian mobile; find-or-create customer. */
+  phone: string;
+  shipping: OrderAddressSnapshot;
+  /** Billing snapshot is required unless `billingSameAsShipping` is true. */
+  billing?: OrderAddressSnapshot;
+  billingSameAsShipping: boolean;
+  deliveryFloor: number;
+  liftAccessAvailable: boolean;
+  items: OrderLineInput[];
+  /** Optional override; otherwise computed from site settings. */
+  shippingAmount?: number;
+};
+
+export type MarkPaidOrderPayload = {
+  transactionId: string;
+  notes?: string;
+};
+
+export type ConvertQuotationToOrderPayload = {
+  phone: string;
+  shipping: OrderAddressSnapshot;
+  billing?: OrderAddressSnapshot;
+  billingSameAsShipping: boolean;
   deliveryFloor: number;
   liftAccessAvailable: boolean;
 };

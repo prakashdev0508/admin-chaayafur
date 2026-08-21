@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, Search, Trash2 } from "lucide-react";
+import { Loader2, Plus, Search, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,8 +16,10 @@ import {
 import { formatQuoteRupees, grandTotal, lineTotal, parseUnitPrice } from "@/lib/quotation";
 import { queryKeys } from "@/lib/query-keys";
 import { listProducts } from "@/services/products.service";
+import { uploadOrderLineImage } from "@/services/uploads.service";
 import type { ProductListItem } from "@/types/product";
 import type { QuotationLineItem } from "@/types/quotation";
+import { toast } from "sonner";
 
 function useDebouncedValue<T>(value: T, delayMs: number) {
   const [debounced, setDebounced] = useState(value);
@@ -39,6 +41,17 @@ export function QuotationLineItemsEditor({
 }: QuotationLineItemsEditorProps) {
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebouncedValue(search.trim(), 300);
+  const [customOpen, setCustomOpen] = useState(false);
+  const [customName, setCustomName] = useState("");
+  const [customQty, setCustomQty] = useState("1");
+  const [customPrice, setCustomPrice] = useState("0");
+  const [customImageUploading, setCustomImageUploading] = useState(false);
+  const [customImageUrl, setCustomImageUrl] = useState<string | null>(null);
+  const [customImageStorageKey, setCustomImageStorageKey] = useState<
+    string | null
+  >(null);
+
+  const [uploadingLineId, setUploadingLineId] = useState<string | null>(null);
 
   const searchQuery = useQuery({
     queryKey: queryKeys.products.list({
@@ -71,6 +84,7 @@ export function QuotationLineItemsEditor({
         productId: product.id,
         productName: product.name,
         imageUrl: product.primaryImage?.url ?? null,
+        imageStorageKey: null,
         quantity: 1,
         unitPrice,
       },
@@ -86,8 +100,171 @@ export function QuotationLineItemsEditor({
     onChange(items.filter((item) => item.id !== id));
   }
 
+  async function handleCustomImageFileUpload(file: File) {
+    setCustomImageUploading(true);
+    try {
+      const uploaded = await uploadOrderLineImage(file);
+      setCustomImageUrl(uploaded.url);
+      setCustomImageStorageKey(uploaded.storageKey);
+      toast.success("Image uploaded");
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to upload line image",
+      );
+    } finally {
+      setCustomImageUploading(false);
+    }
+  }
+
+  async function handleReplaceLineImage(lineId: string, file: File) {
+    setUploadingLineId(lineId);
+    try {
+      const uploaded = await uploadOrderLineImage(file);
+      onChange(
+        items.map((it) =>
+          it.id === lineId
+            ? {
+                ...it,
+                imageUrl: uploaded.url,
+                imageStorageKey: uploaded.storageKey,
+              }
+            : it,
+        ),
+      );
+      toast.success("Image updated");
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to upload line image",
+      );
+    } finally {
+      setUploadingLineId(null);
+    }
+  }
+
+  function resetCustomForm() {
+    setCustomName("");
+    setCustomQty("1");
+    setCustomPrice("0");
+    setCustomImageUploading(false);
+    setCustomImageUrl(null);
+    setCustomImageStorageKey(null);
+  }
+
+  function addCustomItem() {
+    const qty = Math.max(1, Number.parseInt(customQty, 10) || 1);
+    const unitPrice = parseUnitPrice(customPrice);
+    const name = customName.trim();
+    if (!name) {
+      toast.error("Enter custom item name");
+      return;
+    }
+
+    onChange([
+      ...items,
+      {
+        id:
+          typeof crypto.randomUUID === "function"
+            ? crypto.randomUUID()
+            : `custom-${Date.now()}`,
+        productId: null,
+        productName: name,
+        imageUrl: customImageUrl,
+        imageStorageKey: customImageStorageKey,
+        quantity: qty,
+        unitPrice,
+      },
+    ]);
+
+    setCustomOpen(false);
+    resetCustomForm();
+  }
+
   return (
     <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => setCustomOpen((v) => !v)}
+        >
+          <Plus className="size-4" />
+          Add custom item
+        </Button>
+      </div>
+
+      {customOpen ? (
+        <div className="rounded-lg border bg-muted/20 p-3">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="sm:col-span-2 space-y-2">
+              <Label htmlFor="custom-item-name">Item name</Label>
+              <Input
+                id="custom-item-name"
+                value={customName}
+                onChange={(e) => setCustomName(e.target.value)}
+                placeholder="e.g. Custom teak dining table"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="custom-item-qty">Qty</Label>
+              <Input
+                id="custom-item-qty"
+                type="number"
+                min={1}
+                step={1}
+                value={customQty}
+                onChange={(e) => setCustomQty(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="custom-item-price">Unit price</Label>
+              <Input
+                id="custom-item-price"
+                type="number"
+                min={0}
+                step="0.01"
+                value={customPrice}
+                onChange={(e) => setCustomPrice(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Image (optional)</Label>
+              <Input
+                type="file"
+                accept="image/*"
+                disabled={customImageUploading}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  void handleCustomImageFileUpload(file);
+                }}
+              />
+              {customImageUrl ? (
+                <img
+                  src={customImageUrl}
+                  alt="Custom line preview"
+                  className="mt-2 size-12 rounded-md object-cover border"
+                />
+              ) : null}
+            </div>
+          </div>
+          <div className="mt-3 flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setCustomOpen(false);
+                resetCustomForm();
+              }}
+            >
+              Cancel
+            </Button>
+            <Button type="button" onClick={() => addCustomItem()}>
+              Add
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
       <div className="space-y-2">
         <Label htmlFor="quotation-product-search">Search product</Label>
         <div className="relative">
@@ -175,8 +352,38 @@ export function QuotationLineItemsEditor({
                     ) : (
                       <div className="size-10 shrink-0 rounded-md bg-muted" />
                     )}
-                    <span>{item.productName}</span>
+                    {item.productId == null ? (
+                      <Input
+                        value={item.productName}
+                        onChange={(e) =>
+                          updateItem(item.id, { productName: e.target.value })
+                        }
+                        aria-label="Custom item name"
+                      />
+                    ) : (
+                      <span>{item.productName}</span>
+                    )}
                   </div>
+
+                  {item.productId == null ? (
+                    <div className="mt-2">
+                      <Input
+                        type="file"
+                        accept="image/*"
+                        disabled={uploadingLineId === item.id}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          void handleReplaceLineImage(item.id, file);
+                        }}
+                      />
+                      {uploadingLineId === item.id ? (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Uploading…
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </TableCell>
                 <TableCell>
                   <Input

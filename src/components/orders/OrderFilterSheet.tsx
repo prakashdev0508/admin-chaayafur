@@ -1,8 +1,5 @@
-import { useState } from "react";
-import { Filter } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -10,6 +7,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 import {
   Sheet,
   SheetContent,
@@ -17,72 +15,74 @@ import {
   SheetFooter,
   SheetHeader,
   SheetTitle,
-  SheetTrigger,
 } from "@/components/ui/sheet";
 import type { OrderFilters } from "@/lib/order-filters";
 import {
   ORDER_STATUS_FILTER_ITEMS,
+  ORDER_TYPE_FILTER_ITEMS,
   REFUND_STATUS_FILTER_ITEMS,
 } from "@/lib/select-items";
 
 type OrderFilterSheetProps = {
-  filters: OrderFilters;
-  onApply: (filters: OrderFilters) => void;
-  activeCount: number;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  draft: OrderFilters;
+  onDraftChange: (filters: OrderFilters) => void;
+  onApply: () => void;
+  onClear: () => void;
 };
 
 export function OrderFilterSheet({
-  filters,
+  open,
+  onOpenChange,
+  draft,
+  onDraftChange,
   onApply,
-  activeCount,
+  onClear,
 }: OrderFilterSheetProps) {
-  const [open, setOpen] = useState(false);
-
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger
-        render={
-          <Button variant="outline">
-            <Filter className="size-4" />
-            Filters
-            {activeCount > 0 && (
-              <span className="ml-1 rounded-md bg-primary/10 px-1.5 text-xs text-primary">
-                {activeCount}
-              </span>
-            )}
-          </Button>
-        }
-      />
-      <SheetContent>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-sm">
         <SheetHeader>
           <SheetTitle>Filter orders</SheetTitle>
           <SheetDescription>
-            Narrow down by order status, refund status, order number, customer, or date.
+            Narrow down by order type, status, refund status, order number,
+            customer, or date.
           </SheetDescription>
         </SheetHeader>
-        <form
-          className="flex flex-1 flex-col gap-4 px-4"
-          onSubmit={(e) => {
-            e.preventDefault();
-            const form = e.currentTarget;
-            const data = new FormData(form);
-            onApply({
-              status: String(data.get("status") ?? "all"),
-              refundStatus: String(data.get("refundStatus") ?? "all"),
-              customerId: String(data.get("customerId") ?? ""),
-              orderNumber: String(data.get("orderNumber") ?? ""),
-              customerPhone: String(data.get("customerPhone") ?? ""),
-              createdFrom: String(data.get("createdFrom") ?? ""),
-              createdTo: String(data.get("createdTo") ?? ""),
-            });
-            setOpen(false);
-          }}
-        >
+
+        <div className="flex flex-1 flex-col gap-5 px-4">
+          <div className="space-y-2">
+            <Label htmlFor="order-type">Order type</Label>
+            <Select
+              value={draft.orderType}
+              onValueChange={(value) => {
+                if (!value) return;
+                onDraftChange({ ...draft, orderType: value });
+              }}
+              items={ORDER_TYPE_FILTER_ITEMS}
+            >
+              <SelectTrigger id="order-type" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {ORDER_TYPE_FILTER_ITEMS.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="order-status">Order status</Label>
             <Select
-              name="status"
-              defaultValue={filters.status}
+              value={draft.status}
+              onValueChange={(value) => {
+                if (!value) return;
+                onDraftChange({ ...draft, status: value });
+              }}
               items={ORDER_STATUS_FILTER_ITEMS}
             >
               <SelectTrigger id="order-status" className="w-full">
@@ -97,11 +97,15 @@ export function OrderFilterSheet({
               </SelectContent>
             </Select>
           </div>
+
           <div className="space-y-2">
             <Label htmlFor="order-refund-status">Refund status</Label>
             <Select
-              name="refundStatus"
-              defaultValue={filters.refundStatus}
+              value={draft.refundStatus}
+              onValueChange={(value) => {
+                if (!value) return;
+                onDraftChange({ ...draft, refundStatus: value });
+              }}
               items={REFUND_STATUS_FILTER_ITEMS}
             >
               <SelectTrigger id="order-refund-status" className="w-full">
@@ -116,57 +120,83 @@ export function OrderFilterSheet({
               </SelectContent>
             </Select>
           </div>
+
           <div className="space-y-2">
             <Label htmlFor="order-number">Order number</Label>
             <Input
               id="order-number"
-              name="orderNumber"
+              value={draft.orderNumber}
+              onChange={(e) =>
+                onDraftChange({ ...draft, orderNumber: e.target.value })
+              }
               placeholder="e.g. ORD-20260714-0011"
-              defaultValue={filters.orderNumber}
             />
           </div>
+
           <div className="space-y-2">
             <Label htmlFor="customer-phone">Customer phone</Label>
             <Input
               id="customer-phone"
-              name="customerPhone"
+              value={draft.customerPhone}
+              onChange={(e) =>
+                onDraftChange({ ...draft, customerPhone: e.target.value })
+              }
               placeholder="e.g. 98765"
-              defaultValue={filters.customerPhone}
             />
           </div>
+
           <div className="space-y-2">
             <Label htmlFor="customer-id">Customer ID</Label>
             <Input
               id="customer-id"
-              name="customerId"
+              value={draft.customerId}
+              onChange={(e) =>
+                onDraftChange({ ...draft, customerId: e.target.value })
+              }
               placeholder="e.g. 1"
-              defaultValue={filters.customerId}
             />
           </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label htmlFor="created-from">Created from</Label>
               <Input
                 id="created-from"
-                name="createdFrom"
                 type="date"
-                defaultValue={filters.createdFrom}
+                value={draft.createdFrom}
+                onChange={(e) =>
+                  onDraftChange({ ...draft, createdFrom: e.target.value })
+                }
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="created-to">Created to</Label>
               <Input
                 id="created-to"
-                name="createdTo"
                 type="date"
-                defaultValue={filters.createdTo}
+                value={draft.createdTo}
+                onChange={(e) =>
+                  onDraftChange({ ...draft, createdTo: e.target.value })
+                }
               />
             </div>
           </div>
-          <SheetFooter className="mt-auto">
-            <Button type="submit">Apply filters</Button>
-          </SheetFooter>
-        </form>
+        </div>
+
+        <SheetFooter className="flex-row gap-2">
+          <Button variant="outline" className="flex-1" onClick={onClear}>
+            Clear
+          </Button>
+          <Button
+            className="flex-1"
+            onClick={() => {
+              onApply();
+              onOpenChange(false);
+            }}
+          >
+            Apply filters
+          </Button>
+        </SheetFooter>
       </SheetContent>
     </Sheet>
   );

@@ -41,6 +41,12 @@ export const ORDER_STATUS_FILTER_ITEMS: SelectOption[] = [
   })),
 ];
 
+export const ORDER_TYPE_FILTER_ITEMS: SelectOption[] = [
+  { value: "all", label: "All order types" },
+  { value: "CHECKOUT", label: "Checkout" },
+  { value: "MANUAL", label: "Manual" },
+];
+
 export const REFUND_STATUS_FILTER_ITEMS: SelectOption[] = [
   { value: "all", label: "All refund statuses" },
   { value: "INITIATED", label: "Initiated" },

@@ -156,8 +156,15 @@ export function validateQuotationDraft(draft: QuotationDraft): string | null {
   }
   if (draft.items.length === 0) return "Add at least one product.";
   for (const item of draft.items) {
-    if (!item.productId) {
-      return `Remove ${item.productName} — it is no longer in the catalog.`;
+    // If productId is missing, treat it as an off-catalog custom line.
+    if (item.productId == null || item.productId === 0) {
+      if (!item.productName.trim()) {
+        return "Custom item name is required.";
+      }
+    } else {
+      if (!Number.isFinite(item.productId)) {
+        return `Invalid product id for ${item.productName}.`;
+      }
     }
     if (!Number.isInteger(item.quantity) || item.quantity < 1) {
       return `Quantity for ${item.productName} must be at least 1.`;
@@ -191,9 +198,10 @@ export function quotationToDraft(quotation: Quotation): QuotationDraft {
     notes: quotation.notes ?? "",
     items: quotation.products.map((product) => ({
       id: String(product.id),
-      productId: product.productId ?? 0,
+      productId: product.productId ?? null,
       productName: product.productName,
-      imageUrl: null,
+      imageUrl: product.productImageUrl ?? null,
+      imageStorageKey: product.productImageKey ?? null,
       quantity: product.quantity,
       unitPrice: Number.parseFloat(product.price) || 0,
     })),
@@ -214,11 +222,34 @@ export function draftToCreatePayload(
     notes: draft.notes.trim() || undefined,
     pdfUrl: pdf.url,
     pdfStorageKey: pdf.key,
-    products: draft.items.map((item) => ({
-      productId: item.productId,
-      quantity: item.quantity,
-      price: item.unitPrice,
-    })),
+    products: draft.items.map((item) => {
+      const hasLineImage =
+        Boolean(item.imageUrl) && Boolean(item.imageStorageKey);
+      const image = hasLineImage
+        ? {
+            url: item.imageUrl!,
+            storageKey: item.imageStorageKey!,
+          }
+        : undefined;
+
+      if (item.productId == null || item.productId === 0) {
+        return {
+          type: "CUSTOM",
+          productName: item.productName,
+          quantity: item.quantity,
+          price: item.unitPrice,
+          ...(image ? { image } : {}),
+        } as const;
+      }
+
+      return {
+        type: "CATALOG",
+        productId: item.productId,
+        quantity: item.quantity,
+        price: item.unitPrice,
+        ...(image ? { image } : {}),
+      } as const;
+    }),
     totalPrice: totals.inclusive,
     gstAmount: totals.gst,
   };

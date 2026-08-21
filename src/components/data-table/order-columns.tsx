@@ -47,6 +47,15 @@ export const orderColumns: ColumnDef<OrderListItem>[] = [
     },
   },
   {
+    accessorKey: "orderType",
+    header: "Type",
+    cell: ({ row }) => {
+      const orderType = row.getValue("orderType") as import("@/types/order").OrderType;
+      const label = orderType === "MANUAL" ? "Manual" : "Checkout";
+      return <StatusBadge variant="neutral">{label}</StatusBadge>;
+    },
+  },
+  {
     accessorKey: "totalAmount",
     header: "Amount",
     cell: ({ row }) => formatCurrency(row.getValue("totalAmount")),

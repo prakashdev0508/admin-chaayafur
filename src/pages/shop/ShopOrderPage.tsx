@@ -374,15 +374,20 @@ export function ShopOrderPage() {
           <h2 className="text-lg font-medium text-[#3D2B1F]">Items</h2>
           <div className="mt-4 space-y-3">
             {order.items.map((item) => {
-              const existing = productReviewByProductId.get(item.productId);
+              const existing =
+                item.productId != null
+                  ? productReviewByProductId.get(item.productId)
+                  : undefined;
               const itemMaterials = getOrderItemMaterialChips(
                 item,
                 customization,
               );
+              const productLabel =
+                item.product?.name ?? item.productName ?? "Custom item";
               return (
                 <div key={item.id} className="flex justify-between gap-3 text-sm">
                   <div>
-                    <p className="font-medium">{item.product.name}</p>
+                    <p className="font-medium">{productLabel}</p>
                     {itemMaterials.length > 0 && (
                       <div className="mt-1.5 flex flex-wrap gap-1.5">
                         {itemMaterials.map((material) => (
@@ -434,13 +439,15 @@ export function ShopOrderPage() {
                         variant="ghost"
                         size="sm"
                         className="mt-1 h-auto px-0 text-[#8B5E3C]"
-                        onClick={() =>
+                        onClick={() => {
+                          if (item.productId == null) return;
                           setProductReviewTarget({
                             productId: item.productId,
-                            productName: item.product.name,
+                            productName: productLabel,
                             existing,
-                          })
-                        }
+                          });
+                        }}
+                        disabled={item.productId == null}
                       >
                         <Star className="size-3.5" />
                         {existing ? "Edit review" : "Review"}
