@@ -2,7 +2,7 @@
 
 Staff quotations for walk-in / outbound quotes. The PDF is generated on the frontend, uploaded to R2, then stored on the quotation. Product names and quoted prices are snapshotted so later catalogue edits do not change the quote.
 
-[← Back to index](./README.md) · [Uploads](./uploads.md) · [Products](./products.md)
+[← Back to index](./README.md) · [Uploads](./uploads.md) · [Products](./products.md) · [Orders](./orders.md)
 
 ---
 
@@ -10,20 +10,22 @@ Staff quotations for walk-in / outbound quotes. The PDF is generated on the fron
 
 ```text
 1. POST /uploads/quotation-pdfs     → PDF to R2 → { url, key }
-2. POST /admin/quotations           → save customer + products + pdfUrl/key
+2. POST /admin/quotations           → save customer + catalog/custom products + pdfUrl/key
 3. GET  /admin/quotations           → list / filter
-4. GET  /admin/quotations/:id       → detail
+4. GET  /admin/quotations/:id       → detail (includes `order` after convert)
 5. PATCH /admin/quotations/:id      → update fields / status / products
 6. POST /admin/quotations/:id/remarks     → add follow-up remark
 7. POST /admin/quotations/:id/send-email  → email customer with PDF attached
+8. POST /admin/quotations/:id/convert-to-order → MANUAL unpaid order from quoted lines
 ```
 
 - **Staff only** — no public customer endpoints
 - Status: `SENT` | `FOLLOW_UP` | `CLOSED` | `CONVERTED` (new quotes default to `SENT`)
-- `products[].price` is the **quoted unit price**, snapshotted with `productName` at create/update
+- Lines may mix **catalog** (`productId`) and **custom** (`productName` + optional image). Quoted `price` is snapshotted
 - `totalPrice` and `gstAmount` are stored as sent by staff (not recalculated later)
 - Follow-up remarks are append-only
 - Send-email attaches the PDF from `pdfStorageKey` (R2) when present, otherwise fetches `pdfUrl`
+- Convert creates a **MANUAL** order linked 1:1 (`Order.quotationId` unique). Quotation becomes `CONVERTED`
 
 ---
 
@@ -38,6 +40,7 @@ Staff quotations for walk-in / outbound quotes. The PDF is generated on the fron
 | `PATCH /admin/quotations/:id` | `update-quotations` |
 | `POST /admin/quotations/:id/remarks` | `update-quotations` |
 | `POST /admin/quotations/:id/send-email` | `update-quotations` |
+| `POST /admin/quotations/:id/convert-to-order` | `create-orders` **and** `update-quotations` |
 
 `SUPER_ADMIN` has all permissions. Seeded `ADMIN` and `ORDER_MANAGER` include the quotation permissions (re-run `npm run prisma:seed` to refresh existing roles).
 
@@ -54,6 +57,7 @@ Staff quotations for walk-in / outbound quotes. The PDF is generated on the fron
 | `PATCH` | `/api/v1/admin/quotations/:id` | `200` | Partial update. Sending `products` replaces the line list |
 | `POST` | `/api/v1/admin/quotations/:id/remarks` | `200` | Append a follow-up remark |
 | `POST` | `/api/v1/admin/quotations/:id/send-email` | `200` | Email PDF to `email` |
+| `POST` | `/api/v1/admin/quotations/:id/convert-to-order` | `201` | Create a MANUAL order from quoted lines |
 
 ---
 
@@ -72,7 +76,14 @@ Staff quotations for walk-in / outbound quotes. The PDF is generated on the fron
   "pdfUrl": "https://cdn.example.com/quotations/2026/08/quote.pdf",
   "pdfStorageKey": "quotations/2026/08/8f3c2a1b.pdf",
   "products": [
-    { "productId": 1, "quantity": 2, "price": 24999.99 }
+    { "type": "CATALOG", "productId": 1, "quantity": 2, "price": 24999.99 },
+    {
+      "type": "CUSTOM",
+      "productName": "Custom teak dining table",
+      "quantity": 1,
+      "price": 45999,
+      "image": { "url": "https://cdn.example.com/orders/custom/line.webp", "storageKey": "orders/custom/2026/08/abc.webp" }
+    }
   ],
   "totalPrice": 49999.98,
   "gstAmount": 7627.11
@@ -89,9 +100,11 @@ Staff quotations for walk-in / outbound quotes. The PDF is generated on the fron
 | `notes` | string | No | Max 2000 |
 | `pdfUrl` | URL | Yes | From upload |
 | `pdfStorageKey` | string | No | From upload `key`; recommended so email can attach from R2 |
-| `products` | array | Yes | Min 1, max 50. `productId` must exist. Name is snapshotted |
+| `products` | array | Yes | Min 1, max 50. Mix `CATALOG` (`productId`) and `CUSTOM` (`productName`). Quoted `price` is snapshotted |
+| `products[].type` | string | No | `CATALOG` or `CUSTOM`. Defaults to CATALOG when `productId` is set |
 | `products[].quantity` | integer | Yes | Min 1 |
 | `products[].price` | number | Yes | Quoted unit price |
+| `products[].image` | object | No | Optional `{ url, storageKey }` from `POST /uploads/order-line-images` |
 | `totalPrice` | number | Yes | Quoted total |
 | `gstAmount` | number | Yes | GST amount on the quote |
 
@@ -111,7 +124,37 @@ Query: `page` (default 1), `limit` (default 10, max 100), `status`, `search` (na
 
 ## PATCH /api/v1/admin/quotations/:id
 
-All create fields optional, plus `status`. Omit `products` to leave lines unchanged; send a new array to replace them.
+All create fields optional, plus `status`. Omit `products` to leave lines unchanged; send a new array to replace them. Converted quotations cannot be updated (remarks and send-email still work).
+
+---
+
+## POST /api/v1/admin/quotations/:id/convert-to-order
+
+Creates a **MANUAL** unpaid order from the quotation. Line prices are the **quoted** amounts (not live catalog prices). Catalog `productId` is kept when the product still exists, is active, and has stock; otherwise the line is stored as custom using the quoted name/image.
+
+Requires `create-orders` and `update-quotations`. Allowed from `SENT` or `FOLLOW_UP`. Rejected if `CLOSED`, already `CONVERTED`, or already linked to an order (one quotation ↔ one order).
+
+Customer is find-or-created by `phone` (same as `POST /admin/orders`). Shipping/billing are order snapshots only — not saved to the address book. Frontend can prefill `phone` from `quotation.mobileNumber`.
+
+```json
+{
+  "phone": "9876543210",
+  "billingSameAsShipping": true,
+  "deliveryFloor": 0,
+  "liftAccessAvailable": true,
+  "shipping": {
+    "name": "Priya Sharma",
+    "email": "priya@example.com",
+    "phone": "9876543210",
+    "line1": "H.No. 8-2-293, Banjara Hills",
+    "city": "Hyderabad",
+    "state": "Telangana",
+    "zipCode": "500034"
+  }
+}
+```
+
+Response is the order detail from `POST /admin/orders` (`orderType: "MANUAL"`, `quotation: { id, quotationNumber, status: "CONVERTED" }`). After convert, quotation list/detail include `order: { id, orderNumber, status, orderType, totalAmount }`.
 
 ---
 
@@ -152,7 +195,8 @@ Sends HTML email to the quotation `email` with the PDF attached. Requires Resend
 |-------|-------------|
 | `quotationNumber` | `QT-YYYYMMDD-####` |
 | `status` | `SENT` \| `FOLLOW_UP` \| `CLOSED` \| `CONVERTED` |
-| `products[]` | `{ id, productId, productName, quantity, price, lineTotal }` — prices as strings |
+| `products[]` | `{ id, productId, productName, productImageUrl, productImageKey, quantity, price, lineTotal }` — prices as strings |
+| `order` | `{ id, orderNumber, status, orderType, totalAmount }` after convert, otherwise `null` |
 | `followUpRemarks[]` | `{ id, remark, createdAt }` oldest first |
 | `totalPrice` / `gstAmount` | Strings, snapshotted |
 | `pdfUrl` / `pdfStorageKey` | PDF location |
@@ -165,7 +209,7 @@ Sends HTML email to the quotation `email` with the PDF attached. Requires Resend
 
 | Status | When |
 |--------|------|
-| `400` | Invalid body, unknown `productId`, or PDF cannot be loaded for email |
+| `400` | Invalid body, unknown catalog `productId`, closed/already-converted quote, or PDF cannot be loaded for email |
 | `401` | Missing or invalid token |
 | `403` | Missing permission |
 | `404` | Quotation not found |

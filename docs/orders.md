@@ -11,11 +11,12 @@ Checkout from frontend cart, Razorpay payment links, order tracking, and staff o
 - **Backend cart** — see [cart.md](./cart.md); `GET/PATCH /cart` for logged-in customers
 - **Checkout** — send `items` in the body (legacy) or `useCart: true` to charge the saved server cart
 - **Server-side pricing** — totals use `Product.price` plus **product-level** wood / polish / fabric `priceAdjustment` values and selected free-form `customization` prices; frontend prices are never trusted (see [products.md](./products.md#product-level-customization-pricing))
-- **Order line snapshots** — checkout stores unit price (base + adjustments) and `woodPriceAdjustment` / `polishPriceAdjustment` / `fabricPriceAdjustment` so historical totals stay fixed
-- **Stock is decremented** atomically when the order is created
-- **Stock is restored** when payment fails/expires (webhook) or staff cancels an order
+- **Order types** — `CHECKOUT` (customer cart + Razorpay) or `MANUAL` (staff-created, offline payment). Same `Order` table, tracking, and invoices.
+- **Order line snapshots** — checkout and admin create store `productName` (and optional image) plus unit price and wood/polish/fabric adjustments so historical totals and invoices stay fixed even if a catalog product is renamed or a custom line has no `productId`
+- **Stock is decremented** atomically when the order is created (catalog lines only; custom/off-catalog lines skip stock)
+- **Stock is restored** when payment fails/expires (webhook) or staff cancels an order (catalog lines only)
 - Each order gets a human-readable `orderNumber` (e.g. `ORD-20260710-0001`)
-- A `Payment` record and **Razorpay Payment Link** are created at checkout
+- A `Payment` record is created at checkout (`RAZORPAY` + payment link) or admin create (`MANUAL`, pending until mark-paid)
 - **Order tracking timeline** — each status change is stored in `order_status_events` and exposed via `GET /orders/:id/tracking`
 - **Customer emails (Resend)** — transactional emails on confirm / ship / deliver (see below)
 
@@ -25,7 +26,7 @@ When `RESEND_API_KEY` is set (and `RESEND_ENABLED` is not `false`), the API send
 
 | Event | When |
 |-------|------|
-| Order received / placed | Order becomes `CONFIRMED` (payment webhook or staff PATCH). Email includes Performa invoice PDF attachment when available. |
+| Order received / placed | Order becomes `CONFIRMED` (Razorpay webhook, staff mark-paid for MANUAL, or staff PATCH on checkout). Email includes Performa invoice PDF attachment when available. |
 | Order shipped | Staff sets status `SHIPPED` |
 | Order delivered | Staff sets status `DELIVERED` |
 | Order cancelled | Staff sets order to `CANCELLED` |
@@ -56,13 +57,14 @@ Recipient must exist on the order shipping/billing address or the API returns `4
 
 ```mermaid
 stateDiagram-v2
-    [*] --> PENDING: POST /orders
-    PENDING --> CONFIRMED: Razorpay paid webhook
-    PENDING --> PAYMENT_FAILED: Payment failed/expired
+    [*] --> PENDING: POST /orders or POST /admin/orders
+    PENDING --> CONFIRMED: Razorpay paid webhook or POST /admin/orders/:id/mark-paid
+    PENDING --> PAYMENT_FAILED: Payment failed/expired (CHECKOUT only)
     PENDING --> CANCELLED: Staff cancel
     note right of CONFIRMED
-      Staff PATCH accepts any OrderStatus
-      (no transition graph).
+      After payment, staff PATCH accepts any OrderStatus
+      (no transition graph). Unpaid MANUAL orders
+      can only stay PENDING or be CANCELLED.
     end note
     DELIVERED --> [*]
     CANCELLED --> [*]
@@ -229,6 +231,7 @@ Same shape as `GET /orders/:id` (see [Order detail response](#order-detail-respo
     "addressId": 1,
     "billingAddressId": 2,
     "status": "PENDING",
+    "orderType": "CHECKOUT",
     "subtotalAmount": "5000.00",
     "discountAmount": "500.00",
     "shippingAmount": "0.00",
@@ -284,6 +287,8 @@ Same shape as `GET /orders/:id` (see [Order detail response](#order-detail-respo
       {
         "id": 1,
         "productId": 1,
+        "productName": "Oak Dining Table",
+        "productImageUrl": null,
         "quantity": 2,
         "price": "2500.00",
         "product": {
@@ -362,6 +367,69 @@ curl -X POST http://localhost:5000/api/v1/orders \
 
 ---
 
+## POST /api/v1/admin/orders
+
+Staff-created **MANUAL** order. Can mix catalog products and off-catalog custom lines. Payment is `MANUAL` / `PENDING` (no Razorpay link). Requires `create-orders`.
+
+Staff pass a **phone** (mandatory). If no customer exists for that number, one is created. Shipping and billing are **inline snapshots** on the order — they are **not** written to the customer address book (`addressId` / `billingAddressId` stay `null`). Invoices use those snapshots.
+
+| | |
+|---|---|
+| **Auth** | Staff Bearer (`create-orders`) |
+| **Status** | `201` |
+
+```json
+{
+  "phone": "9876543210",
+  "billingSameAsShipping": true,
+  "deliveryFloor": 0,
+  "liftAccessAvailable": true,
+  "shipping": {
+    "name": "Priya Sharma",
+    "email": "priya@example.com",
+    "phone": "9876543210",
+    "line1": "H.No. 8-2-293, Banjara Hills",
+    "city": "Hyderabad",
+    "state": "Telangana",
+    "zipCode": "500034"
+  },
+  "items": [
+    { "type": "CATALOG", "productId": 12, "quantity": 1, "woodId": 2 },
+    {
+      "type": "CUSTOM",
+      "productName": "Custom teak dining table",
+      "quantity": 1,
+      "price": 45999,
+      "image": { "url": "https://cdn.example.com/orders/custom/line.webp", "storageKey": "orders/custom/2026/08/abc.webp" }
+    }
+  ]
+}
+```
+
+| Field | Notes |
+|-------|--------|
+| `phone` | Indian mobile. Existing customer is reused; otherwise created. Inactive customers are rejected |
+| `shipping` / `billing` | Snapshot only. `billing` required unless `billingSameAsShipping` is true. Same fields as an address (`name`, `line1`, `city`, `state`, `zipCode`; optional `email`, `phone`, `line2`, `country`) |
+| `items[].type` | `CATALOG` (live product, server-priced) or `CUSTOM` (admin name + unit price) |
+| `shippingAmount` | Optional override; otherwise computed from site settings |
+| Catalog stock | Decremented for `CATALOG` lines only |
+
+Response is the same order detail shape as `GET /orders/:id`, with `orderType: "MANUAL"`, `payment.paymentMethod: "MANUAL"`, and `quotation` when created from a quote.
+
+## POST /api/v1/admin/orders/:id/mark-paid
+
+Record offline payment for a **MANUAL** `PENDING` order. Sets payment `COMPLETED`, confirms the order, generates Performa, and sends the order-placed email. Requires `update-orders` **or** `update-payments`.
+
+```json
+{ "transactionId": "UPI/123456789", "notes": "Cash collected at showroom" }
+```
+
+Unpaid MANUAL orders cannot be PATCHed to fulfillment statuses (`CONFIRMED`, `SHIPPED`, …). Cancel is still allowed.
+
+Quotations can be turned into a MANUAL order with `POST /admin/quotations/:id/convert-to-order` — see [quotations.md](./quotations.md).
+
+---
+
 ## GET /api/v1/orders
 
 List orders with pagination.
@@ -378,6 +446,7 @@ List orders with pagination.
 | `page` | integer | `1` | Page number |
 | `limit` | integer | `10` | Items per page (max 100) |
 | `status` | string | — | Filter by **operational** order status |
+| `orderType` | string | — | `CHECKOUT` or `MANUAL` |
 | `refundStatus` | string | — | Filter orders with at least one refund in this status (`INITIATED` \| `PROCESSING` \| `PROCESSED` \| `FAILED` \| `CANCELLED`) |
 | `customerId` | integer | — | Staff only — filter by customer |
 | `orderNumber` | string | — | Partial match on order number (e.g. `ORD-20260714-0011`) |
@@ -399,6 +468,8 @@ List items are slim (use `GET /orders/:id` for full detail).
 | `orderNumber` | string | Human-readable ID, e.g. `ORD-20260714-0021` |
 | `totalAmount` | string | Order total |
 | `customerPhone` | string | Customer phone number |
+| `orderType` | string | `CHECKOUT` or `MANUAL` |
+| `quotation` | object \| null | `{ id, quotationNumber, status }` when the order was converted from a quotation |
 | `status` | string | Operational order status |
 | `cancellationReason` | string \| null | Set when cancelled (staff reason or system message) |
 | `paymentStatus` | string \| null | Payment status |
@@ -625,7 +696,8 @@ Staff order update with audit logging. **ADMIN** and **SUPER_ADMIN** can perform
 | Field | ADMIN / SUPER_ADMIN | ORDER_MANAGER |
 |-------|---------------------|---------------|
 | `status` | Yes | Yes |
-| `shippingAddressId`, `billingAddressId` | Yes | No (`403`) |
+| `shippingAddressId`, `billingAddressId` | CHECKOUT only | No (`403`) |
+| `shipping`, `billing` (inline snapshots) | MANUAL only | No (`403`) |
 | `items[]` | Yes | No |
 | `deliveryFloor` | Yes | No |
 | `liftAccessAvailable` | Yes | No |
@@ -646,17 +718,21 @@ All fields optional; at least one required.
 |-------|------|-------|
 | `status` | string | Any `OrderStatus` value from the client (no transition rules). Examples: `PENDING` \| `CONFIRMED` \| `UNDER_PRODUCTION` \| `PACKING` \| `SHIPPED` \| `DELIVERED` \| `REFUND_INITIATED` \| `PARTIALLY_REFUNDED` \| `REFUNDED` \| `CANCELLED` |
 | `cancellationReason` | string | **Required** when `status` is `CANCELLED` (min 3 chars). Stored on the order and returned in detail/list responses |
-| `shippingAddressId` | integer | Must belong to order customer; refreshes address snapshot |
-| `billingAddressId` | integer | Must belong to order customer |
-| `items` | array | Min 1 item; prices from DB; stock adjusted by delta |
+| `shippingAddressId` | integer | **CHECKOUT only** — must belong to order customer; refreshes address snapshot |
+| `billingAddressId` | integer | **CHECKOUT only** — must belong to order customer |
+| `shipping` / `billing` | object | **MANUAL only** — replaces the order snapshot; not saved to the address book |
+| `items` | array | Min 1 item. Same `CATALOG` / `CUSTOM` shape as admin create. Catalog prices from DB; custom prices from body; stock adjusted by delta on catalog lines only |
 | `payment.notes` | string | Staff notes on payment record |
+| `deliveryFloor` | integer | Recalculates floor charge |
+| `liftAccessAvailable` | boolean | Recalculates floor charge |
 
 ### Restrictions
 
-- Cannot edit `customerId`, `orderNumber`, `paymentMethod`, or Razorpay IDs
+- Cannot edit `customerId`, `orderNumber`, `paymentMethod`, `orderType`, or Razorpay IDs
 - Cannot edit items/addresses on `CANCELLED` or `DELIVERED` orders
 - Cannot change items and cancel in the same request
 - Cancelling without `cancellationReason` returns `400`
+- Unpaid **MANUAL** orders can only be cancelled or left `PENDING` until `POST /admin/orders/:id/mark-paid`
 
 ### Side effects
 
@@ -772,6 +848,7 @@ All of `POST /orders` and `GET /orders/:id` return this shape (wrapped in `{ suc
 | `paymentMethod` | string | Always `RAZORPAY` |
 | `shippingAddress` | string | Formatted address snapshot at checkout |
 | `billingAddress` | string | Formatted billing snapshot |
+| `quotation` | object \| null | `{ id, quotationNumber, status }` when linked from a quotation |
 | `createdAt` | string | ISO timestamp |
 | `updatedAt` | string | ISO timestamp |
 | `customer` | object | `{ id, phone, isActive, lastLogin }` |

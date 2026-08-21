@@ -172,3 +172,13 @@ export function uploadCustomizationImage(file: File) {
     "customer",
   ).then(normalizeUploadResponse);
 }
+
+export function uploadOrderLineImage(file: File) {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  return apiFormRequest<UploadApiResult | UploadApiResult[]>(
+    "/uploads/order-line-images",
+    formData,
+  ).then(normalizeUploadResponse);
+}

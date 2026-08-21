@@ -10,6 +10,8 @@ import type {
   SendQuotationEmailResult,
   UpdateQuotationPayload,
 } from "@/types/quotation";
+import type { ConvertQuotationToOrderPayload } from "@/types/order";
+import type { Order } from "@/types/order";
 
 type UploadApiResult = {
   url: string;
@@ -69,4 +71,17 @@ export function uploadQuotationPdf(file: File) {
     }
     return { url: data.url, key };
   });
+}
+
+export function convertQuotationToOrder(
+  quotationId: number,
+  payload: ConvertQuotationToOrderPayload,
+) {
+  return apiRequest<Order>(
+    `/admin/quotations/${quotationId}/convert-to-order`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+  );
 }

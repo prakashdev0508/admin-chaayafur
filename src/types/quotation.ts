@@ -1,8 +1,11 @@
 export type QuotationLineItem = {
   id: string;
-  productId: number;
+  /** Catalog product id when available; null represents an off-catalog custom line. */
+  productId: number | null;
   productName: string;
   imageUrl: string | null;
+  /** R2 storage key for the uploaded line image (required for backend snapshotting). */
+  imageStorageKey?: string | null;
   quantity: number;
   unitPrice: number;
 };
@@ -43,6 +46,8 @@ export type QuotationProduct = {
   quantity: number;
   price: string;
   lineTotal: string;
+  productImageUrl?: string | null;
+  productImageKey?: string | null;
 };
 
 export type QuotationRemark = {
@@ -88,11 +93,22 @@ export type CreateQuotationPayload = {
   notes?: string;
   pdfUrl: string;
   pdfStorageKey?: string;
-  products: Array<{
-    productId: number;
-    quantity: number;
-    price: number;
-  }>;
+  products: Array<
+    | {
+        type: "CATALOG";
+        productId: number;
+        quantity: number;
+        price: number;
+        image?: { url: string; storageKey: string } | null;
+      }
+    | {
+        type: "CUSTOM";
+        productName: string;
+        quantity: number;
+        price: number;
+        image?: { url: string; storageKey: string } | null;
+      }
+  >;
   totalPrice: number;
   gstAmount: number;
 };
