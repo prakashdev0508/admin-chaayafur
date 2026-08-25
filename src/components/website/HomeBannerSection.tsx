@@ -251,6 +251,11 @@ export function HomeBannerSection({
                         <p className="truncate text-xs text-muted-foreground">
                           {banner.redirectUrl}
                         </p>
+                        {banner.mobileImageUrl ? (
+                          <p className="truncate text-[11px] text-muted-foreground">
+                            Mobile image set
+                          </p>
+                        ) : null}
                       </div>
                       <div className="flex min-w-0 items-center gap-1">
                         {canUpdate && (

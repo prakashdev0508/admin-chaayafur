@@ -18,6 +18,7 @@ Category (top-level)  →  SubCategory  →  Product
 - **SubCategory** — assignable product category with optional `heading` for navigation columns
 - **`isActive`** — hide categories/sub-categories from the public tree without deleting them
 - **`isSignatureCollection`** — CMS flag for featured/signature collections; filter with `GET /categories?isSignatureCollection=true`
+- **`sortOrder`** — display order for signature collections (lower first). Set via create/PATCH; auto-assigned on create when omitted. Reorder by PATCHing `sortOrder` values (same pattern as home banners)
 - **Category image** — optional single image via [uploads.md](./uploads.md) (`POST /uploads/category-images`), then attach on create/update
 - **Sub-category image** — optional single image via [uploads.md](./uploads.md) (`POST /uploads/sub-category-images`), then attach on create/update
 - **No delete endpoints** — update records as needed; set `isActive: false` to deactivate
@@ -76,6 +77,7 @@ Category (top-level)  →  SubCategory  →  Product
 | `description` | string | No |
 | `isActive` | boolean | No (default `true`) |
 | `isSignatureCollection` | boolean | No (default `false`) |
+| `sortOrder` | integer | No (default `0`; auto-assigned for new signature collections) |
 | `image` | object | No — `{ url, storageKey? }` from [uploads.md](./uploads.md) |
 
 ### GET /api/v1/categories
@@ -89,6 +91,28 @@ Category (top-level)  →  SubCategory  →  Product
 | `page` | number | Default `1` |
 | `limit` | number | Default `10`, max `100` |
 
+When `isSignatureCollection=true`, results are sorted by `sortOrder` ascending (then `id`). Otherwise sorted by latest `updatedAt` first.
+
+### Signature collection reorder
+
+Reorder signature collections by PATCHing `sortOrder` on each category (same pattern as home banners). Lower values appear first.
+
+To swap positions of categories with ids `3` and `5`:
+
+```bash
+curl -X PATCH http://localhost:5000/api/v1/categories/3 \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"sortOrder": 5}'
+
+curl -X PATCH http://localhost:5000/api/v1/categories/5 \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"sortOrder": 3}'
+```
+
+Or assign explicit order: `{ "sortOrder": 0 }`, `{ "sortOrder": 1 }`, etc.
+
 ### GET /api/v1/categories/tree
 
 | | |
@@ -96,7 +120,7 @@ Category (top-level)  →  SubCategory  →  Product
 | **Auth** | Public — no Bearer token required |
 | **Status** | `200` |
 
-Returns **active** top-level categories with nested **active** sub-categories, sorted by latest `updatedAt` first (for storefront navigation). Includes `isSignatureCollection` and `imageUrl` on categories and sub-categories.
+Returns **active** top-level categories with nested **active** sub-categories, sorted by latest `updatedAt` first (for storefront navigation). Includes `isSignatureCollection`, `sortOrder`, and `imageUrl` on categories and sub-categories. Use `sortOrder` to sort signature collections client-side when rendering that section.
 
 ```json
 {
@@ -108,6 +132,7 @@ Returns **active** top-level categories with nested **active** sub-categories, s
       "slug": "bedroom",
       "description": "Bedroom furniture",
       "isSignatureCollection": true,
+      "sortOrder": 0,
       "imageUrl": "https://cdn.example.com/categories/bedroom.webp",
       "subCategories": [
         {
@@ -152,6 +177,7 @@ Returns **all** categories and sub-categories, including inactive records. Sorte
       "slug": "bedroom",
       "description": "Bedroom furniture",
       "isSignatureCollection": false,
+      "sortOrder": 0,
       "imageUrl": null,
       "isActive": true,
       "updatedAt": "2026-07-13T10:00:00.000Z",

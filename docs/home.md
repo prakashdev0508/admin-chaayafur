@@ -10,7 +10,7 @@ Public aggregated home payload (banners + CMS-tagged products) and admin APIs to
 
 - **`GET /home`** — single cached storefront endpoint
 - Returns **main banners**, **sub-banners**, and up to **8 products** for each CMS tag (`featuredProducts`, `bestSellers`, `mostPopular`, `newArrivals`)
-- **Banners** — upload via [uploads.md](./uploads.md), then create/update with `imageUrl` + optional `imageStorageKey` and a `redirectUrl`
+- **Banners** — upload via [uploads.md](./uploads.md), then create/update with `imageUrl` + optional `imageStorageKey`, optional `mobileImageUrl` + `mobileImageStorageKey`, and a `redirectUrl`
 - **CMS tags** — assign on a product with `PATCH /admin/cms/products/:id/tags` (or full `PATCH /products/:id`)
 - No hard delete for banners — set `isActive: false`
 
@@ -47,6 +47,7 @@ Public aggregated home payload (banners + CMS-tagged products) and admin APIs to
         "id": 1,
         "title": "Summer Sale",
         "imageUrl": "https://cdn.example.com/banners/hero.webp",
+        "mobileImageUrl": "https://cdn.example.com/banners/hero-mobile.webp",
         "redirectUrl": "/products?tag=isFeaturedProduct",
         "sortOrder": 0
       }
@@ -56,6 +57,7 @@ Public aggregated home payload (banners + CMS-tagged products) and admin APIs to
         "id": 2,
         "title": "New Collection",
         "imageUrl": "https://cdn.example.com/banners/sub.webp",
+        "mobileImageUrl": null,
         "redirectUrl": "/categories/bedroom",
         "sortOrder": 0
       }
@@ -70,6 +72,8 @@ Public aggregated home payload (banners + CMS-tagged products) and admin APIs to
 
 Product arrays use the same list-item shape as `GET /products` (`primaryImage`, price string, CMS flags, subcategory summary). Each section returns at most **8** **active** products for that tag, newest first.
 
+`mobileImageUrl` is optional on banners. When null, the storefront should fall back to `imageUrl`.
+
 ### cURL
 
 ```bash
@@ -80,8 +84,9 @@ curl "http://localhost:5000/api/v1/home"
 
 ## Banner uploads
 
-1. `POST /api/v1/uploads/banner-images` with multipart `file`
-2. Attach returned `url` / `key` when creating or updating a banner
+1. `POST /api/v1/uploads/banner-images` with multipart `file` (desktop image)
+2. Optionally upload a second file for the mobile banner (same endpoint)
+3. Attach returned `url` / `key` when creating or updating a banner
 
 ```bash
 curl -X POST http://localhost:5000/api/v1/uploads/banner-images \
@@ -103,6 +108,8 @@ Stored keys look like `banners/{year}/{month}/{uuid}.webp`.
   "title": "Summer Sale",
   "imageUrl": "https://cdn.example.com/banners/hero.webp",
   "imageStorageKey": "banners/2026/07/uuid.webp",
+  "mobileImageUrl": "https://cdn.example.com/banners/hero-mobile.webp",
+  "mobileImageStorageKey": "banners/2026/07/uuid-mobile.webp",
   "redirectUrl": "/products?tag=isFeaturedProduct",
   "sortOrder": 0,
   "isActive": true
@@ -113,8 +120,10 @@ Stored keys look like `banners/{year}/{month}/{uuid}.webp`.
 |-------|------|----------|-------|
 | `type` | `MAIN` \| `SUB` | Yes | Main carousel vs sub/promo strip |
 | `title` | string | No | Optional label |
-| `imageUrl` | string (URL) | Yes | From banner upload |
+| `imageUrl` | string (URL) | Yes | Desktop banner from upload |
 | `imageStorageKey` | string | No | R2 key (`key` from upload) |
+| `mobileImageUrl` | string (URL) | No | Mobile banner from upload |
+| `mobileImageStorageKey` | string | No | R2 key for mobile image |
 | `redirectUrl` | string | Yes | Relative path or absolute URL |
 | `sortOrder` | integer | No | Default `0` (lower first) |
 | `isActive` | boolean | No | Default `true` |
@@ -130,7 +139,7 @@ Stored keys look like `banners/{year}/{month}/{uuid}.webp`.
 
 ### PATCH /api/v1/admin/home/banners/:id
 
-Partial update. When `imageUrl` is replaced, pass the new `imageStorageKey`; the previous R2 object is deleted when the key changes. Hide with `{ "isActive": false }`.
+Partial update. When `imageUrl` or `mobileImageUrl` is replaced, pass the new storage key; the previous R2 object is deleted when the key changes. Hide with `{ "isActive": false }`.
 
 ---
 

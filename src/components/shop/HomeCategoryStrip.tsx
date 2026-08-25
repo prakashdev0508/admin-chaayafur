@@ -12,6 +12,13 @@ export function HomeCategoryStrip({
   isLoading,
 }: HomeCategoryStripProps) {
   const sorted = [...categories].sort((a, b) => {
+    const aSignature = a.isSignatureCollection ? 0 : 1;
+    const bSignature = b.isSignatureCollection ? 0 : 1;
+    if (aSignature !== bSignature) return aSignature - bSignature;
+    if (a.isSignatureCollection && b.isSignatureCollection) {
+      const orderDiff = (a.sortOrder ?? 0) - (b.sortOrder ?? 0);
+      if (orderDiff !== 0) return orderDiff;
+    }
     const aHasImage = a.imageUrl ? 0 : 1;
     const bHasImage = b.imageUrl ? 0 : 1;
     if (aHasImage !== bHasImage) return aHasImage - bHasImage;

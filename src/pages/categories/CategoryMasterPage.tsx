@@ -11,12 +11,14 @@ import {
   Plus,
   RefreshCw,
   Search,
+  Sparkles,
 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { CategoryFormDialog } from "@/components/categories/CategoryFormDialog";
+import { SignatureCollectionOrderDialog } from "@/components/categories/SignatureCollectionOrderDialog";
 import { SubCategoryFormDialog } from "@/components/categories/SubCategoryFormDialog";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -59,6 +61,7 @@ export function CategoryMasterPage() {
     sub?: SubCategoryTreeItem;
     categoryId?: number;
   }>({ open: false });
+  const [signatureOrderOpen, setSignatureOrderOpen] = useState(false);
 
   const { data: tree, isLoading, isFetching, refetch, error } = useQuery({
     queryKey: queryKeys.categories.adminTree,
@@ -307,6 +310,16 @@ export function CategoryMasterPage() {
                 className={cn("size-4", isFetching && "animate-spin")}
               />
             </Button>
+            {canUpdate ? (
+              <Button
+                variant="outline"
+                onClick={() => setSignatureOrderOpen(true)}
+                disabled={categories.length === 0}
+              >
+                <Sparkles className="size-4" />
+                Signature collections
+              </Button>
+            ) : null}
             {canCreate ? (
               <>
                 <Button
@@ -779,6 +792,13 @@ export function CategoryMasterPage() {
             data,
           })
         }
+      />
+
+      <SignatureCollectionOrderDialog
+        open={signatureOrderOpen}
+        onOpenChange={setSignatureOrderOpen}
+        categories={categories}
+        canUpdate={canUpdate}
       />
     </div>
   );

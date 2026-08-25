@@ -20,6 +20,12 @@ type BannerImageUploaderProps = {
   onChange: (image: BannerImageInput | null) => void;
   disabled?: boolean;
   required?: boolean;
+  label?: string;
+  hint?: string;
+  aspectClassName?: string;
+  /** Short recommended size label shown under the hint, e.g. "1920 × 1080 px" */
+  dimensionLabel?: string;
+  previewFrameClassName?: string;
 };
 
 export function BannerImageUploader({
@@ -28,6 +34,11 @@ export function BannerImageUploader({
   onChange,
   disabled,
   required,
+  label = "Banner image",
+  hint = "Upload first, then save the banner. Recommended wide images for main banners.",
+  aspectClassName = "aspect-[16/9]",
+  dimensionLabel,
+  previewFrameClassName,
 }: BannerImageUploaderProps) {
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -72,19 +83,27 @@ export function BannerImageUploader({
   return (
     <div className="space-y-2">
       <Label htmlFor={inputId}>
-        Banner image{required ? " *" : ""}
+        {label}
+        {required ? " *" : ""}
       </Label>
-      <p className="text-xs text-muted-foreground">
-        Upload first, then save the banner. Recommended wide images for main
-        banners.
-      </p>
+      <p className="text-xs text-muted-foreground">{hint}</p>
+      {dimensionLabel ? (
+        <p className="text-[11px] font-medium text-muted-foreground/80">
+          Preview frame: {dimensionLabel}
+        </p>
+      ) : null}
 
       {displayUrl ? (
-        <div className="relative overflow-hidden rounded-lg border">
+        <div
+          className={cn(
+            "relative overflow-hidden rounded-lg border bg-muted/30",
+            previewFrameClassName,
+          )}
+        >
           <img
             src={displayUrl}
             alt="Banner"
-            className="aspect-[16/9] w-full object-cover"
+            className={cn(aspectClassName, "w-full object-cover")}
           />
           {uploading && (
             <div className="absolute inset-0 flex items-center justify-center bg-background/70">
@@ -121,7 +140,9 @@ export function BannerImageUploader({
           disabled={disabled || uploading}
           onClick={() => inputRef.current?.click()}
           className={cn(
-            "flex aspect-[16/9] w-full flex-col items-center justify-center gap-2 rounded-lg border border-dashed text-sm text-muted-foreground transition hover:border-foreground/30 hover:text-foreground",
+            "flex w-full flex-col items-center justify-center gap-2 rounded-lg border border-dashed bg-muted/20 text-sm text-muted-foreground transition hover:border-foreground/30 hover:text-foreground",
+            aspectClassName,
+            previewFrameClassName,
             (disabled || uploading) && "pointer-events-none opacity-60",
           )}
         >

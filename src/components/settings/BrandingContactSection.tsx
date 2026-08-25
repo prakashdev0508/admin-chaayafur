@@ -57,6 +57,8 @@ export function BrandingContactSection({
     settings.businessHours ?? "",
   );
   const [gstin, setGstin] = useState(settings.gstin ?? "");
+  const [pan, setPan] = useState(settings.pan ?? "");
+  const [cin, setCin] = useState(settings.cin ?? "");
   const [instagram, setInstagram] = useState(
     settings.socialLinks?.instagram ?? "",
   );
@@ -87,6 +89,8 @@ export function BrandingContactSection({
     setShowroomAddress(settings.showroomAddress ?? "");
     setBusinessHours(settings.businessHours ?? "");
     setGstin(settings.gstin ?? "");
+    setPan(settings.pan ?? "");
+    setCin(settings.cin ?? "");
     setInstagram(settings.socialLinks?.instagram ?? "");
     setFacebook(settings.socialLinks?.facebook ?? "");
   }, [settings]);
@@ -122,6 +126,8 @@ export function BrandingContactSection({
       showroomAddress: showroomAddress.trim() || null,
       businessHours: businessHours.trim() || null,
       gstin: gstin.trim() || null,
+      pan: pan.trim() || null,
+      cin: cin.trim() || null,
       socialLinks,
     });
   }
@@ -131,8 +137,8 @@ export function BrandingContactSection({
       <CardHeader>
         <CardTitle>Branding & contact</CardTitle>
         <CardDescription>
-          Logo, favicon, and storefront contact details. GSTIN appears on
-          invoice PDFs.
+          Logo, favicon, and storefront contact details. GSTIN, PAN, and CIN
+          appear on purchase orders and related documents.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -197,6 +203,26 @@ export function BrandingContactSection({
               onChange={(e) => setGstin(e.target.value)}
               disabled={!canUpdate}
               placeholder="29AAAAA0000A1Z5"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="settings-pan">PAN</Label>
+            <Input
+              id="settings-pan"
+              value={pan}
+              onChange={(e) => setPan(e.target.value)}
+              disabled={!canUpdate}
+              placeholder="AABCF1234K"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="settings-cin">CIN</Label>
+            <Input
+              id="settings-cin"
+              value={cin}
+              onChange={(e) => setCin(e.target.value)}
+              disabled={!canUpdate}
+              placeholder="U74999TG2020PTC123456"
             />
           </div>
         </div>
