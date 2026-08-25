@@ -23,6 +23,7 @@ import { QuotationListPage } from "@/pages/quotations/QuotationListPage";
 import { UploadJobListPage } from "@/pages/upload-jobs/UploadJobListPage";
 import { OrderListPage } from "@/pages/orders/OrderListPage";
 import { OrderDetailPage } from "@/pages/orders/OrderDetailPage";
+import { CreatePurchaseOrderPage } from "@/pages/orders/CreatePurchaseOrderPage";
 import { ManualOrderCreatePage } from "@/pages/orders/ManualOrderCreatePage";
 import { PaymentListPage } from "@/pages/payments/PaymentListPage";
 import { PaymentDetailPage } from "@/pages/payments/PaymentDetailPage";
@@ -213,6 +214,10 @@ const App = () => {
             element={<PermissionRoute permission={PERMISSIONS.VIEW_ORDERS} />}
           >
             <Route path="orders" element={<OrderListPage />} />
+            <Route
+              path="orders/:id/purchase-order"
+              element={<CreatePurchaseOrderPage />}
+            />
             <Route path="orders/:id" element={<OrderDetailPage />} />
           </Route>
           <Route

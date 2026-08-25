@@ -43,6 +43,7 @@ export function CategoryFormDialog({
   const [isSignatureCollection, setIsSignatureCollection] = useState(
     initial?.isSignatureCollection ?? false,
   );
+  const [sortOrder, setSortOrder] = useState(String(initial?.sortOrder ?? 0));
   const [image, setImage] = useState<CategoryImageInput | null>(null);
   const [slugTouched, setSlugTouched] = useState(false);
 
@@ -53,6 +54,7 @@ export function CategoryFormDialog({
       setDescription(initial?.description ?? "");
       setIsActive(initial?.isActive ?? true);
       setIsSignatureCollection(initial?.isSignatureCollection ?? false);
+      setSortOrder(String(initial?.sortOrder ?? 0));
       setImage(
         initial?.imageUrl
           ? { url: initial.imageUrl }
@@ -76,6 +78,9 @@ export function CategoryFormDialog({
       description: description.trim() || undefined,
       isActive,
       isSignatureCollection,
+      ...(isSignatureCollection
+        ? { sortOrder: Number.parseInt(sortOrder, 10) || 0 }
+        : {}),
       ...(image?.url
         ? {
             image: {
@@ -157,6 +162,22 @@ export function CategoryFormDialog({
               onCheckedChange={setIsSignatureCollection}
             />
           </div>
+
+          {isSignatureCollection ? (
+            <div className="space-y-2">
+              <Label htmlFor="cat-sort-order">Sort order</Label>
+              <Input
+                id="cat-sort-order"
+                type="number"
+                value={sortOrder}
+                onChange={(e) => setSortOrder(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Lower values appear first among signature collections (or use ← →
+                on the categories page).
+              </p>
+            </div>
+          ) : null}
 
           <div className="flex items-center justify-between rounded-lg border px-3 py-2.5">
             <div className="space-y-0.5">

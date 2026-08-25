@@ -19,6 +19,8 @@ export type AdminSiteSettings = {
   businessHours: string | null;
   socialLinks: SocialLinks | null;
   gstin: string | null;
+  pan: string | null;
+  cin: string | null;
   announcementText: string | null;
   announcementLinkUrl: string | null;
   announcementIsActive: boolean;
@@ -39,6 +41,8 @@ export type PublicSiteSettings = {
   businessHours: string | null;
   socialLinks: SocialLinks | null;
   gstin: string | null;
+  pan: string | null;
+  cin: string | null;
   announcement: {
     text: string | null;
     linkUrl: string | null;
@@ -63,6 +67,8 @@ export type UpdateSiteSettingsPayload = {
   businessHours?: string | null;
   socialLinks?: SocialLinks | null;
   gstin?: string | null;
+  pan?: string | null;
+  cin?: string | null;
   announcementText?: string | null;
   announcementLinkUrl?: string | null;
   announcementIsActive?: boolean;

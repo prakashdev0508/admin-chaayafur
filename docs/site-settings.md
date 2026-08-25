@@ -1,6 +1,6 @@
 # Site Settings API
 
-Storefront branding, contact info, announcement bar, GSTIN, and shipping fee defaults.
+Storefront branding, contact info, announcement bar, GSTIN / PAN / CIN, and shipping fee defaults.
 
 [← Back to index](./README.md) · [Home / CMS](./home.md) · [Shipping](./shipping.md) · [Uploads](./uploads.md)
 
@@ -14,6 +14,7 @@ Storefront branding, contact info, announcement bar, GSTIN, and shipping fee def
 - Upload logo/favicon via [uploads.md](./uploads.md), then save returned `url` + `key` on settings
 - Announcement bar fields live on the same singleton (`announcementText`, `announcementLinkUrl`, `announcementIsActive`)
 - Shipping fee fields (`flatShippingFee`, `freeShippingMinAmount`, `floorDeliveryChargePerFloor`) are edited here; pincode allowlists are in [shipping.md](./shipping.md)
+- **`gstin`**, **`pan`**, and **`cin`** are optional company tax IDs on the same singleton; included on both public and admin payloads (used on purchase orders / invoices)
 
 ### Who can access?
 
@@ -53,6 +54,8 @@ Storefront branding, contact info, announcement bar, GSTIN, and shipping fee def
       "instagram": "https://instagram.com/chaaya"
     },
     "gstin": "29AAAAA0000A1Z5",
+    "pan": "AABCF1234K",
+    "cin": "U74999TG2020PTC123456",
     "announcement": {
       "text": "Free shipping on orders above ₹10,000 this week",
       "linkUrl": "/products?tag=isNewArrival",
@@ -111,6 +114,8 @@ Returns the full row including `logoStorageKey`, `faviconStorageKey`, and flat a
     "instagram": "https://instagram.com/chaaya"
   },
   "gstin": "29AAAAA0000A1Z5",
+  "pan": "AABCF1234K",
+  "cin": "U74999TG2020PTC123456",
   "announcementText": "Free shipping on orders above ₹10,000 this week",
   "announcementLinkUrl": "/products?tag=isNewArrival",
   "announcementIsActive": true,

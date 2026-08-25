@@ -38,11 +38,19 @@ export function HomeSubBannerCards({
             </div>
             <div className="relative w-[42%] shrink-0 self-stretch p-3">
               <div className="size-full overflow-hidden rounded-xl bg-[#E8DFD3]">
-                <img
-                  src={banner.imageUrl}
-                  alt={banner.title ?? "Collection"}
-                  className="size-full object-cover transition duration-500 group-hover:scale-[1.03]"
-                />
+                <picture>
+                  {banner.mobileImageUrl ? (
+                    <source
+                      media="(max-width: 639px)"
+                      srcSet={banner.mobileImageUrl}
+                    />
+                  ) : null}
+                  <img
+                    src={banner.imageUrl}
+                    alt={banner.title ?? "Collection"}
+                    className="size-full object-cover transition duration-500 group-hover:scale-[1.03]"
+                  />
+                </picture>
               </div>
             </div>
           </>

@@ -6,6 +6,7 @@ export type HomeBanner = {
   id: number;
   title: string | null;
   imageUrl: string;
+  mobileImageUrl?: string | null;
   redirectUrl: string;
   sortOrder: number;
 };
@@ -16,6 +17,8 @@ export type AdminBanner = {
   title: string | null;
   imageUrl: string;
   imageStorageKey?: string | null;
+  mobileImageUrl?: string | null;
+  mobileImageStorageKey?: string | null;
   redirectUrl: string;
   sortOrder: number;
   isActive: boolean;
@@ -37,6 +40,8 @@ export type CreateBannerPayload = {
   title?: string | null;
   imageUrl: string;
   imageStorageKey?: string;
+  mobileImageUrl?: string | null;
+  mobileImageStorageKey?: string | null;
   redirectUrl: string;
   sortOrder?: number;
   isActive?: boolean;

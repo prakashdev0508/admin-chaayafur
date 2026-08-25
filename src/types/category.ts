@@ -10,6 +10,8 @@ export type Category = {
   description?: string | null;
   isActive?: boolean;
   isSignatureCollection?: boolean;
+  /** Display order for signature collections (lower first). */
+  sortOrder?: number;
   /** Present on tree / detail responses */
   imageUrl?: string | null;
   createdAt?: string;
@@ -60,6 +62,7 @@ export type CreateCategoryPayload = {
   description?: string;
   isActive?: boolean;
   isSignatureCollection?: boolean;
+  sortOrder?: number;
   image?: CategoryImageInput;
 };
 

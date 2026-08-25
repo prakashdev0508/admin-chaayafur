@@ -34,11 +34,16 @@ export function HomeHeroCarousel({ banners, className }: HomeHeroCarouselProps) 
 
   const content = (
     <>
-      <img
-        src={banner.imageUrl}
-        alt={banner.title ?? "Featured collection"}
-        className="size-full object-cover transition duration-700"
-      />
+      <picture>
+        {banner.mobileImageUrl ? (
+          <source media="(max-width: 639px)" srcSet={banner.mobileImageUrl} />
+        ) : null}
+        <img
+          src={banner.imageUrl}
+          alt={banner.title ?? "Featured collection"}
+          className="size-full object-cover transition duration-700"
+        />
+      </picture>
       <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-black/10 to-transparent" />
       {banner.title && (
         <div className="absolute top-5 left-5 z-10 max-w-[70%] sm:top-7 sm:left-7">

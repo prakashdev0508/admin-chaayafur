@@ -10,6 +10,7 @@ import {
   Loader2,
   RotateCcw,
   ScrollText,
+  ShoppingBag,
   Truck,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -357,6 +358,18 @@ export function OrderDetailPage() {
         description={`Placed on ${formatDate(order.createdAt)}`}
         action={
           <div className="flex flex-wrap items-center justify-end gap-1.5">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7"
+              render={
+                <Link to={`/orders/${order.id}/purchase-order`}>
+                  <ShoppingBag className="size-3.5" />
+                  Create PO
+                </Link>
+              }
+            />
             <StatusBadge
               variant={
                 paymentStatusVariants[order.payment.status] ?? "neutral"
