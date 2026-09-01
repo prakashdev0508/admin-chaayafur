@@ -523,6 +523,11 @@ export function ShopOrderPage() {
               {order.shippingAddressRef.phone}
             </p>
           )}
+          {order.shippingAddressRef?.gstin && (
+            <p className="mt-1 text-sm text-muted-foreground">
+              GSTIN {order.shippingAddressRef.gstin}
+            </p>
+          )}
           {showBilling && (
             <div className="mt-5 border-t border-[#E8DFD3] pt-4">
               <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
@@ -537,6 +542,11 @@ export function ShopOrderPage() {
               {order.billingAddressRef?.phone && (
                 <p className="mt-2 text-sm text-muted-foreground">
                   {order.billingAddressRef.phone}
+                </p>
+              )}
+              {order.billingAddressRef?.gstin && (
+                <p className="mt-1 text-sm text-muted-foreground">
+                  GSTIN {order.billingAddressRef.gstin}
                 </p>
               )}
             </div>

@@ -9,12 +9,13 @@ export function formatPriceAdjustment(
   value: string | number | null | undefined,
 ): string | null {
   const n = parseMoney(value);
-  if (n <= 0) return null;
-  return `+${new Intl.NumberFormat("en-IN", {
+  if (n === 0) return null;
+  const formatted = new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency: "INR",
     maximumFractionDigits: 0,
-  }).format(n)}`;
+  }).format(Math.abs(n));
+  return n > 0 ? `+${formatted}` : `-${formatted}`;
 }
 
 type OptionWithAdjustment = {

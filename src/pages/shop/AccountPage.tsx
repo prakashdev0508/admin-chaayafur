@@ -425,6 +425,11 @@ export function AccountPage() {
                   {address.line2 ? `, ${address.line2}` : ""}, {address.city},{" "}
                   {address.state} {address.zipCode}
                 </p>
+                {address.gstin && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    GSTIN {address.gstin}
+                  </p>
+                )}
               </div>
               <div className="flex shrink-0 gap-1">
                 <Button

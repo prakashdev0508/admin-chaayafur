@@ -19,7 +19,7 @@ Persistent server-side cart for logged-in customers. Line keys are `productId` +
   - `ProductWood.priceAdjustment` for the selected wood
   - `ProductPolish.priceAdjustment` for the selected polish
   - `ProductFabric.priceAdjustment` for the selected fabric
-  - Matched `Product.customization[].price` for selected free-form options (`groupName` + `value`)
+  - Matched `Product.customization[].price` for selected free-form options (`groupName` + `value`); may be negative (discount)
 - **Stock and availability** are checked when adding/updating lines and again at checkout.
 - **Customization validation** — `woodId` / `polishId` / `fabricId` must be assigned and active for that product (not merely present in the global catalog). Free-form `customization` picks must match an **active** `Product.customization` option (`groupName` + `value`); at most one value per group.
 - **Coupons** are not stored on the cart; pass `couponCode` on `POST /orders` at checkout (see [orders.md](./orders.md)).

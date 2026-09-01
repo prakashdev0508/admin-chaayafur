@@ -131,11 +131,11 @@ At least one field is required. Changes are recorded in the audit log with staff
 
 ## Admin address management
 
-Staff can create, update, and delete customer addresses using the same field validation as the storefront `POST /addresses` API.
+Staff can create, update, and delete customer addresses using the same field validation as the storefront `POST /addresses` API (including optional `gstin`).
 
 ### POST /api/v1/customers/:id/addresses
 
-Create address for a customer. Max 5 addresses per customer.
+Create address for a customer. Max 50 addresses per customer.
 
 ### PATCH /api/v1/customers/:id/addresses/:addressId
 

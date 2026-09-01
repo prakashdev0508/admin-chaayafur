@@ -156,9 +156,11 @@ function AddressOption({
         {address.line2 ? `, ${address.line2}` : ""}, {address.city}, {address.state}{" "}
         {address.zipCode}
       </p>
-      {(address.phone || address.email) && (
+      {(address.phone || address.email || address.gstin) && (
         <p className="mt-1 text-xs text-muted-foreground">
-          {[address.phone, address.email].filter(Boolean).join(" · ")}
+          {[address.phone, address.email, address.gstin ? `GSTIN ${address.gstin}` : null]
+            .filter(Boolean)
+            .join(" · ")}
         </p>
       )}
     </button>

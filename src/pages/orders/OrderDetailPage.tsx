@@ -609,6 +609,11 @@ export function OrderDetailPage() {
                     <p className="mt-1.5 text-sm leading-relaxed">
                       {order.shippingAddress}
                     </p>
+                    {order.shippingAddressRef?.gstin && (
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        GSTIN {order.shippingAddressRef.gstin}
+                      </p>
+                    )}
                   </div>
                   {showBilling && (
                     <div>
@@ -618,6 +623,11 @@ export function OrderDetailPage() {
                       <p className="mt-1.5 text-sm leading-relaxed">
                         {order.billingAddress}
                       </p>
+                      {order.billingAddressRef?.gstin && (
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          GSTIN {order.billingAddressRef.gstin}
+                        </p>
+                      )}
                     </div>
                   )}
                 </div>

@@ -1,6 +1,5 @@
 import { cn } from "@/lib/utils";
-import { formatCurrency } from "@/lib/format";
-import { parseMoney } from "@/lib/customization-pricing";
+import { formatPriceAdjustment } from "@/lib/customization-pricing";
 import {
   groupProductCustomization,
   isCustomizationOptionActive,
@@ -90,7 +89,7 @@ export function ProductCustomizationGroupPickers({
               {group.options.map((option) => {
                 const available = isCustomizationOptionActive(option);
                 const selected = available && selectedValue === option.value;
-                const extra = parseMoney(option.price);
+                const priceLabel = formatPriceAdjustment(option.price);
                 return (
                   <button
                     key={`${option.groupName}-${option.value}`}
@@ -160,8 +159,8 @@ export function ProductCustomizationGroupPickers({
                         )}
                       >
                         {available
-                          ? extra > 0
-                            ? `+${formatCurrency(extra)}`
+                          ? priceLabel
+                            ? priceLabel
                             : "No extra charge"
                           : "Currently not available"}
                       </span>

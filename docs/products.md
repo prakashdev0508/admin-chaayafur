@@ -9,7 +9,7 @@ Create, update, and list furniture products.
 ## Overview
 
 - **No delete endpoint** — use `isActive: false` to soft-hide products
-- **Product images** — upload via [uploads.md](./uploads.md) (Cloudflare R2), then attach URLs in product create/update (max **5** per product)
+- **Product images** — upload via [uploads.md](./uploads.md) (Cloudflare R2), then attach URLs in product create/update (max **11** per product)
 - **`productFeatures`** — optional array of feature strings (e.g. `"Solid oak wood"`, `"1-year warranty"`) for product detail bullets; max **10** items, 200 chars each
 - **Bulk Excel upload** — stage images via ZIP (`{productSlug}__{sortOrder}.{ext}`), download a sample template with dropdowns, then enqueue an Excel job that matches staged images by slug (see [Bulk upload](#bulk-upload) and [upload-jobs.md](./upload-jobs.md))
 - **CMS tags** — optional booleans `isBestSeller`, `isFeaturedProduct`, `isMostPopular`, `isNewArrival` for storefront sections; filter with `GET /products?tag=isFeaturedProduct`, or assign via `PATCH /admin/cms/products/:id/tags` (see [home.md](./home.md))
@@ -45,7 +45,6 @@ Customization options (Wood, Polish, Fabric) do **not** use a global price. Each
 - Polishes must belong to a wood assigned to the same product
 - When `woods` is updated without an explicit `polishes` array, active polishes of the assigned woods are synced automatically at `priceAdjustment: 0` (existing polish prices for still-valid polishes are preserved)
 - Storefront live price: `product.price + selectedWood.priceAdjustment + selectedPolish.priceAdjustment + selectedFabric.priceAdjustment + sum(selected customization.price)`
-- Only **active** customization options (`isActive` / `isAvailable`) can be selected or added to cart. Inactive options still appear on **product detail** as “currently not available”; they are omitted from product **list**.
 
 Woods / polishes / fabrics stay assigned as today. Free-form `customization` is additive until those catalog groups are removed.
 
@@ -65,10 +64,13 @@ Woods / polishes / fabrics stay assigned as today. Free-form `customization` is 
   ],
   "customization": [
     { "groupName": "Wood", "value": "Sheesham", "price": 3000, "image": "https://cdn.example.com/sheesham.webp", "isActive": true },
-    { "groupName": "Fabric", "value": "Linen Beige", "price": 1500, "image": "", "isActive": true }
+    { "groupName": "Fabric", "value": "Linen Beige", "price": 1500, "image": "", "isActive": true },
+    { "groupName": "Storage", "value": "Pin size", "price": -1000, "image": "", "isActive": true }
   ]
 }
 ```
+
+Negative `customization.price` reduces the unit price (e.g. base ₹2,000 + Storage −₹1,000 → ₹1,000 at cart/checkout).
 
 **Product detail customization shape**
 
@@ -122,7 +124,7 @@ Woods / polishes / fabrics stay assigned as today. Free-form `customization` is 
 }
 ```
 
-Frontend should show only assigned wood / polish / fabric options, and for `customization` show **all** options on product detail. Inactive customization cards stay visible with **currently not available** and cannot be selected. Recompute the displayed price when the customer changes an **available** option.
+Frontend should show only these assigned options and recompute the displayed price when the customer changes wood / polish / fabric.
 
 ### Sub-category assignment
 
@@ -260,8 +262,8 @@ Authorization: Bearer <accessToken>
 | `woods` | array | No | `{ woodId, isActive?, priceAdjustment? }[]` — assign woods for this product. Pass `[]` to clear. `priceAdjustment` defaults to `0`. See [woods.md](./woods.md) |
 | `polishes` | array | No | `{ woodPolishId, isActive?, priceAdjustment? }[]` — assign polishes for this product. Each polish must belong to an assigned wood. Pass `[]` to clear. Defaults to `0` when omitted |
 | `fabrics` | array | No | `{ fabricId, isActive?, priceAdjustment? }[]` — assign fabrics for this product. Pass `[]` to clear. `priceAdjustment` defaults to `0`. See [fabrics.md](./fabrics.md) |
-| `customization` | array | No | `{ groupName, value, price, image?, isActive? }[]`. Max 50. Unique `groupName` + `value`. `price` >= 0. `image` optional URL or `""`. `isActive` defaults to `true`. Omit on update to leave unchanged; `[]` clears. |
-| `images` | array | No | Max 5 items. Upload files first via [uploads.md](./uploads.md); include `storageKey` from upload response |
+| `customization` | array | No | `{ groupName, value, price, image?, isActive? }[]`. Max 50. Unique `groupName` + `value`. `price` may be negative (discount). `image` optional URL or `""`. `isActive` defaults to `true`. Omit on update to leave unchanged; `[]` clears. |
+| `images` | array | No | Max 11 items. Upload files first via [uploads.md](./uploads.md); include `storageKey` from upload response |
 
 ### Success response `201`
 
@@ -361,7 +363,7 @@ Two-step async flow (DB-backed queue on the EC2 worker). Full job APIs: [upload-
 4. Fill one product per row (**no images column required**) and upload: `POST /api/v1/products/bulk-upload` → returns `{ jobId }`
 5. Poll the sheet job. When done, download the result workbook via `GET /api/v1/upload-jobs/:id/download/result` (columns include `imagesAttached` + `status`)
 
-During sheet processing, for each row the worker looks up unconsumed staged images matching the product `slug` (ordered by `sortOrder`, max 5) and attaches them. If none are found, the product is still created and status is `Success (no images found for slug "…")`.
+During sheet processing, for each row the worker looks up unconsumed staged images matching the product `slug` (ordered by `sortOrder`, max 11) and attaches them. If none are found, the product is still created and status is `Success (no images found for slug "…")`.
 
 Legacy sheets may still include an `images` column of public URLs; when present it overrides staged matching.
 
@@ -371,7 +373,7 @@ Legacy sheets may still include an `images` column of public URLs; when present 
 |------|------|
 | `productSlug` | must resolve to the Excel `slug` (see normalization below) |
 | separator | double underscore `__` (a single `_` is also accepted) |
-| `sortOrder` | integer `0`–`4` (max 5 images per product); leading zeros allowed |
+| `sortOrder` | integer `0`–`10` (max 11 images per product); leading zeros allowed |
 | extension | `jpg`, `jpeg`, `png`, or `webp` (case-insensitive) |
 
 **Slug normalization** — the part before the trailing `_{number}` is lowercased, and underscores and spaces are folded to hyphens. The last underscore run before the number is always the separator.
@@ -412,7 +414,7 @@ Header names are case-insensitive. Backend appends **`imagesAttached`** and **`s
 | `polish1Price` … `polish3Price` | No | number ≥ 0 |
 | `fabric1` … `fabric3` | No | **dropdown** of fabrics |
 | `fabric1Price` … `fabric3Price` | No | number ≥ 0 |
-| `images` | No (legacy) | comma-separated public URLs, max 5 — overrides staged images when present |
+| `images` | No (legacy) | comma-separated public URLs, max 11 — overrides staged images when present |
 | `woods` / `polishes` / `fabrics` | No (legacy) | combined `id:priceAdjustment` list, e.g. `1:3000,2:6000` — only read when the numbered slots are all blank |
 | `imagesAttached` | Backend-only | count of images attached for the row |
 | `status` | Backend-only | `Success`, `Success (no images found for slug "…")`, or error message |
@@ -578,7 +580,7 @@ Partial update. All body fields are optional.
 | `woods` | array | Replace wood assignments. `{ woodId, isActive?, priceAdjustment? }[]`. Pass `[]` to clear |
 | `polishes` | array | Replace polish assignments. `{ woodPolishId, isActive?, priceAdjustment? }[]`. Pass `[]` to clear. Must belong to assigned woods |
 | `fabrics` | array | Replace fabric assignments. `{ fabricId, isActive?, priceAdjustment? }[]`. Pass `[]` to clear |
-| `images` | array | Replaces all images when provided (max 5) |
+| `images` | array | Replaces all images when provided (max 11) |
 
 ### cURL
 
@@ -676,7 +678,7 @@ GET /api/v1/products/oak-dining-table
 
 Same shape as the create/update response: `description`, full `images` array, `productFeatures`, `woods` / `polishes` / `fabrics` (with `priceAdjustment`), `customization` (**includes inactive** options), `subCategory`, etc.
 
-`customization[]` uses `isActive` and `isAvailable` (same boolean). Product detail **includes inactive options**. On the storefront (and admin product page), still render those cards: image, name, and the label **currently not available**. They must not be selectable and must not be sent to cart or checkout. Product list omits inactive options.
+`customization[]` uses `isActive` and `isAvailable` (same boolean). When `false`, show **currently not available** on the storefront and do not send that pick to cart/checkout.
 
 ```json
 {

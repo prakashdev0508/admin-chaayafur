@@ -11,7 +11,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { usePincodeLookup } from "@/hooks/usePincodeLookup";
+import { toast } from "sonner";
 import { ADDRESS_TYPE_ITEMS } from "@/lib/select-items";
+import {
+  gstinForCreate,
+  gstinForUpdate,
+  isValidGstin,
+} from "@/lib/address-utils";
 import type {
   AddressType,
   CreateAddressPayload,
@@ -63,6 +69,16 @@ export function ShopAddressForm({
         const email = String(form.get("email") || "").trim();
         const phone = String(form.get("phone") || "").trim();
         const line2 = String(form.get("line2") || "").trim();
+        const gstinRaw = String(form.get("gstin") || "");
+
+        if (!isValidGstin(gstinRaw)) {
+          toast.error("GSTIN must be 15 characters when provided");
+          return;
+        }
+
+        const gstin = initial
+          ? gstinForUpdate(gstinRaw)
+          : gstinForCreate(gstinRaw);
 
         await onSubmit({
           type,
@@ -77,6 +93,7 @@ export function ShopAddressForm({
           ...(email ? { email } : {}),
           ...(phone ? { phone } : {}),
           ...(line2 ? { line2 } : {}),
+          ...(gstin !== undefined ? { gstin } : {}),
         });
       }}
     >
@@ -121,6 +138,26 @@ export function ShopAddressForm({
             type="email"
             defaultValue={initial?.email ?? ""}
           />
+        </div>
+        <div className="space-y-2 sm:col-span-2">
+          <Label htmlFor="address-gstin">
+            GSTIN{" "}
+            <span className="font-normal text-muted-foreground">(optional)</span>
+          </Label>
+          <Input
+            id="address-gstin"
+            name="gstin"
+            defaultValue={initial?.gstin ?? ""}
+            maxLength={15}
+            placeholder="15-character GSTIN"
+            className="uppercase"
+            onChange={(e) => {
+              e.target.value = e.target.value.toUpperCase().replace(/\s/g, "");
+            }}
+          />
+          <p className="text-xs text-muted-foreground">
+            Optional. Useful on billing addresses for tax invoices.
+          </p>
         </div>
         <div className="space-y-2 sm:col-span-2">
           <Label htmlFor="address-line1">Address line 1</Label>

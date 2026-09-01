@@ -2,6 +2,7 @@ import {
   buildCustomizationKey,
   snapshotToPicks,
 } from "@/lib/product-customization";
+import { formatPriceAdjustment } from "@/lib/customization-pricing";
 import type {
   ProductCustomizationOption,
   ProductCustomizationPick,
@@ -286,7 +287,7 @@ export function getCartLineMaterialChips(
       label: "Wood",
       name: item.woodName,
       color: item.woodColor,
-      priceAdjustmentLabel: formatAdj(item.woodPriceAdjustment),
+      priceAdjustmentLabel: formatPriceAdjustment(item.woodPriceAdjustment),
     });
   }
   if (item.polishName) {
@@ -294,7 +295,7 @@ export function getCartLineMaterialChips(
       label: "Polish",
       name: item.polishName,
       color: item.polishColor,
-      priceAdjustmentLabel: formatAdj(item.polishPriceAdjustment),
+      priceAdjustmentLabel: formatPriceAdjustment(item.polishPriceAdjustment),
     });
   }
   if (item.fabricName) {
@@ -302,7 +303,7 @@ export function getCartLineMaterialChips(
       label: "Fabric",
       name: item.fabricName,
       color: item.fabricColor,
-      priceAdjustmentLabel: formatAdj(item.fabricPriceAdjustment),
+      priceAdjustmentLabel: formatPriceAdjustment(item.fabricPriceAdjustment),
     });
   }
   for (const option of item.customization ?? []) {
@@ -310,19 +311,8 @@ export function getCartLineMaterialChips(
       label: option.groupName,
       name: option.value,
       image: option.image || null,
-      priceAdjustmentLabel: formatAdj(option.price),
+      priceAdjustmentLabel: formatPriceAdjustment(option.price),
     });
   }
   return chips;
-}
-
-function formatAdj(value: string | number | null | undefined): string | null {
-  if (value == null || value === "") return null;
-  const n = typeof value === "number" ? value : parseFloat(value);
-  if (!Number.isFinite(n) || n <= 0) return null;
-  return `+${new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    maximumFractionDigits: 0,
-  }).format(n)}`;
 }

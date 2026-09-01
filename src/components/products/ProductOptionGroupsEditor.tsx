@@ -485,21 +485,24 @@ function OptionCard({
         />
         <div className="flex h-9 items-center overflow-hidden rounded-md border bg-background">
           <span className="border-r bg-muted/50 px-2.5 text-xs font-medium text-muted-foreground">
-            Extra ₹
+            Price ₹
           </span>
           <Input
             type="number"
-            min="0"
             step="1"
             disabled={disabled}
             className="h-9 min-w-0 flex-1 border-0 bg-transparent px-2.5 text-sm tabular-nums shadow-none focus-visible:ring-0"
             value={option.price}
             onChange={(e) => onChange({ price: e.target.value })}
-            aria-label="Extra price"
+            aria-label="Option price adjustment"
           />
         </div>
         <p className="text-xs text-muted-foreground">
-          {adj > 0 ? `Adds ${formatCurrency(adj)} to the price` : "No extra charge"}
+          {adj > 0
+            ? `Adds ${formatCurrency(adj)} to the price`
+            : adj < 0
+              ? `Reduces price by ${formatCurrency(Math.abs(adj))}`
+              : "No price change"}
         </p>
         <div className="flex items-center justify-between gap-2">
           <label className="flex items-center gap-2 text-xs text-muted-foreground">
