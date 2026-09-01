@@ -6,6 +6,7 @@ export type OrderAddressRef = {
   name: string;
   email: string | null;
   phone: string | null;
+  gstin?: string | null;
   line1: string;
   line2: string | null;
   city: string;

@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 
 import { queryKeys } from "@/lib/query-keys";
+import { gstinForCreate, isValidGstin } from "@/lib/address-utils";
 import { createAdminOrder } from "@/services/orders.service";
 import type { CreateAdminOrderPayload, OrderAddressSnapshot } from "@/types/order";
 import type { OrderLineInput } from "@/types/order";
@@ -34,7 +35,9 @@ function buildAddressSnapshot(params: {
   state: string;
   zipCode: string;
   country: string;
+  gstin: string;
 }): OrderAddressSnapshot {
+  const gstin = gstinForCreate(params.gstin);
   return {
     name: params.name.trim(),
     email: params.email.trim() || undefined,
@@ -45,6 +48,7 @@ function buildAddressSnapshot(params: {
     state: params.state.trim(),
     zipCode: params.zipCode.trim(),
     ...(params.country.trim() ? { country: params.country.trim() } : {}),
+    ...(gstin ? { gstin } : {}),
   };
 }
 
@@ -62,6 +66,7 @@ export function ManualOrderCreatePage() {
   const [shippingState, setShippingState] = useState("");
   const [shippingZipCode, setShippingZipCode] = useState("");
   const [shippingCountry, setShippingCountry] = useState("IN");
+  const [shippingGstin, setShippingGstin] = useState("");
 
   const [billingSameAsShipping, setBillingSameAsShipping] = useState(true);
   const [billingLine1, setBillingLine1] = useState("");
@@ -70,6 +75,7 @@ export function ManualOrderCreatePage() {
   const [billingState, setBillingState] = useState("");
   const [billingZipCode, setBillingZipCode] = useState("");
   const [billingCountry, setBillingCountry] = useState("IN");
+  const [billingGstin, setBillingGstin] = useState("");
 
   const [deliveryFloor, setDeliveryFloor] = useState<number>(0);
   const [liftAccessAvailable, setLiftAccessAvailable] = useState(false);
@@ -144,6 +150,14 @@ export function ManualOrderCreatePage() {
       toast.error("Add at least one item");
       return;
     }
+    if (!isValidGstin(shippingGstin)) {
+      toast.error("Shipping GSTIN must be 15 characters when provided");
+      return;
+    }
+    if (!billingSameAsShipping && !isValidGstin(billingGstin)) {
+      toast.error("Billing GSTIN must be 15 characters when provided");
+      return;
+    }
 
     const shipping: OrderAddressSnapshot = buildAddressSnapshot({
       name: recipientName,
@@ -155,6 +169,7 @@ export function ManualOrderCreatePage() {
       state: shippingState,
       zipCode: shippingZipCode,
       country: shippingCountry,
+      gstin: shippingGstin,
     });
 
     const billing: OrderAddressSnapshot | undefined =
@@ -170,6 +185,7 @@ export function ManualOrderCreatePage() {
             state: billingState,
             zipCode: billingZipCode,
             country: billingCountry,
+            gstin: billingGstin,
           });
 
     if (!billingSameAsShipping) {
@@ -350,6 +366,23 @@ export function ManualOrderCreatePage() {
                     placeholder="IN"
                   />
                 </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label htmlFor="shippingGstin">
+                    GSTIN{" "}
+                    <span className="text-muted-foreground">(optional)</span>
+                  </Label>
+                  <Input
+                    id="shippingGstin"
+                    value={shippingGstin}
+                    onChange={(e) =>
+                      setShippingGstin(
+                        e.target.value.toUpperCase().replace(/\s/g, "").slice(0, 15),
+                      )
+                    }
+                    placeholder="15-character GSTIN"
+                    className="uppercase"
+                  />
+                </div>
               </div>
             </div>
 
@@ -429,6 +462,23 @@ export function ManualOrderCreatePage() {
                         placeholder="IN"
                       />
                     </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="billingGstin">
+                      GSTIN{" "}
+                      <span className="text-muted-foreground">(optional)</span>
+                    </Label>
+                    <Input
+                      id="billingGstin"
+                      value={billingGstin}
+                      onChange={(e) =>
+                        setBillingGstin(
+                          e.target.value.toUpperCase().replace(/\s/g, "").slice(0, 15),
+                        )
+                      }
+                      placeholder="15-character GSTIN"
+                      className="uppercase"
+                    />
                   </div>
                 </>
               ) : (

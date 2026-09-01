@@ -282,6 +282,7 @@ export type OrderAddressSnapshot = {
   state: string;
   zipCode: string;
   country?: string;
+  gstin?: string;
 };
 
 export type CreateAdminOrderPayload = {

@@ -93,8 +93,8 @@ export function validateProductCustomizationForm(
 
   const seen = new Set<string>();
   for (const option of payload) {
-    if (parseMoney(option.price) < 0) {
-      return "Customization prices must be ≥ 0";
+    if (!Number.isFinite(parseMoney(option.price))) {
+      return "Customization prices must be valid numbers";
     }
     const key = `${option.groupName.toLowerCase()}::${option.value.toLowerCase()}`;
     if (seen.has(key)) {
@@ -107,8 +107,8 @@ export function validateProductCustomizationForm(
     const price = entry.price.trim();
     if (!price) continue;
     const n = parseFloat(price);
-    if (!Number.isFinite(n) || n < 0) {
-      return "Customization prices must be ≥ 0";
+    if (!Number.isFinite(n)) {
+      return "Customization prices must be valid numbers";
     }
   }
 

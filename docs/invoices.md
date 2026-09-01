@@ -34,7 +34,7 @@ Staff can also **manually** generate/refresh either type via `POST /orders/:id/i
 ### PDF rendering
 
 - Both templates are rendered via Chromium (`puppeteer-core` + `@sparticuz/chromium` on serverless), uploaded to R2 (`invoices/{year}/{month}/…`), and linked via `pdfUrl`
-- Logo, phone, email, showroom address, and GSTIN come from **site settings**; legal company name, PAN, website, HSN, GST rate, and terms come from **invoice env config** (see `.env.example`)
+- Logo, phone, email, showroom address, GSTIN, and PAN come from **site settings** (PAN falls back to `INVOICE_PAN` if unset); legal company name, website, HSN, GST rate, and terms come from **invoice env config** (see `.env.example`)
 - Made in India logo is loaded from `public/madeinindia.png`
 - Static décor assets live under `src/modules/invoices/templates/assets/` (`bill-decor.png`, `ship-decor.png`, `quality-badge.png`) and are injected as data URIs at PDF render time
 - Invoice text uses bundled **Noto Sans** (`templates/assets/fonts/`) via `@font-face` data URIs; PDF generation waits for `document.fonts.ready` before capture
@@ -57,7 +57,7 @@ Staff can also **manually** generate/refresh either type via `POST /orders/:id/i
 - Product prices are treated as **GST-inclusive** by default (`INVOICE_GST_RATE`, default `18`) so taxable value / CGST / SGST are reverse-calculated for the PDF
 - The invoice JSON snapshot `taxAmount` field remains `0` (tax is computed at render time)
 - Shipping and floor-delivery charges appear as extra line items when non-zero; discounts reduce taxable/GST before the grand total
-- Invoice data is a **snapshot** at generation time (billing address, line items, prices)
+- Invoice data is a **snapshot** at generation time (billing address, line items, prices). Bill-to GSTIN is taken from the billing address snapshot when a GSTIN was stored on that address.
 - Line items include customization names and **product-level price adjustments** snapped from the order
 
 ### Who can access?

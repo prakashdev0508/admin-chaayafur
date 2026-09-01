@@ -217,6 +217,7 @@ Get the authenticated customer's profile.
       "phone": "9876543210",
       "city": "Mumbai",
       "state": "MH",
+      "gstin": null,
       "isDefault": true
     },
     "counts": {
@@ -236,7 +237,7 @@ Get the authenticated customer's profile.
 
 `cartProductCount` is the number of distinct products in the cart (line count), not the sum of quantities. Example: one product with qty 5 → `cartProductCount: 1`.
 
-> Use [addresses.md](./addresses.md) to manage name, email, and delivery contact per address (max 5).
+> Use [addresses.md](./addresses.md) to manage name, email, and delivery contact per address (max 50).
 
 ---
 
@@ -274,6 +275,6 @@ Own product and order reviews. See [reviews.md](./reviews.md).
 
 1. `POST /auth/customer/send-otp` → user receives OTP
 2. `POST /auth/customer/verify-otp` → store `accessToken`, `lastLogin` updated
-3. `POST /addresses` → save shipping/billing with name, email, phone (max 5)
+3. `POST /addresses` → save shipping/billing with name, email, phone (max 50)
 4. Checkout via `POST /orders` — see [orders.md](./orders.md)
 5. After delivery, submit reviews via [reviews.md](./reviews.md)

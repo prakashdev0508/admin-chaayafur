@@ -50,6 +50,7 @@ import {
   taxableAmount,
 } from "@/lib/quotation";
 import { queryKeys } from "@/lib/query-keys";
+import { isValidGstin } from "@/lib/address-utils";
 import { PERMISSIONS } from "@/lib/roles";
 import { usePermission } from "@/hooks/usePermission";
 import {
@@ -214,6 +215,10 @@ export function QuotationDetailPage() {
       toast.error("Shipping city/state/PIN are required");
       return;
     }
+    if (!isValidGstin(shipping.gstin ?? "")) {
+      toast.error("Shipping GSTIN must be 15 characters when provided");
+      return;
+    }
     if (!billingSameAsShipping) {
       if (!billing) {
         toast.error("Billing details are required");
@@ -225,6 +230,10 @@ export function QuotationDetailPage() {
       }
       if (!billing.city.trim() || !billing.state.trim() || !billing.zipCode.trim()) {
         toast.error("Billing city/state/PIN are required");
+        return;
+      }
+      if (!isValidGstin(billing.gstin ?? "")) {
+        toast.error("Billing GSTIN must be 15 characters when provided");
         return;
       }
     }
@@ -745,6 +754,33 @@ export function QuotationDetailPage() {
                     }
                   />
                 </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label htmlFor="shipping-gstin">
+                    GSTIN{" "}
+                    <span className="text-muted-foreground">(optional)</span>
+                  </Label>
+                  <Input
+                    id="shipping-gstin"
+                    value={shipping?.gstin ?? ""}
+                    onChange={(e) =>
+                      setShipping((s) =>
+                        s
+                          ? {
+                              ...s,
+                              gstin:
+                                e.target.value
+                                  .toUpperCase()
+                                  .replace(/\s/g, "")
+                                  .slice(0, 15) || undefined,
+                            }
+                          : s,
+                      )
+                    }
+                    placeholder="15-character GSTIN"
+                    className="uppercase"
+                    maxLength={15}
+                  />
+                </div>
               </div>
             </div>
 
@@ -857,6 +893,33 @@ export function QuotationDetailPage() {
                           b ? { ...b, country: e.target.value } : b,
                         )
                       }
+                    />
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label htmlFor="billing-gstin">
+                      GSTIN{" "}
+                      <span className="text-muted-foreground">(optional)</span>
+                    </Label>
+                    <Input
+                      id="billing-gstin"
+                      value={billing?.gstin ?? ""}
+                      onChange={(e) =>
+                        setBilling((b) =>
+                          b
+                            ? {
+                                ...b,
+                                gstin:
+                                  e.target.value
+                                    .toUpperCase()
+                                    .replace(/\s/g, "")
+                                    .slice(0, 15) || undefined,
+                              }
+                            : b,
+                        )
+                      }
+                      placeholder="15-character GSTIN"
+                      className="uppercase"
+                      maxLength={15}
                     />
                   </div>
                 </div>

@@ -7,6 +7,7 @@ export type CustomerAddress = {
   name: string;
   email: string | null;
   phone: string | null;
+  gstin: string | null;
   line1: string;
   line2: string | null;
   city: string;
@@ -23,6 +24,7 @@ export type CreateAddressPayload = {
   name: string;
   email?: string;
   phone?: string;
+  gstin?: string | null;
   line1: string;
   line2?: string;
   city: string;

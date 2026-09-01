@@ -9,14 +9,16 @@ Manage customer shipping and billing addresses with contact details.
 ## Overview
 
 - **Customer only** — all routes require a customer JWT
-- **Max 5 addresses per customer** — enforced on create
-- **Contact details on address** — `name`, `email`, and `phone` belong to each address, not the customer account
+- **Max 50 addresses per customer** — enforced on create
+- **Contact details on address** — `name`, `email`, `phone`, and optional `gstin` belong to each address, not the customer account
 - Two address types: `SHIPPING` and `BILLING`
-- Used at checkout via `shippingAddressId` and optional `billingAddressId`
-- **Same as shipping:** set `sameAsBilling: true` when creating a `SHIPPING` address to also create an identical `BILLING` row (uses 2 slots toward the max of 5). At checkout set `billingSameAsShipping: true` (or omit `billingAddressId`) so both order snapshots match.
+- Used at checkout via `shippingAddressId` and optional `billingAddressId` (IDs resolve the address book entry to **snapshot** onto the order)
+- Order rows store immutable `shippingAddress` / `billingAddress` text snapshots. Optional `addressId` / `billingAddressId` are soft links (`ON DELETE SET NULL`) so deleting an address does not fail and does not change past orders
+- **Same as shipping:** set `sameAsBilling: true` when creating a `SHIPPING` address to also create an identical `BILLING` row (uses 2 slots toward the max of 50). At checkout set `billingSameAsShipping: true` (or omit `billingAddressId`) so both order snapshots match.
 - **Different billing:** create a separate address with `type: BILLING`, then pass its id as `billingAddressId` on the order
 - Address snapshots (including name/email/phone) are stored on the order at checkout
 - City/state can be filled from `GET /shipping/pincode/:pincode` ([shipping.md](./shipping.md))
+- Customers may delete their own addresses even if those rows were used on past orders (order text snapshots remain)
 
 ### Who can access?
 
@@ -48,7 +50,7 @@ Authorization: Bearer <customerAccessToken>
 
 ## POST /api/v1/addresses
 
-Create a new address. Fails with `400` if customer already has 5 addresses.
+Create a new address. Fails with `400` if customer already has 50 addresses.
 
 | | |
 |---|---|
@@ -69,6 +71,7 @@ Create a new address. Fails with `400` if customer already has 5 addresses.
   "state": "Maharashtra",
   "zipCode": "400001",
   "country": "IN",
+  "gstin": "27AAAAA0000A1Z5",
   "isDefault": true
 }
 ```
@@ -85,6 +88,7 @@ Create a new address. Fails with `400` if customer already has 5 addresses.
 | `state` | string | Yes | Max 100 characters |
 | `zipCode` | string | Yes | Max 20 characters |
 | `country` | string | No | Default `IN` |
+| `gstin` | string | No | 15-character GSTIN. Stored uppercase. Empty/null clears it. |
 | `isDefault` | boolean | No | Default `false` |
 | `sameAsBilling` | boolean | No | When `true` and `type` is `SHIPPING`, also creates an identical `BILLING` address. Response is `{ shipping, billing }`. Requires 2 free address slots. |
 
@@ -92,7 +96,7 @@ Create a new address. Fails with `400` if customer already has 5 addresses.
 
 | Status | When |
 |--------|------|
-| `400` | Validation failed, max 5 addresses reached, or not enough slots for `sameAsBilling` |
+| `400` | Validation failed, max 50 addresses reached, or not enough slots for `sameAsBilling` |
 
 ### cURL (shipping only)
 
@@ -109,6 +113,7 @@ curl -X POST http://localhost:5000/api/v1/addresses \
     "city": "Mumbai",
     "state": "Maharashtra",
     "zipCode": "400001",
+    "gstin": "27AAAAA0000A1Z5",
     "isDefault": true
   }'
 ```
@@ -145,7 +150,8 @@ curl -X POST http://localhost:5000/api/v1/addresses \
     "line1": "Office Tower, Floor 12",
     "city": "Mumbai",
     "state": "Maharashtra",
-    "zipCode": "400021"
+    "zipCode": "400021",
+    "gstin": "27AAAAA0000A1Z5"
   }'
 ```
 
@@ -174,6 +180,7 @@ List all addresses for the authenticated customer.
       "state": "Maharashtra",
       "zipCode": "400001",
       "country": "IN",
+      "gstin": "27AAAAA0000A1Z5",
       "isDefault": true,
       "createdAt": "2026-07-10T10:00:00.000Z",
       "updatedAt": "2026-07-10T10:00:00.000Z"
@@ -198,7 +205,9 @@ Update an existing address. All fields optional (same as create).
 
 ## DELETE /api/v1/addresses/:id
 
-Delete an address.
+Delete an address from the customer address book.
+
+Past orders are unaffected: they keep `shippingAddress` / `billingAddress` text snapshots. Soft `addressId` / `billingAddressId` links on those orders are cleared (`SET NULL`).
 
 | | |
 |---|---|

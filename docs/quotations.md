@@ -149,7 +149,8 @@ Customer is find-or-created by `phone` (same as `POST /admin/orders`). Shipping/
     "line1": "H.No. 8-2-293, Banjara Hills",
     "city": "Hyderabad",
     "state": "Telangana",
-    "zipCode": "500034"
+    "zipCode": "500034",
+    "gstin": "36AABCF1234K1Z5"
   }
 }
 ```
