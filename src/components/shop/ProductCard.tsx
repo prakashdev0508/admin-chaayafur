@@ -54,9 +54,9 @@ export function ProductCard({ product }: ProductCardProps) {
               </p>
               <h3 className="font-medium text-[#3D2B1F]">{product.name}</h3>
             </div>
-            {stockStatus !== "in_stock" && (
+            {stockStatus === "inactive" && (
               <Badge variant="secondary" className="shrink-0">
-                {stockStatus === "out_of_stock" ? "Sold out" : "Unavailable"}
+                Unavailable
               </Badge>
             )}
           </div>

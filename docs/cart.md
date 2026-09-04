@@ -20,7 +20,7 @@ Persistent server-side cart for logged-in customers. Line keys are `productId` +
   - `ProductPolish.priceAdjustment` for the selected polish
   - `ProductFabric.priceAdjustment` for the selected fabric
   - Matched `Product.customization[].price` for selected free-form options (`groupName` + `value`); may be negative (discount)
-- **Stock and availability** are checked when adding/updating lines and again at checkout.
+- **Active products** can be added to cart and checked out even when stock is zero or negative; stock is still decremented on order create.
 - **Customization validation** — `woodId` / `polishId` / `fabricId` must be assigned and active for that product (not merely present in the global catalog). Free-form `customization` picks must match an **active** `Product.customization` option (`groupName` + `value`); at most one value per group.
 - **Coupons** are not stored on the cart; pass `couponCode` on `POST /orders` at checkout (see [orders.md](./orders.md)).
 - After a **successful** checkout with `useCart: true`, cart lines are cleared automatically.
@@ -131,7 +131,7 @@ Returns the current cart with server-computed pricing (including customization a
 | `woodPriceAdjustment` / `polishPriceAdjustment` / `fabricPriceAdjustment` | Product-level adjustments for the selected options (`"0"` when omitted) |
 | `unitPrice` | `basePrice + wood + polish + fabric` adjustments |
 | `lineTotal` | `unitPrice × quantity` |
-| `isAvailable` | `false` if product inactive or `stock < quantity` |
+| `isAvailable` | `false` if product is inactive |
 | `itemCount` | Sum of line quantities |
 | `subtotalAmount` | Sum of line totals |
 
@@ -184,7 +184,6 @@ Add a product or replace quantity if the line already exists (upsert).
 ### Validation
 
 - Product must exist and `isActive: true`
-- `quantity` must not exceed current `stock`
 - Selected customizations must be product-assigned and active (global catalog alone is not enough)
 
 ### Response
@@ -257,7 +256,6 @@ Guests and older clients can still send `items: [{ productId, quantity, woodId?,
 | Not logged in as customer | `401` / `403` | Unauthorized / Customer access required |
 | Product not found | `404` | Product not found |
 | Inactive product | `400` | Product … is not available |
-| Insufficient stock | `400` | Insufficient stock for product … |
 | Wood / polish / fabric not available for product | `400` | … is not available for product … |
 | Cart line missing (PATCH/DELETE) | `404` | Cart item not found |
 | Empty cart at checkout | `400` | Cart is empty |

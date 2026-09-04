@@ -460,6 +460,7 @@ export function ProductForm({
                   onChange={(customization) =>
                     updateField("customization", customization)
                   }
+                  basePrice={basePrice}
                   disabled={isSubmitting}
                 />
               </CardContent>

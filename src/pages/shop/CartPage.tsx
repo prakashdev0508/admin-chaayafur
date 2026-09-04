@@ -87,8 +87,6 @@ export function CartPage() {
         <h1 className="text-3xl font-medium text-[#3D2B1F]">Cart ({itemCount})</h1>
 
         {items.map((item) => {
-          const maxQty = item.stock ?? item.quantity + 999;
-          const atMaxStock = item.quantity >= maxQty;
           const lineRef = cartLineRefFromItem(item);
 
           return (
@@ -150,7 +148,7 @@ export function CartPage() {
                   <Button
                     variant="outline"
                     size="icon-sm"
-                    disabled={isSyncing || atMaxStock}
+                    disabled={isSyncing}
                     onClick={() =>
                       void updateQuantity(lineRef, item.quantity + 1)
                     }
