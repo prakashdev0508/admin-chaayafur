@@ -17,6 +17,8 @@ const GROUP_SUGGESTIONS = ["Finish", "Size", "Cushion", "Color"] as const;
 type ProductOptionGroupsEditorProps = {
   options: ProductCustomizationFormEntry[];
   onChange: (options: ProductCustomizationFormEntry[]) => void;
+  /** Product selling price; option inputs show total = base + delta. */
+  basePrice?: number;
   disabled?: boolean;
 };
 
@@ -59,6 +61,7 @@ function collectGroups(
 export function ProductOptionGroupsEditor({
   options,
   onChange,
+  basePrice = 0,
   disabled,
 }: ProductOptionGroupsEditorProps) {
   const [newGroupName, setNewGroupName] = useState("");
@@ -282,6 +285,7 @@ export function ProductOptionGroupsEditor({
                 <OptionCard
                   key={index}
                   option={option}
+                  basePrice={basePrice}
                   disabled={disabled}
                   onChange={(patch) => updateOption(index, patch)}
                   onRemove={() => removeOption(index)}
@@ -352,11 +356,13 @@ export function ProductOptionGroupsEditor({
 
 function OptionCard({
   option,
+  basePrice,
   disabled,
   onChange,
   onRemove,
 }: {
   option: ProductCustomizationFormEntry;
+  basePrice: number;
   disabled?: boolean;
   onChange: (patch: Partial<ProductCustomizationFormEntry>) => void;
   onRemove: () => void;
@@ -366,6 +372,7 @@ function OptionCard({
   const [localPreview, setLocalPreview] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const adj = parseMoney(option.price);
+  const totalPrice = basePrice + adj;
   const preview = localPreview || option.image;
 
   async function handleFile(file: File | undefined) {
@@ -492,17 +499,26 @@ function OptionCard({
             step="1"
             disabled={disabled}
             className="h-9 min-w-0 flex-1 border-0 bg-transparent px-2.5 text-sm tabular-nums shadow-none focus-visible:ring-0"
-            value={option.price}
-            onChange={(e) => onChange({ price: e.target.value })}
-            aria-label="Option price adjustment"
+            value={String(totalPrice)}
+            onChange={(e) => {
+              const raw = e.target.value;
+              if (raw.trim() === "") {
+                onChange({ price: "0" });
+                return;
+              }
+              const enteredTotal = parseFloat(raw);
+              if (!Number.isFinite(enteredTotal)) return;
+              onChange({ price: String(enteredTotal - basePrice) });
+            }}
+            aria-label="Option unit price"
           />
         </div>
         <p className="text-xs text-muted-foreground">
-          {adj > 0
-            ? `Adds ${formatCurrency(adj)} to the price`
-            : adj < 0
-              ? `Reduces price by ${formatCurrency(Math.abs(adj))}`
-              : "No price change"}
+          {adj === 0
+            ? `Unit price ${formatCurrency(totalPrice)} (same as base)`
+            : adj > 0
+              ? `Unit price ${formatCurrency(totalPrice)} (base ${formatCurrency(basePrice)} + ${formatCurrency(adj)})`
+              : `Unit price ${formatCurrency(totalPrice)} (base ${formatCurrency(basePrice)} − ${formatCurrency(Math.abs(adj))})`}
         </p>
         <div className="flex items-center justify-between gap-2">
           <label className="flex items-center gap-2 text-xs text-muted-foreground">

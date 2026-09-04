@@ -130,7 +130,7 @@ All create fields optional, plus `status`. Omit `products` to leave lines unchan
 
 ## POST /api/v1/admin/quotations/:id/convert-to-order
 
-Creates a **MANUAL** unpaid order from the quotation. Line prices are the **quoted** amounts (not live catalog prices). Catalog `productId` is kept when the product still exists, is active, and has stock; otherwise the line is stored as custom using the quoted name/image.
+Creates a **MANUAL** unpaid order from the quotation. Line prices are the **quoted** amounts (not live catalog prices). Catalog `productId` is kept when the product still exists and is active; otherwise the line is stored as custom using the quoted name/image.
 
 Requires `create-orders` and `update-quotations`. Allowed from `SENT` or `FOLLOW_UP`. Rejected if `CLOSED`, already `CONVERTED`, or already linked to an order (one quotation ↔ one order).
 

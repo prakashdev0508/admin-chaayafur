@@ -142,7 +142,7 @@ export function ShopProductPage() {
     product?.customization,
     customizationSelection,
   );
-  const canPurchase = stockStatus === "in_stock" || stockStatus === "low_stock";
+  const canPurchase = stockStatus !== "inactive";
   const sortedImages = [...(product?.images ?? [])].sort(
     (a, b) => a.sortOrder - b.sortOrder,
   );
@@ -406,10 +406,7 @@ export function ShopProductPage() {
               </span>
               <button
                 type="button"
-                disabled={quantity >= product.stock}
-                onClick={() =>
-                  setQuantity((v) => Math.min(product.stock, v + 1))
-                }
+                onClick={() => setQuantity((v) => v + 1)}
                 className="flex size-10 items-center justify-center rounded-full bg-[#1F1610] text-white transition-transform active:scale-95 disabled:opacity-40"
                 aria-label="Increase quantity"
               >

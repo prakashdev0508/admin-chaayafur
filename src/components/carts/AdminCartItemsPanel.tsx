@@ -228,7 +228,7 @@ export function AdminCartItemsPanel({
                         type="button"
                         variant="outline"
                         size="icon-sm"
-                        disabled={busy || item.quantity >= item.stock}
+                        disabled={busy}
                         onClick={() =>
                           void handleQuantityDelta(line, item.quantity, 1)
                         }

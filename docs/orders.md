@@ -208,14 +208,13 @@ Create an order from frontend cart items. Creates a Razorpay Payment Link for th
 
 1. All addresses must belong to the authenticated customer
 2. All products must exist and be `isActive: true`
-3. Sufficient stock for each line item
-4. If `woodId` / `polishId` / `fabricId` / `customization` is provided, it must be available for that product; omitting customizations is always allowed
-5. `subtotalAmount` = sum of `(base price + wood adj + polish adj + fabric adj + selected customization prices) × quantity`
-6. Optional coupon validated and discount applied
-7. Shipping address pincode checked for serviceability ([shipping.md](./shipping.md)); `shippingAmount` computed from site settings
-8. `floorDeliveryAmount` = `0` when `liftAccessAvailable` is true or floor is 0; otherwise `deliveryFloor × floorDeliveryChargePerFloor` (independent of free shipping)
-9. `totalAmount = subtotal - discount + shippingAmount + floorDeliveryAmount`
-10. Razorpay Payment Link created for full `totalAmount`
+3. If `woodId` / `polishId` / `fabricId` / `customization` is provided, it must be available for that product; omitting customizations is always allowed
+4. `subtotalAmount` = sum of `(base price + wood adj + polish adj + fabric adj + selected customization prices) × quantity`
+5. Optional coupon validated and discount applied
+6. Shipping address pincode checked for serviceability ([shipping.md](./shipping.md)); `shippingAmount` computed from site settings
+7. `floorDeliveryAmount` = `0` when `liftAccessAvailable` is true or floor is 0; otherwise `deliveryFloor × floorDeliveryChargePerFloor` (independent of free shipping)
+8. `totalAmount = subtotal - discount + shippingAmount + floorDeliveryAmount`
+9. Razorpay Payment Link created for full `totalAmount`
 
 ### Success response `201`
 
@@ -267,6 +266,7 @@ Same shape as `GET /orders/:id` (see [Order detail response](#order-detail-respo
       "state": "Maharashtra",
       "zipCode": "400001",
       "country": "IN",
+      "gstin": "27AAAAA0000A1Z5",
       "isDefault": true
     },
     "billingAddressRef": {
@@ -281,6 +281,7 @@ Same shape as `GET /orders/:id` (see [Order detail response](#order-detail-respo
       "state": "Maharashtra",
       "zipCode": "400002",
       "country": "IN",
+      "gstin": "27AAAAA0000A1Z5",
       "isDefault": false
     },
     "items": [
@@ -347,7 +348,7 @@ Same shape as `GET /orders/:id` (see [Order detail response](#order-detail-respo
 
 | Status | When |
 |--------|------|
-| `400` | Invalid payload, inactive product, or insufficient stock |
+| `400` | Invalid payload or inactive product |
 | `401` | Missing or invalid token |
 | `403` | Staff token used (customer access required) |
 | `404` | Address not found |
@@ -409,7 +410,7 @@ Staff pass a **phone** (mandatory). If no customer exists for that number, one i
 | Field | Notes |
 |-------|--------|
 | `phone` | Indian mobile. Existing customer is reused; otherwise created. Inactive customers are rejected |
-| `shipping` / `billing` | Snapshot only. `billing` required unless `billingSameAsShipping` is true. Same fields as an address (`name`, `line1`, `city`, `state`, `zipCode`; optional `email`, `phone`, `line2`, `country`) |
+| `shipping` / `billing` | Snapshot only. `billing` required unless `billingSameAsShipping` is true. Same fields as an address (`name`, `line1`, `city`, `state`, `zipCode`; optional `email`, `phone`, `line2`, `country`, `gstin`) |
 | `items[].type` | `CATALOG` (live product, server-priced) or `CUSTOM` (admin name + unit price) |
 | `shippingAmount` | Optional override; otherwise computed from site settings |
 | Catalog stock | Decremented for `CATALOG` lines only |
@@ -949,6 +950,7 @@ See [reviews.md](./reviews.md) for create/update APIs. Reviews appear only after
 | `state` | string |
 | `zipCode` | string |
 | `country` | string |
+| `gstin` | string \| null |
 | `isDefault` | boolean |
 
 ### Invoice summaries (embedded on order detail)
