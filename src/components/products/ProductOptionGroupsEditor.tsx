@@ -538,7 +538,19 @@ function OptionCard({
         <RedirectSlugProductPicker
           slug={option.redirectSlug}
           disabled={disabled}
-          onChange={(nextSlug) => onChange({ redirectSlug: nextSlug })}
+          onChange={({ slug, product }) => {
+            if (!product) {
+              onChange({ redirectSlug: slug });
+              return;
+            }
+            // Option unit price = base + delta; set delta so unit price matches
+            // the linked product’s selling price.
+            const productPrice = parseMoney(product.price);
+            onChange({
+              redirectSlug: slug,
+              price: String(productPrice - basePrice),
+            });
+          }}
         />
         <div className="flex items-center justify-between gap-2">
           <label className="flex items-center gap-2 text-xs text-muted-foreground">
