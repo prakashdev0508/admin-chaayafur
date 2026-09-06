@@ -27,6 +27,13 @@ import { SubCategoryFormDialog } from "@/components/categories/SubCategoryFormDi
 import { EmptyState } from "@/components/shared/EmptyState";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { queryKeys } from "@/lib/query-keys";
+import { PERMISSIONS } from "@/lib/roles";
+import {
+  bySortOrderThenId,
+  changedSortOrders,
+  reindexAfterSwap,
+} from "@/lib/sort-order";
+import { cn } from "@/lib/utils";
 import {
   createCategory,
   createSubCategory,
@@ -35,7 +42,6 @@ import {
   updateSubCategory,
 } from "@/services/categories.service";
 import { usePermission } from "@/hooks/usePermission";
-import { cn } from "@/lib/utils";
 import type {
   Category,
   CategoryTreeItem,
@@ -45,14 +51,9 @@ import type {
   UpdateCategoryPayload,
   UpdateSubCategoryPayload,
 } from "@/types/category";
-import { PERMISSIONS } from "@/lib/roles";
-
-function bySortOrder<T extends { id: number; sortOrder?: number }>(a: T, b: T) {
-  return (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.id - b.id;
-}
 
 function groupSubsByHeading(subs: SubCategoryTreeItem[]) {
-  const sorted = [...subs].sort(bySortOrder);
+  const sorted = [...subs].sort(bySortOrderThenId);
   const groups: { heading: string; items: SubCategoryTreeItem[] }[] = [];
   const indexByHeading = new Map<string, number>();
 
@@ -103,7 +104,7 @@ export function CategoryMasterPage() {
   });
 
   const categories = useMemo(
-    () => [...(tree ?? [])].sort(bySortOrder),
+    () => [...(tree ?? [])].sort(bySortOrderThenId),
     [tree],
   );
 
@@ -155,13 +156,13 @@ export function CategoryMasterPage() {
   const visibleSubs = useMemo(() => {
     if (!selected) return [];
     if (!filterQuery || !selectedEntry) {
-      return [...selected.subCategories].sort(bySortOrder);
+      return [...selected.subCategories].sort(bySortOrderThenId);
     }
     // Category name hit → show all subs; sub-only hit → show matching subs
     if (selectedEntry.matchedByCategory) {
-      return [...selected.subCategories].sort(bySortOrder);
+      return [...selected.subCategories].sort(bySortOrderThenId);
     }
-    return [...selectedEntry.matchedSubs].sort(bySortOrder);
+    return [...selectedEntry.matchedSubs].sort(bySortOrderThenId);
   }, [selected, selectedEntry, filterQuery]);
 
   const visibleSubGroups = useMemo(
@@ -177,35 +178,36 @@ export function CategoryMasterPage() {
 
   const categoryReorderMutation = useMutation({
     mutationFn: async ({
-      current,
-      neighbor,
+      currentId,
+      neighborId,
+      items,
     }: {
-      current: CategoryTreeItem;
-      neighbor: CategoryTreeItem;
+      currentId: number;
+      neighborId: number;
+      items: CategoryTreeItem[];
     }) => {
-      await Promise.all([
-        updateCategory(current.id, {
-          sortOrder: neighbor.sortOrder ?? 0,
-        }),
-        updateCategory(neighbor.id, {
-          sortOrder: current.sortOrder ?? 0,
-        }),
-      ]);
+      const updates = changedSortOrders(items, currentId, neighborId);
+      await Promise.all(
+        updates.map((row) =>
+          updateCategory(row.id, { sortOrder: row.sortOrder }),
+        ),
+      );
       await invalidate();
     },
-    onMutate: ({ current, neighbor }) => {
-      setReorderingCategoryIds([current.id, neighbor.id]);
+    onMutate: ({ currentId, neighborId, items }) => {
+      setReorderingCategoryIds([currentId, neighborId]);
+      const orderById = new Map(
+        reindexAfterSwap(items, currentId, neighborId).map((row) => [
+          row.id,
+          row.sortOrder,
+        ]),
+      );
       queryClient.setQueryData<CategoryTreeItem[]>(
         queryKeys.categories.adminTree,
         (old) =>
           (old ?? []).map((category) => {
-            if (category.id === current.id) {
-              return { ...category, sortOrder: neighbor.sortOrder ?? 0 };
-            }
-            if (category.id === neighbor.id) {
-              return { ...category, sortOrder: current.sortOrder ?? 0 };
-            }
-            return category;
+            const sortOrder = orderById.get(category.id);
+            return sortOrder == null ? category : { ...category, sortOrder };
           }),
       );
     },
@@ -222,37 +224,38 @@ export function CategoryMasterPage() {
 
   const subReorderMutation = useMutation({
     mutationFn: async ({
-      current,
-      neighbor,
+      currentId,
+      neighborId,
+      items,
     }: {
-      current: SubCategoryTreeItem;
-      neighbor: SubCategoryTreeItem;
+      currentId: number;
+      neighborId: number;
+      items: SubCategoryTreeItem[];
     }) => {
-      await Promise.all([
-        updateSubCategory(current.id, {
-          sortOrder: neighbor.sortOrder ?? 0,
-        }),
-        updateSubCategory(neighbor.id, {
-          sortOrder: current.sortOrder ?? 0,
-        }),
-      ]);
+      const updates = changedSortOrders(items, currentId, neighborId);
+      await Promise.all(
+        updates.map((row) =>
+          updateSubCategory(row.id, { sortOrder: row.sortOrder }),
+        ),
+      );
       await invalidate();
     },
-    onMutate: ({ current, neighbor }) => {
-      setReorderingSubIds([current.id, neighbor.id]);
+    onMutate: ({ currentId, neighborId, items }) => {
+      setReorderingSubIds([currentId, neighborId]);
+      const orderById = new Map(
+        reindexAfterSwap(items, currentId, neighborId).map((row) => [
+          row.id,
+          row.sortOrder,
+        ]),
+      );
       queryClient.setQueryData<CategoryTreeItem[]>(
         queryKeys.categories.adminTree,
         (old) =>
           (old ?? []).map((category) => ({
             ...category,
             subCategories: category.subCategories.map((sub) => {
-              if (sub.id === current.id) {
-                return { ...sub, sortOrder: neighbor.sortOrder ?? 0 };
-              }
-              if (sub.id === neighbor.id) {
-                return { ...sub, sortOrder: current.sortOrder ?? 0 };
-              }
-              return sub;
+              const sortOrder = orderById.get(sub.id);
+              return sortOrder == null ? sub : { ...sub, sortOrder };
             }),
           })),
       );
@@ -669,8 +672,9 @@ export function CategoryMasterPage() {
                               onClick={() => {
                                 if (!prev) return;
                                 categoryReorderMutation.mutate({
-                                  current: category,
-                                  neighbor: prev,
+                                  currentId: category.id,
+                                  neighborId: prev.id,
+                                  items: categories,
                                 });
                               }}
                             >
@@ -686,8 +690,9 @@ export function CategoryMasterPage() {
                               onClick={() => {
                                 if (!next) return;
                                 categoryReorderMutation.mutate({
-                                  current: category,
-                                  neighbor: next,
+                                  currentId: category.id,
+                                  neighborId: next.id,
+                                  items: categories,
                                 });
                               }}
                             >
@@ -982,10 +987,11 @@ export function CategoryMasterPage() {
                                                   }
                                                   aria-label={`Move ${sub.name} left`}
                                                   onClick={() => {
-                                                    if (!prev) return;
+                                                    if (!prev || !selected) return;
                                                     subReorderMutation.mutate({
-                                                      current: sub,
-                                                      neighbor: prev,
+                                                      currentId: sub.id,
+                                                      neighborId: prev.id,
+                                                      items: selected.subCategories,
                                                     });
                                                   }}
                                                 >
@@ -1002,10 +1008,11 @@ export function CategoryMasterPage() {
                                                   }
                                                   aria-label={`Move ${sub.name} right`}
                                                   onClick={() => {
-                                                    if (!next) return;
+                                                    if (!next || !selected) return;
                                                     subReorderMutation.mutate({
-                                                      current: sub,
-                                                      neighbor: next,
+                                                      currentId: sub.id,
+                                                      neighborId: next.id,
+                                                      items: selected.subCategories,
                                                     });
                                                   }}
                                                 >
