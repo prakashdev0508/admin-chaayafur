@@ -17,6 +17,11 @@ import {
 } from "@/components/ui/dialog";
 import { ApiError } from "@/lib/api";
 import { queryKeys } from "@/lib/query-keys";
+import {
+  bySortOrderThenId,
+  changedSortOrders,
+  reindexAfterSwap,
+} from "@/lib/sort-order";
 import { cn } from "@/lib/utils";
 import { updateCategory } from "@/services/categories.service";
 import type { CategoryTreeItem } from "@/types/category";
@@ -41,31 +46,48 @@ export function SignatureCollectionOrderDialog({
     () =>
       categories
         .filter((category) => category.isSignatureCollection)
-        .sort(
-          (a, b) =>
-            (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.id - b.id,
-        ),
+        .sort(bySortOrderThenId),
     [categories],
   );
 
   const reorderMutation = useMutation({
     mutationFn: async ({
-      current,
-      neighbor,
+      currentId,
+      neighborId,
+      items,
     }: {
-      current: CategoryTreeItem;
-      neighbor: CategoryTreeItem;
+      currentId: number;
+      neighborId: number;
+      items: CategoryTreeItem[];
     }) => {
-      await Promise.all([
-        updateCategory(current.id, { sortOrder: neighbor.sortOrder ?? 0 }),
-        updateCategory(neighbor.id, { sortOrder: current.sortOrder ?? 0 }),
-      ]);
+      // Reindex the full category list so signature swaps stay unique even when
+      // several rows share the same sortOrder (ties used to make swaps no-ops).
+      const updates = changedSortOrders(items, currentId, neighborId);
+      await Promise.all(
+        updates.map((row) =>
+          updateCategory(row.id, { sortOrder: row.sortOrder }),
+        ),
+      );
       await queryClient.invalidateQueries({
         queryKey: queryKeys.categories.all,
       });
     },
-    onMutate: ({ current, neighbor }) => {
-      setReorderingIds([current.id, neighbor.id]);
+    onMutate: ({ currentId, neighborId, items }) => {
+      setReorderingIds([currentId, neighborId]);
+      const orderById = new Map(
+        reindexAfterSwap(items, currentId, neighborId).map((row) => [
+          row.id,
+          row.sortOrder,
+        ]),
+      );
+      queryClient.setQueryData<CategoryTreeItem[]>(
+        queryKeys.categories.adminTree,
+        (old) =>
+          (old ?? []).map((category) => {
+            const sortOrder = orderById.get(category.id);
+            return sortOrder == null ? category : { ...category, sortOrder };
+          }),
+      );
     },
     onError: (err) => {
       toast.error(
@@ -73,6 +95,9 @@ export function SignatureCollectionOrderDialog({
           ? err.message
           : "Failed to reorder signature collections",
       );
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.categories.all,
+      });
     },
     onSettled: () => {
       setReorderingIds(null);
@@ -106,6 +131,11 @@ export function SignatureCollectionOrderDialog({
           >
             {signatureCategories.map((category, index) => {
               const isMoving = reorderingIds?.includes(category.id) ?? false;
+              const prev = index > 0 ? signatureCategories[index - 1] : null;
+              const next =
+                index < signatureCategories.length - 1
+                  ? signatureCategories[index + 1]
+                  : null;
               return (
                 <div
                   key={category.id}
@@ -142,14 +172,16 @@ export function SignatureCollectionOrderDialog({
                           type="button"
                           variant="outline"
                           size="icon-sm"
-                          disabled={index === 0 || reorderBusy}
+                          disabled={!prev || reorderBusy}
                           aria-label="Move earlier"
-                          onClick={() =>
+                          onClick={() => {
+                            if (!prev) return;
                             reorderMutation.mutate({
-                              current: category,
-                              neighbor: signatureCategories[index - 1],
-                            })
-                          }
+                              currentId: category.id,
+                              neighborId: prev.id,
+                              items: categories,
+                            });
+                          }}
                         >
                           {isMoving ? (
                             <Loader2 className="size-3.5 animate-spin" />
@@ -161,17 +193,16 @@ export function SignatureCollectionOrderDialog({
                           type="button"
                           variant="outline"
                           size="icon-sm"
-                          disabled={
-                            index === signatureCategories.length - 1 ||
-                            reorderBusy
-                          }
+                          disabled={!next || reorderBusy}
                           aria-label="Move later"
-                          onClick={() =>
+                          onClick={() => {
+                            if (!next) return;
                             reorderMutation.mutate({
-                              current: category,
-                              neighbor: signatureCategories[index + 1],
-                            })
-                          }
+                              currentId: category.id,
+                              neighborId: next.id,
+                              items: categories,
+                            });
+                          }}
                         >
                           {isMoving ? (
                             <Loader2 className="size-3.5 animate-spin" />
