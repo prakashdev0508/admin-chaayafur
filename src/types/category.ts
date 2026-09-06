@@ -10,7 +10,7 @@ export type Category = {
   description?: string | null;
   isActive?: boolean;
   isSignatureCollection?: boolean;
-  /** Display order for signature collections (lower first). */
+  /** Display order (lower first). Lists/trees sort by sortOrder ASC, then id. */
   sortOrder?: number;
   /** Present on tree / detail responses */
   imageUrl?: string | null;
@@ -31,6 +31,8 @@ export type SubCategory = {
     slug: string;
   };
   isActive?: boolean;
+  /** Display order within parent category (lower first). */
+  sortOrder?: number;
   /** Present on tree responses; detail may use nested `image` instead */
   imageUrl?: string | null;
   image?: CategoryImageInput | null;
@@ -47,6 +49,7 @@ export type SubCategoryTreeItem = {
   description?: string | null;
   categoryId: number;
   isActive?: boolean;
+  sortOrder?: number;
   imageUrl?: string | null;
   productsCount?: number;
   updatedAt?: string;
@@ -75,6 +78,7 @@ export type CreateSubCategoryPayload = {
   heading?: string;
   description?: string;
   isActive?: boolean;
+  sortOrder?: number;
   image?: CategoryImageInput;
 };
 

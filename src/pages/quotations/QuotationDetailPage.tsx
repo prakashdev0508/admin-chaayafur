@@ -44,6 +44,7 @@ import {
 import { formatCurrency, formatDate, formatPhone } from "@/lib/format";
 import {
   QUOTATION_STATUS_ITEMS,
+  formatQuoteAmount,
   formatQuoteRupees,
   quotationStatusLabel,
   quotationStatusVariant,
@@ -493,6 +494,23 @@ export function QuotationDetailPage() {
                   {formatQuoteRupees(quotation.gstAmount)}
                 </TableCell>
               </TableRow>
+              {quotation.discountAmount != null &&
+              Number(quotation.discountAmount) > 0 ? (
+                <TableRow>
+                  <TableCell colSpan={3} className="text-right">
+                    Discount
+                    {quotation.discountType === "PERCENTAGE" &&
+                    quotation.discountValue != null
+                      ? ` (${formatQuoteAmount(quotation.discountValue)}%)`
+                      : quotation.discountType === "FLAT"
+                        ? " (flat)"
+                        : ""}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    −{formatQuoteRupees(quotation.discountAmount)}
+                  </TableCell>
+                </TableRow>
+              ) : null}
               <TableRow>
                 <TableCell colSpan={3} className="text-right font-medium">
                   Total

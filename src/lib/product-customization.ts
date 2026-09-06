@@ -31,6 +31,8 @@ export function normalizeCustomizationOptions(
     image: option.image ?? "",
     isActive: isCustomizationOptionActive(option),
     isAvailable: isCustomizationOptionActive(option),
+    redirectSlug:
+      typeof option.redirectSlug === "string" ? option.redirectSlug : "",
   }));
 }
 
@@ -66,6 +68,8 @@ export function customizationToForm(
     price: String(parseMoney(option.price)),
     image: typeof option.image === "string" ? option.image : "",
     isActive: isCustomizationOptionActive(option),
+    redirectSlug:
+      typeof option.redirectSlug === "string" ? option.redirectSlug.trim() : "",
   }));
 }
 
@@ -79,6 +83,7 @@ export function formCustomizationToPayload(
       price: parseMoney(entry.price),
       image: entry.image.trim(),
       isActive: entry.isActive !== false,
+      redirectSlug: entry.redirectSlug.trim(),
     }))
     .filter((entry) => entry.groupName && entry.value);
 }

@@ -65,7 +65,53 @@ export function getActiveProductTags(
   return tags;
 }
 
+/** Compact category · subcategory label for list/detail eyebrows. */
+export function formatProductTaxonomy(
+  product: Pick<
+    ProductListItem,
+    "categories" | "subCategories" | "categoryIds" | "subCategoryIds"
+  >,
+  options: { maxCategories?: number; maxSubCategories?: number } = {},
+): string {
+  const maxCategories = options.maxCategories ?? 2;
+  const maxSubCategories = options.maxSubCategories ?? 2;
+  const categories = product.categories ?? [];
+  const subCategories = product.subCategories ?? [];
+
+  const categoryPart =
+    categories.length === 0
+      ? ""
+      : categories.length <= maxCategories
+        ? categories.map((c) => c.name).join(", ")
+        : `${categories
+            .slice(0, maxCategories)
+            .map((c) => c.name)
+            .join(", ")} +${categories.length - maxCategories}`;
+
+  const subPart =
+    subCategories.length === 0
+      ? ""
+      : subCategories.length <= maxSubCategories
+        ? subCategories.map((s) => s.name).join(", ")
+        : `${subCategories
+            .slice(0, maxSubCategories)
+            .map((s) => s.name)
+            .join(", ")} +${subCategories.length - maxSubCategories}`;
+
+  if (categoryPart && subPart) return `${categoryPart} · ${subPart}`;
+  return categoryPart || subPart || "Uncategorized";
+}
+
 export function productToFormValues(product: Product): ProductFormValues {
+  const categoryIds =
+    product.categoryIds?.map(String) ??
+    product.categories?.map((c) => String(c.id)) ??
+    [];
+  const subCategoryIds =
+    product.subCategoryIds?.map(String) ??
+    product.subCategories?.map((s) => String(s.id)) ??
+    [];
+
   return {
     name: product.name,
     slug: product.slug,
@@ -74,12 +120,10 @@ export function productToFormValues(product: Product): ProductFormValues {
     priceWithoutDiscount: product.priceWithoutDiscount ?? "",
     hsnCode: product.hsnCode ?? "",
     stock: String(product.stock),
-    categoryId: String(
-      product.subCategory?.categoryId ??
-        product.subCategory?.category?.id ??
-        "",
-    ),
-    subCategoryId: String(product.subCategoryId ?? product.subCategory?.id ?? ""),
+    categoryIds,
+    subCategoryIds,
+    warrantyMonths:
+      product.warrantyMonths != null ? String(product.warrantyMonths) : "",
     isActive: product.isActive,
     isBestSeller: product.isBestSeller ?? false,
     isFeaturedProduct: product.isFeaturedProduct ?? false,
@@ -146,6 +190,10 @@ export function formValuesToCreatePayload(
 
   const mrp = values.priceWithoutDiscount.trim();
   const hsn = values.hsnCode.trim();
+  const warrantyRaw = values.warrantyMonths.trim();
+  const warrantyMonths = warrantyRaw
+    ? Number.parseInt(warrantyRaw, 10)
+    : null;
 
   return {
     name: values.name.trim(),
@@ -155,7 +203,12 @@ export function formValuesToCreatePayload(
     priceWithoutDiscount: mrp ? parseFloat(mrp) : null,
     hsnCode: hsn || null,
     stock: parseInt(values.stock, 10),
-    subCategoryId: parseInt(values.subCategoryId, 10),
+    categoryIds: values.categoryIds.map((id) => parseInt(id, 10)),
+    subCategoryIds: values.subCategoryIds.map((id) => parseInt(id, 10)),
+    warrantyMonths:
+      warrantyMonths != null && Number.isFinite(warrantyMonths)
+        ? warrantyMonths
+        : null,
     isActive: values.isActive,
     isBestSeller: values.isBestSeller,
     isFeaturedProduct: values.isFeaturedProduct,

@@ -129,7 +129,7 @@ curl -X POST http://localhost:5000/api/v1/uploads/product-images \
 
 ## POST /api/v1/uploads/product-images/batch
 
-Upload up to **5** images in one request.
+Upload up to **11** images in one request.
 
 | | |
 |---|---|
@@ -347,7 +347,8 @@ Pass the upload response into the product `images` array. Include `storageKey` (
   "slug": "oak-dining-table",
   "price": 24999.99,
   "stock": 10,
-  "subCategoryId": 1,
+  "categoryIds": [1],
+  "subCategoryIds": [1],
   "images": [
     {
       "url": "https://cdn.example.com/products/2026/07/8f3c2a1b.webp",

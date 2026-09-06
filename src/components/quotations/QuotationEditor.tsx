@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Download, Eye, Loader2, RotateCcw, Save } from "lucide-react";
 import { toast } from "sonner";
 import { QuotationCustomerFields } from "@/components/quotations/QuotationCustomerFields";
+import { QuotationDiscountFields } from "@/components/quotations/QuotationDiscountFields";
 import { QuotationLineItemsEditor } from "@/components/quotations/QuotationLineItemsEditor";
 import { QuotationPreview } from "@/components/quotations/QuotationPreview";
 import { QuotationPreviewDialog } from "@/components/quotations/QuotationPreviewDialog";
@@ -40,6 +41,7 @@ import type {
   Quotation,
   QuotationCompanyInfo,
   QuotationDraft,
+  UpdateQuotationPayload,
 } from "@/types/quotation";
 
 type QuotationEditorProps =
@@ -119,6 +121,12 @@ export function QuotationEditor({ mode, quotation }: QuotationEditorProps) {
       const uploaded = await uploadQuotationPdf(file);
       setSaveStep(2);
       const payload = draftToCreatePayload(draft, uploaded);
+      const updatePayload: UpdateQuotationPayload = {
+        ...payload,
+        ...(payload.discountType == null
+          ? { discountType: null, discountValue: null }
+          : {}),
+      };
 
       if (mode === "create") {
         let created = await createQuotation(payload);
@@ -154,7 +162,7 @@ export function QuotationEditor({ mode, quotation }: QuotationEditorProps) {
         return;
       }
 
-      const updated = await updateQuotation(quotation.id, payload);
+      const updated = await updateQuotation(quotation.id, updatePayload);
       await queryClient.invalidateQueries({
         queryKey: queryKeys.quotations.all,
       });
@@ -269,6 +277,19 @@ export function QuotationEditor({ mode, quotation }: QuotationEditorProps) {
               items={draft.items}
               onChange={(items) => patchDraft({ items })}
             />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Discount</CardTitle>
+            <CardDescription>
+              Optional cart-level discount on the line subtotal (flat INR or
+              percentage). Applied on convert-to-order.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <QuotationDiscountFields draft={draft} onChange={patchDraft} />
           </CardContent>
         </Card>
       </div>

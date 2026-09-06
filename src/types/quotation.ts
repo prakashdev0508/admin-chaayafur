@@ -10,6 +10,9 @@ export type QuotationLineItem = {
   unitPrice: number;
 };
 
+/** Cart-level discount on the quotation (matches API). */
+export type QuotationDiscountType = "FLAT" | "PERCENTAGE";
+
 export type QuotationDraft = {
   quoteNumber: string;
   customerName: string;
@@ -19,6 +22,10 @@ export type QuotationDraft = {
   validUntil: string;
   notes: string;
   items: QuotationLineItem[];
+  /** Omit / null = no discount. */
+  discountType: QuotationDiscountType | null;
+  /** FLAT: INR off subtotal. PERCENTAGE: 0–100. */
+  discountValue: number | null;
 };
 
 export type QuotationCompanyInfo = {
@@ -70,6 +77,9 @@ export type Quotation = {
   pdfStorageKey: string | null;
   totalPrice: string;
   gstAmount: string;
+  discountType?: QuotationDiscountType | null;
+  discountValue?: string | number | null;
+  discountAmount?: string | number | null;
   products: QuotationProduct[];
   followUpRemarks: QuotationRemark[];
   createdAt: string;
@@ -111,10 +121,17 @@ export type CreateQuotationPayload = {
   >;
   totalPrice: number;
   gstAmount: number;
+  discountType?: QuotationDiscountType;
+  discountValue?: number;
 };
 
-export type UpdateQuotationPayload = Partial<CreateQuotationPayload> & {
+export type UpdateQuotationPayload = Partial<
+  Omit<CreateQuotationPayload, "discountType" | "discountValue">
+> & {
   status?: QuotationStatus;
+  /** Send null with discountValue null to clear discount. */
+  discountType?: QuotationDiscountType | null;
+  discountValue?: number | null;
 };
 
 export type ListQuotationsParams = {

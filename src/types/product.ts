@@ -34,6 +34,12 @@ export type ProductFabricAssignment = {
   priceAdjustment?: number;
 };
 
+export type ProductCategorySummary = {
+  id: number;
+  name: string;
+  slug: string;
+};
+
 /** Free-form product option (admin-defined groups). Identity is groupName + value. */
 export type ProductCustomizationOption = {
   groupName: string;
@@ -44,6 +50,8 @@ export type ProductCustomizationOption = {
   isActive?: boolean;
   /** Public detail alias of isActive. */
   isAvailable?: boolean;
+  /** Another product’s slug for storefront redirect; empty string clears. */
+  redirectSlug?: string | null;
 };
 
 /** Cart / checkout pick — server resolves price and image. */
@@ -73,8 +81,11 @@ export type Product = {
   /** Flat polish assignments (also nested under each wood). */
   polishes?: ProductPolish[];
   fabrics?: ProductFabric[];
-  subCategoryId: number;
-  subCategory: SubCategory;
+  categoryIds: number[];
+  categories: ProductCategorySummary[];
+  subCategoryIds: number[];
+  subCategories: SubCategory[];
+  warrantyMonths?: number | null;
   images: ProductImage[];
   ratingAverage?: number | null;
   reviewCount?: number;
@@ -100,8 +111,11 @@ export type ProductListItem = {
   woods?: ProductWood[];
   polishes?: ProductPolish[];
   fabrics?: ProductFabric[];
-  subCategoryId: number;
-  subCategory: SubCategory;
+  categoryIds: number[];
+  categories: ProductCategorySummary[];
+  subCategoryIds: number[];
+  subCategories: SubCategory[];
+  warrantyMonths?: number | null;
   primaryImage: { url: string; altText: string } | null;
   ratingAverage?: number | null;
   reviewCount?: number;
@@ -134,7 +148,9 @@ export type CreateProductPayload = {
   priceWithoutDiscount?: number | null;
   hsnCode?: string | null;
   stock: number;
-  subCategoryId: number;
+  categoryIds: number[];
+  subCategoryIds: number[];
+  warrantyMonths?: number | null;
   isActive?: boolean;
   isBestSeller?: boolean;
   isFeaturedProduct?: boolean;
@@ -182,6 +198,7 @@ export type ProductCustomizationFormEntry = {
   price: string;
   image: string;
   isActive: boolean;
+  redirectSlug: string;
 };
 
 export type ProductFormValues = {
@@ -192,8 +209,9 @@ export type ProductFormValues = {
   priceWithoutDiscount: string;
   hsnCode: string;
   stock: string;
-  categoryId: string;
-  subCategoryId: string;
+  categoryIds: string[];
+  subCategoryIds: string[];
+  warrantyMonths: string;
   isActive: boolean;
   isBestSeller: boolean;
   isFeaturedProduct: boolean;

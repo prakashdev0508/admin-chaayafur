@@ -13,13 +13,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { MultiSelect } from "@/components/ui/multi-select";
 import { fetchAdminCategoriesTree } from "@/services/categories.service";
 import { queryKeys } from "@/lib/query-keys";
 import type {
@@ -43,8 +37,8 @@ export function ConvertCustomizationRequestDialog({
   onSubmit,
 }: ConvertCustomizationRequestDialogProps) {
   const [price, setPrice] = useState("");
-  const [categoryId, setCategoryId] = useState("");
-  const [subCategoryId, setSubCategoryId] = useState("");
+  const [categoryIds, setCategoryIds] = useState<string[]>([]);
+  const [subCategoryIds, setSubCategoryIds] = useState<string[]>([]);
   const [productName, setProductName] = useState(request.productName);
   const [quantity, setQuantity] = useState(String(request.quantity));
   const [useReferenceImage, setUseReferenceImage] = useState(false);
@@ -60,32 +54,56 @@ export function ConvertCustomizationRequestDialog({
 
   const categoriesTree = categoriesQuery.data ?? [];
 
-  const selectedCategory = categoriesTree.find(
-    (category) => String(category.id) === categoryId,
+  const categoryOptions = useMemo(
+    () =>
+      categoriesTree.map((category) => ({
+        value: String(category.id),
+        label: category.name,
+      })),
+    [categoriesTree],
   );
-  const subCategories = selectedCategory?.subCategories ?? [];
+
+  const selectedCategoryIdSet = useMemo(
+    () => new Set(categoryIds),
+    [categoryIds],
+  );
+
+  const subCategoryOptions = useMemo(() => {
+    if (selectedCategoryIdSet.size === 0) return [];
+    return categoriesTree.flatMap((category) => {
+      if (!selectedCategoryIdSet.has(String(category.id))) return [];
+      return category.subCategories.map((sub) => ({
+        value: String(sub.id),
+        label: `${category.name} · ${sub.name}`,
+      }));
+    });
+  }, [categoriesTree, selectedCategoryIdSet]);
 
   useEffect(() => {
     if (!open) return;
     setProductName(request.productName);
     setQuantity(String(request.quantity));
     setPrice("");
-    setCategoryId("");
-    setSubCategoryId("");
+    setCategoryIds([]);
+    setSubCategoryIds([]);
     setUseReferenceImage(false);
     setShippingAmount("0");
     setDeliveryFloor("0");
     setLiftAccessAvailable(false);
   }, [open, request]);
 
-  const categoryItems = useMemo(
-    () =>
-      categoriesTree.map((category) => ({
-        label: category.name,
-        value: String(category.id),
-      })),
-    [categoriesTree],
-  );
+  const handleCategoryIdsChange = (nextCategoryIds: string[]) => {
+    const nextSet = new Set(nextCategoryIds);
+    const allowedSubs = new Set(
+      categoriesTree.flatMap((category) =>
+        nextSet.has(String(category.id))
+          ? category.subCategories.map((sub) => String(sub.id))
+          : [],
+      ),
+    );
+    setCategoryIds(nextCategoryIds);
+    setSubCategoryIds((prev) => prev.filter((id) => allowedSubs.has(id)));
+  };
 
   async function handleSubmit() {
     const parsedPrice = parseFloat(price);
@@ -93,9 +111,12 @@ export function ConvertCustomizationRequestDialog({
       toast.error("Enter a valid selling price");
       return;
     }
-    const parsedSubCategoryId = Number(subCategoryId);
-    if (!parsedSubCategoryId) {
-      toast.error("Select a sub-category for the custom product");
+    if (categoryIds.length === 0) {
+      toast.error("Select at least one category");
+      return;
+    }
+    if (subCategoryIds.length === 0) {
+      toast.error("Select at least one sub-category");
       return;
     }
     const parsedQuantity = parseInt(quantity, 10);
@@ -116,7 +137,8 @@ export function ConvertCustomizationRequestDialog({
 
     const payload: ConvertCustomizationRequestPayload = {
       price: parsedPrice,
-      subCategoryId: parsedSubCategoryId,
+      categoryIds: categoryIds.map((id) => Number(id)),
+      subCategoryIds: subCategoryIds.map((id) => Number(id)),
       useReferenceImageAsProductImage: useReferenceImage,
       shippingAmount: parsedShipping,
       deliveryFloor: parsedFloor,
@@ -167,55 +189,42 @@ export function ConvertCustomizationRequestDialog({
           </div>
 
           <div className="space-y-2">
-            <Label>Category</Label>
-            <Select
-              value={categoryId || null}
-              onValueChange={(value) => {
-                if (!value) return;
-                setCategoryId(value);
-                setSubCategoryId("");
-              }}
-              items={categoryItems}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select category" />
-              </SelectTrigger>
-              <SelectContent>
-                {categoriesTree.map((category) => (
-                  <SelectItem key={category.id} value={String(category.id)}>
-                    {category.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label>Categories</Label>
+            <MultiSelect
+              options={categoryOptions}
+              value={categoryIds}
+              onChange={handleCategoryIdsChange}
+              placeholder={
+                categoriesQuery.isLoading
+                  ? "Loading categories…"
+                  : "Select categories"
+              }
+              disabled={categoriesQuery.isLoading || loading}
+              emptyMessage="No categories found"
+            />
           </div>
 
           <div className="space-y-2">
-            <Label>Sub-category</Label>
-            <Select
-              value={subCategoryId || null}
-              onValueChange={(value) => {
-                if (value) setSubCategoryId(value);
-              }}
-              disabled={!categoryId}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue
-                  placeholder={
-                    categoryId
-                      ? "Select sub-category"
-                      : "Select a category first"
-                  }
-                />
-              </SelectTrigger>
-              <SelectContent>
-                {subCategories.map((sub) => (
-                  <SelectItem key={sub.id} value={String(sub.id)}>
-                    {sub.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label>Sub-categories</Label>
+            <MultiSelect
+              options={subCategoryOptions}
+              value={subCategoryIds}
+              onChange={setSubCategoryIds}
+              placeholder={
+                categoryIds.length === 0
+                  ? "Select categories first"
+                  : "Select sub-categories"
+              }
+              disabled={
+                categoryIds.length === 0 ||
+                categoriesQuery.isLoading ||
+                loading
+              }
+              emptyMessage="No sub-categories under the selected categories"
+            />
+            <p className="text-xs text-muted-foreground">
+              Only sub-categories from the selected categories are listed.
+            </p>
           </div>
 
           <div className="space-y-2">

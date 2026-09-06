@@ -1,6 +1,7 @@
 import type {
   CreateQuotationPayload,
   Quotation,
+  QuotationDiscountType,
   QuotationDraft,
   QuotationLineItem,
   QuotationPdfUploadResult,
@@ -43,6 +44,8 @@ export function createEmptyQuotationDraft(): QuotationDraft {
     validUntil: defaultValidUntil(),
     notes: "",
     items: [],
+    discountType: null,
+    discountValue: null,
   };
 }
 
@@ -62,13 +65,50 @@ export function grandTotal(items: QuotationLineItem[]) {
   return roundMoney(items.reduce((sum, item) => sum + lineTotal(item), 0));
 }
 
-export function quotationTotals(items: QuotationLineItem[]) {
+/** Server-side discount: FLAT INR or PERCENTAGE of line subtotal, capped at subtotal. */
+export function computeDiscountAmount(
+  subtotal: number,
+  discountType: QuotationDiscountType | null | undefined,
+  discountValue: number | null | undefined,
+): number {
+  if (!discountType || discountValue == null || !Number.isFinite(discountValue)) {
+    return 0;
+  }
+  if (discountValue < 0 || subtotal <= 0) return 0;
+  if (discountType === "FLAT") {
+    return roundMoney(Math.min(discountValue, subtotal));
+  }
+  const pct = Math.min(100, discountValue);
+  return roundMoney(Math.min((subtotal * pct) / 100, subtotal));
+}
+
+export function quotationTotals(
+  items: QuotationLineItem[],
+  discountType?: QuotationDiscountType | null,
+  discountValue?: number | null,
+) {
   const inclusive = grandTotal(items);
   const taxable = roundMoney(
     items.reduce((sum, item) => sum + taxableAmount(lineTotal(item)), 0),
   );
   const gst = roundMoney(inclusive - taxable);
-  return { inclusive, taxable, gst };
+  const discountAmount = computeDiscountAmount(
+    inclusive,
+    discountType,
+    discountValue,
+  );
+  const totalAfterDiscount = roundMoney(Math.max(0, inclusive - discountAmount));
+  const taxableAfter = taxableAmount(totalAfterDiscount);
+  const gstAfter = gstAmount(totalAfterDiscount);
+  return {
+    inclusive,
+    taxable,
+    gst,
+    discountAmount,
+    totalAfterDiscount,
+    taxableAfter,
+    gstAfter,
+  };
 }
 
 export function formatQuoteAmount(amount: string | number) {
@@ -156,7 +196,6 @@ export function validateQuotationDraft(draft: QuotationDraft): string | null {
   }
   if (draft.items.length === 0) return "Add at least one product.";
   for (const item of draft.items) {
-    // If productId is missing, treat it as an off-catalog custom line.
     if (item.productId == null || item.productId === 0) {
       if (!item.productName.trim()) {
         return "Custom item name is required.";
@@ -173,6 +212,21 @@ export function validateQuotationDraft(draft: QuotationDraft): string | null {
       return `Price for ${item.productName} must be 0 or more.`;
     }
   }
+
+  if (draft.discountType != null) {
+    if (draft.discountValue == null || !Number.isFinite(draft.discountValue)) {
+      return "Enter a discount value.";
+    }
+    if (draft.discountValue < 0) {
+      return "Discount value must be 0 or more.";
+    }
+    if (draft.discountType === "PERCENTAGE" && draft.discountValue > 100) {
+      return "Percentage discount cannot exceed 100.";
+    }
+  } else if (draft.discountValue != null && draft.discountValue !== 0) {
+    return "Choose a discount type (flat or percentage).";
+  }
+
   return null;
 }
 
@@ -187,7 +241,21 @@ export function isoToValidUntilDate(iso: string) {
   return date.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
 }
 
+function parseDiscountValue(
+  value: string | number | null | undefined,
+): number | null {
+  if (value == null || value === "") return null;
+  const n = typeof value === "number" ? value : Number.parseFloat(value);
+  return Number.isFinite(n) ? n : null;
+}
+
 export function quotationToDraft(quotation: Quotation): QuotationDraft {
+  const discountType =
+    quotation.discountType === "FLAT" || quotation.discountType === "PERCENTAGE"
+      ? quotation.discountType
+      : null;
+  const discountValue = parseDiscountValue(quotation.discountValue);
+
   return {
     quoteNumber: quotation.quotationNumber,
     customerName: quotation.customerName,
@@ -205,6 +273,8 @@ export function quotationToDraft(quotation: Quotation): QuotationDraft {
       quantity: product.quantity,
       unitPrice: Number.parseFloat(product.price) || 0,
     })),
+    discountType,
+    discountValue: discountType != null ? discountValue : null,
   };
 }
 
@@ -212,8 +282,12 @@ export function draftToCreatePayload(
   draft: QuotationDraft,
   pdf: QuotationPdfUploadResult,
 ): CreateQuotationPayload {
-  const totals = quotationTotals(draft.items);
-  return {
+  const totals = quotationTotals(
+    draft.items,
+    draft.discountType,
+    draft.discountValue,
+  );
+  const payload: CreateQuotationPayload = {
     customerName: draft.customerName.trim(),
     mobileNumber: draft.customerPhone.trim(),
     email: draft.customerEmail.trim().toLowerCase(),
@@ -250,9 +324,20 @@ export function draftToCreatePayload(
         ...(image ? { image } : {}),
       } as const;
     }),
-    totalPrice: totals.inclusive,
-    gstAmount: totals.gst,
+    totalPrice: totals.totalAfterDiscount,
+    gstAmount: totals.gstAfter,
   };
+
+  if (
+    draft.discountType != null &&
+    draft.discountValue != null &&
+    Number.isFinite(draft.discountValue)
+  ) {
+    payload.discountType = draft.discountType;
+    payload.discountValue = draft.discountValue;
+  }
+
+  return payload;
 }
 
 export const QUOTATION_STATUS_ITEMS: Array<{

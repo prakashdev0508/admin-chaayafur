@@ -1,6 +1,6 @@
 # Categories API
 
-Top-level categories and sub-categories are stored in **separate tables**. Products link to `SubCategory`, not `Category`.
+Top-level categories and sub-categories are stored in **separate tables**. Products associate with **one or more** categories and sub-categories via join tables (`ProductCategory`, `ProductSubCategory`).
 
 [← Back to index](./README.md) · [Products docs](./products.md)
 
@@ -9,16 +9,15 @@ Top-level categories and sub-categories are stored in **separate tables**. Produ
 ## Overview
 
 ```text
-Category (top-level)  →  SubCategory  →  Product
-   Bedroom                  Beds            Oak Bed
-   Living                   Coffee Tables   ...
+Category (top-level)  ←→  Product  ←→  SubCategory
+   Bedroom / Living          Oak Bed          Beds / Sofas
 ```
 
 - **Category** — top-level groups (Bedroom, Living, Dining, …)
 - **SubCategory** — assignable product category with optional `heading` for navigation columns
 - **`isActive`** — hide categories/sub-categories from the public tree without deleting them
 - **`isSignatureCollection`** — CMS flag for featured/signature collections; filter with `GET /categories?isSignatureCollection=true`
-- **`sortOrder`** — display order for signature collections (lower first). Set via create/PATCH; auto-assigned on create when omitted. Reorder by PATCHing `sortOrder` values (same pattern as home banners)
+- **`sortOrder`** — display order for **all** categories and sub-categories (lower first). Lists and trees always sort by `sortOrder ASC`, then `id ASC` (same pattern as home banners). Set via create/PATCH; auto-assigned on create when omitted (categories: global max+1; sub-categories: max+1 within parent category)
 - **Category image** — optional single image via [uploads.md](./uploads.md) (`POST /uploads/category-images`), then attach on create/update
 - **Sub-category image** — optional single image via [uploads.md](./uploads.md) (`POST /uploads/sub-category-images`), then attach on create/update
 - **No delete endpoints** — update records as needed; set `isActive: false` to deactivate
@@ -77,7 +76,7 @@ Category (top-level)  →  SubCategory  →  Product
 | `description` | string | No |
 | `isActive` | boolean | No (default `true`) |
 | `isSignatureCollection` | boolean | No (default `false`) |
-| `sortOrder` | integer | No (default `0`; auto-assigned for new signature collections) |
+| `sortOrder` | integer | No (auto-assigned to max+1 when omitted) |
 | `image` | object | No — `{ url, storageKey? }` from [uploads.md](./uploads.md) |
 
 ### GET /api/v1/categories
@@ -91,11 +90,11 @@ Category (top-level)  →  SubCategory  →  Product
 | `page` | number | Default `1` |
 | `limit` | number | Default `10`, max `100` |
 
-When `isSignatureCollection=true`, results are sorted by `sortOrder` ascending (then `id`). Otherwise sorted by latest `updatedAt` first.
+When listing categories, results are always sorted by `sortOrder` ascending (then `id`).
 
 ### Signature collection reorder
 
-Reorder signature collections by PATCHing `sortOrder` on each category (same pattern as home banners). Lower values appear first.
+Reorder categories (including signature collections) by PATCHing `sortOrder` on each category (same pattern as home banners). Lower values appear first.
 
 To swap positions of categories with ids `3` and `5`:
 
@@ -120,7 +119,7 @@ Or assign explicit order: `{ "sortOrder": 0 }`, `{ "sortOrder": 1 }`, etc.
 | **Auth** | Public — no Bearer token required |
 | **Status** | `200` |
 
-Returns **active** top-level categories with nested **active** sub-categories, sorted by latest `updatedAt` first (for storefront navigation). Includes `isSignatureCollection`, `sortOrder`, and `imageUrl` on categories and sub-categories. Use `sortOrder` to sort signature collections client-side when rendering that section.
+Returns **active** top-level categories with nested **active** sub-categories, sorted by `sortOrder ASC`, then `id ASC` (for storefront navigation). Includes `isSignatureCollection`, `sortOrder`, and `imageUrl` on categories and `sortOrder` on sub-categories.
 
 ```json
 {
@@ -165,7 +164,7 @@ curl http://localhost:5000/api/v1/categories/tree
 | **Permission** | `view-categories` |
 | **Status** | `200` |
 
-Returns **all** categories and sub-categories, including inactive records. Sorted by latest `updatedAt` first. Each node includes `isActive` and `updatedAt`.
+Returns **all** categories and sub-categories, including inactive records. Sorted by `sortOrder ASC`, then `id ASC`. Each node includes `isActive` and `updatedAt`. Sub-categories include `sortOrder`.
 
 ```json
 {
@@ -252,6 +251,7 @@ Use `PATCH /api/v1/categories/:id` or `PATCH /api/v1/sub-categories/:id`:
 | `heading` | string | No | Navigation column group |
 | `description` | string | No | — |
 | `isActive` | boolean | No (default `true`) |
+| `sortOrder` | integer | No (auto-assigned to max+1 within parent category when omitted) |
 | `image` | object | No | `{ url, storageKey? }` from [uploads.md](./uploads.md) |
 
 ### GET /api/v1/sub-categories
@@ -265,7 +265,7 @@ Use `PATCH /api/v1/categories/:id` or `PATCH /api/v1/sub-categories/:id`:
 | `page` | number | Default `1` |
 | `limit` | number | Default `10`, max `100` |
 
-Results are sorted by latest `updatedAt` first.
+Results are sorted by `sortOrder ASC`, then `id ASC`.
 
 ```bash
 curl "http://localhost:5000/api/v1/sub-categories?categoryId=1&limit=50" \
@@ -285,6 +285,7 @@ curl "http://localhost:5000/api/v1/sub-categories?categoryId=1&limit=50" \
     "description": "Beds · Beds",
     "categoryId": 1,
     "isActive": true,
+    "sortOrder": 0,
     "image": {
       "url": "https://cdn.example.com/sub-categories/beds.webp",
       "storageKey": "sub-categories/2026/08/uuid.webp"
@@ -333,7 +334,7 @@ Use `GET /api/v1/categories/tree` or `GET /api/v1/sub-categories?limit=100` for 
 
 ## Product assignment
 
-Products use **`subCategoryId`**, not `categoryId`:
+Products use **`categoryIds`** and **`subCategoryIds`** arrays (at least one each):
 
 ```json
 {
@@ -341,7 +342,8 @@ Products use **`subCategoryId`**, not `categoryId`:
   "slug": "oak-bed",
   "price": 35000,
   "stock": 5,
-  "subCategoryId": 1
+  "categoryIds": [1],
+  "subCategoryIds": [1]
 }
 ```
 

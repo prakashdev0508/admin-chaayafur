@@ -103,7 +103,8 @@ export type RejectCustomizationRequestPayload = {
 
 export type ConvertCustomizationRequestPayload = {
   price: number;
-  subCategoryId: number;
+  categoryIds: number[];
+  subCategoryIds: number[];
   productName?: string;
   quantity?: number;
   useReferenceImageAsProductImage?: boolean;

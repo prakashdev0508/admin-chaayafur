@@ -50,7 +50,9 @@ export function ProductCard({ product }: ProductCardProps) {
           <div className="flex items-start justify-between gap-2">
             <div>
               <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
-                {product.subCategory.category.name}
+                {product.categories?.[0]?.name ??
+                  product.subCategories?.[0]?.name ??
+                  "Shop"}
               </p>
               <h3 className="font-medium text-[#3D2B1F]">{product.name}</h3>
             </div>

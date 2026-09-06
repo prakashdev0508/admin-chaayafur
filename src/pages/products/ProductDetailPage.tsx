@@ -10,6 +10,7 @@ import { PERMISSIONS } from "@/lib/roles";
 import { ApiError } from "@/lib/api";
 import {
   formatCurrency,
+  formatProductTaxonomy,
   getActiveProductTags,
   getStockStatus,
   productTagLabels,
@@ -228,6 +229,26 @@ export function ProductDetailPage() {
               {product.hsnCode && (
                 <MetaRow label="HSN code" value={product.hsnCode} />
               )}
+              {product.warrantyMonths != null && (
+                <MetaRow
+                  label="Warranty"
+                  value={`${product.warrantyMonths} month${product.warrantyMonths === 1 ? "" : "s"}`}
+                />
+              )}
+              <MetaRow
+                label="Categories"
+                value={
+                  (product.categories ?? []).map((c) => c.name).join(", ") ||
+                  "—"
+                }
+              />
+              <MetaRow
+                label="Sub-categories"
+                value={
+                  (product.subCategories ?? []).map((s) => s.name).join(", ") ||
+                  "—"
+                }
+              />
               <MetaRow
                 label="Images"
                 value={String(sortedImages.length)}
@@ -256,7 +277,7 @@ export function ProductDetailPage() {
         <div className="space-y-6">
           <div>
             <p className="text-xs font-medium tracking-[0.14em] text-muted-foreground uppercase">
-              {product.subCategory.category.name} · {product.subCategory.name}
+              {formatProductTaxonomy(product)}
             </p>
             <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">
               {product.name}

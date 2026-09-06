@@ -23,6 +23,7 @@ Staff quotations for walk-in / outbound quotes. The PDF is generated on the fron
 - Status: `SENT` | `FOLLOW_UP` | `CLOSED` | `CONVERTED` (new quotes default to `SENT`)
 - Lines may mix **catalog** (`productId`) and **custom** (`productName` + optional image). Quoted `price` is snapshotted
 - `totalPrice` and `gstAmount` are stored as sent by staff (not recalculated later)
+- **Cart-level discount** — optional `discountType` (`FLAT` | `PERCENTAGE`) + `discountValue`. Server computes `discountAmount` from the sum of line totals (capped at subtotal). Applied on convert-to-order as `Order.discountAmount`
 - Follow-up remarks are append-only
 - Send-email attaches the PDF from `pdfStorageKey` (R2) when present, otherwise fetches `pdfUrl`
 - Convert creates a **MANUAL** order linked 1:1 (`Order.quotationId` unique). Quotation becomes `CONVERTED`
@@ -86,7 +87,9 @@ Staff quotations for walk-in / outbound quotes. The PDF is generated on the fron
     }
   ],
   "totalPrice": 49999.98,
-  "gstAmount": 7627.11
+  "gstAmount": 7627.11,
+  "discountType": "PERCENTAGE",
+  "discountValue": 10
 }
 ```
 
@@ -105,14 +108,18 @@ Staff quotations for walk-in / outbound quotes. The PDF is generated on the fron
 | `products[].quantity` | integer | Yes | Min 1 |
 | `products[].price` | number | Yes | Quoted unit price |
 | `products[].image` | object | No | Optional `{ url, storageKey }` from `POST /uploads/order-line-images` |
-| `totalPrice` | number | Yes | Quoted total |
+| `totalPrice` | number | Yes | Quoted total (staff/PDF snapshot; not recalculated from lines/discount) |
 | `gstAmount` | number | Yes | GST amount on the quote |
+| `discountType` | string | No | `FLAT` (INR off subtotal) or `PERCENTAGE` (0–100 of line subtotal). Must be sent with `discountValue` |
+| `discountValue` | number | No | **FLAT**: INR ≥ 0. **PERCENTAGE**: 0–100. Required when `discountType` is set |
+
+Server stores resolved `discountAmount` (INR). Example: lines total ₹49,999 + `PERCENTAGE` 10 → `discountAmount` = `4999.90`.
 
 `quotationNumber` is assigned as `QT-YYYYMMDD-0001`.
 
 ### Success `201`
 
-Same shape as `GET /admin/quotations/:id`.
+Same shape as `GET /admin/quotations/:id` (includes `discountType`, `discountValue`, `discountAmount`).
 
 ---
 
@@ -124,13 +131,15 @@ Query: `page` (default 1), `limit` (default 10, max 100), `status`, `search` (na
 
 ## PATCH /api/v1/admin/quotations/:id
 
-All create fields optional, plus `status`. Omit `products` to leave lines unchanged; send a new array to replace them. Converted quotations cannot be updated (remarks and send-email still work).
+All create fields optional, plus `status`. Omit `products` to leave lines unchanged; send a new array to replace them. Changing `products` and/or discount fields recomputes `discountAmount`. Clear discount with `"discountType": null, "discountValue": null`. Converted quotations cannot be updated (remarks and send-email still work).
 
 ---
 
 ## POST /api/v1/admin/quotations/:id/convert-to-order
 
 Creates a **MANUAL** unpaid order from the quotation. Line prices are the **quoted** amounts (not live catalog prices). Catalog `productId` is kept when the product still exists and is active; otherwise the line is stored as custom using the quoted name/image.
+
+Order totals: `subtotal` (quoted lines) − **`discountAmount`** (from quotation) + shipping + floor delivery. `Order.discountAmount` is set from the quotation.
 
 Requires `create-orders` and `update-quotations`. Allowed from `SENT` or `FOLLOW_UP`. Rejected if `CLOSED`, already `CONVERTED`, or already linked to an order (one quotation ↔ one order).
 
