@@ -125,7 +125,11 @@ export function ProductBulkPreparePage() {
               </code>{" "}
               sheet and dropdowns for{" "}
               <code className="rounded bg-muted px-1 py-0.5 text-xs">
-                subCategoryId
+                categoryIds
+              </code>
+              ,{" "}
+              <code className="rounded bg-muted px-1 py-0.5 text-xs">
+                subCategoryIds
               </code>{" "}
               and boolean columns).
             </li>
@@ -135,7 +139,7 @@ export function ProductBulkPreparePage() {
                 images
               </code>{" "}
               column is required — staged images are matched by slug. Use the
-              sub-category ID table below.
+              category / sub-category ID table below.
             </li>
             <li>
               On the Products list, choose{" "}

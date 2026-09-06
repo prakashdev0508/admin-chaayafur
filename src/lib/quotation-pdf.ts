@@ -369,7 +369,11 @@ async function buildProgrammaticPdf(
   doc.line(margin, y, pageWidth - margin, y);
   y += 10;
 
-  const totals = quotationTotals(draft.items);
+  const totals = quotationTotals(
+    draft.items,
+    draft.discountType,
+    draft.discountValue,
+  );
   doc.setFont("times", "italic");
   doc.setFontSize(16);
   doc.setTextColor(...BROWN);
@@ -384,11 +388,32 @@ async function buildProgrammaticPdf(
   doc.text(formatQuoteRupees(totals.taxable), totalsXValue, y, { align: "right" });
   y += 5;
   doc.text("GST Total", totalsXLabel, y);
-  doc.text(formatQuoteRupees(totals.gst), totalsXValue, y, { align: "right" });
+  doc.text(
+    formatQuoteRupees(
+      totals.discountAmount > 0 ? totals.gstAfter : totals.gst,
+    ),
+    totalsXValue,
+    y,
+    { align: "right" },
+  );
   y += 5;
+  if (totals.discountAmount > 0) {
+    const discountLabel =
+      draft.discountType === "PERCENTAGE" && draft.discountValue != null
+        ? `Discount (${formatQuoteAmount(draft.discountValue)}%)`
+        : "Discount";
+    doc.text(discountLabel, totalsXLabel, y);
+    doc.text(
+      `-${formatQuoteRupees(totals.discountAmount)}`,
+      totalsXValue,
+      y,
+      { align: "right" },
+    );
+    y += 5;
+  }
   doc.setFont("helvetica", "bold");
   doc.text("Total", totalsXLabel, y);
-  doc.text(formatQuoteRupees(totals.inclusive), totalsXValue, y, {
+  doc.text(formatQuoteRupees(totals.totalAfterDiscount), totalsXValue, y, {
     align: "right",
   });
 

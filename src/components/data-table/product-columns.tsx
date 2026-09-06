@@ -11,8 +11,8 @@ import {
 import { StatusBadge } from "@/components/ui/status-badge";
 import {
   formatCurrency,
+  formatProductTaxonomy,
   getActiveProductTags,
-  getStockStatus,
   productTagLabels,
   productTagVariants,
 } from "@/lib/product-utils";
@@ -70,8 +70,7 @@ export function createProductColumns({
       header: "Category",
       cell: ({ row }) => (
         <span className="text-muted-foreground">
-          {row.original.subCategory.category.name} /{" "}
-          {row.original.subCategory.name}
+          {formatProductTaxonomy(row.original)}
         </span>
       ),
     },
@@ -81,28 +80,23 @@ export function createProductColumns({
       cell: ({ row }) => formatCurrency(row.getValue("price")),
     },
     {
-      accessorKey: "stock",
-      header: "Stock",
+      id: "visibility",
+      header: "Visibility",
+      cell: ({ row }) => (
+        <StatusBadge variant={row.original.isActive ? "success" : "neutral"}>
+          {row.original.isActive ? "Active" : "Hidden"}
+        </StatusBadge>
+      ),
     },
     {
-      id: "status",
-      header: "Status",
+      id: "options",
+      header: "Options",
       cell: ({ row }) => {
-        const status = getStockStatus(row.original);
-        const labels = {
-          in_stock: "In stock",
-          low_stock: "Low stock",
-          out_of_stock: "Out of stock",
-          inactive: "Inactive",
-        };
-        const variants = {
-          in_stock: "success" as const,
-          low_stock: "warning" as const,
-          out_of_stock: "danger" as const,
-          inactive: "neutral" as const,
-        };
+        const count = row.original.customization?.length ?? 0;
         return (
-          <StatusBadge variant={variants[status]}>{labels[status]}</StatusBadge>
+          <span className="text-muted-foreground">
+            {count === 0 ? "—" : `${count} option${count === 1 ? "" : "s"}`}
+          </span>
         );
       },
     },

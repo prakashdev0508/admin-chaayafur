@@ -6,13 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { MultiSelect } from "@/components/ui/multi-select";
 import {
   Card,
   CardContent,
@@ -45,8 +39,9 @@ export const emptyProductFormValues: ProductFormValues = {
   priceWithoutDiscount: "",
   hsnCode: "",
   stock: "",
-  categoryId: "",
-  subCategoryId: "",
+  categoryIds: [],
+  subCategoryIds: [],
+  warrantyMonths: "",
   isActive: true,
   isBestSeller: false,
   isFeaturedProduct: false,
@@ -82,7 +77,6 @@ export function ProductForm({
   submitLabel,
 }: ProductFormProps) {
   const [values, setValues] = useState<ProductFormValues>(defaultValues);
-  const [categoryId, setCategoryId] = useState(defaultValues.categoryId ?? "");
   const [featureInput, setFeatureInput] = useState("");
   const [slugTouched, setSlugTouched] = useState(mode === "edit");
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -93,7 +87,6 @@ export function ProductForm({
 
   useEffect(() => {
     setValues(defaultValues);
-    setCategoryId(defaultValues.categoryId ?? "");
   }, [defaultValues]);
 
   const categoriesQuery = useQuery({
@@ -102,62 +95,70 @@ export function ProductForm({
   });
   const categoriesTree = categoriesQuery.data ?? [];
 
-  useEffect(() => {
-    if (!values.subCategoryId || categoriesTree.length === 0) return;
-
-    const selected = categoriesTree.find(
-      (category) => String(category.id) === categoryId,
-    );
-    if (
-      selected?.subCategories.some(
-        (sub) => String(sub.id) === values.subCategoryId,
-      )
-    ) {
-      return;
-    }
-
-    for (const category of categoriesTree) {
-      const match = category.subCategories.find(
-        (sub) => String(sub.id) === values.subCategoryId,
-      );
-      if (match) {
-        setCategoryId(String(category.id));
-        return;
-      }
-    }
-  }, [values.subCategoryId, categoriesTree, categoryId]);
-
-  const selectedCategory = categoriesTree.find(
-    (category) => String(category.id) === categoryId,
-  );
-  const subCategories = selectedCategory?.subCategories ?? [];
-
-  const categoryItems = useMemo(
-    () =>
-      categoriesTree.map((category) => ({
-        label:
-          category.isActive === false
-            ? `${category.name} (Inactive)`
-            : category.name,
-        value: String(category.id),
-      })),
-    [categoriesTree],
-  );
-
-  const subCategoryItems = useMemo(
-    () =>
-      subCategories.map((sub) => ({
-        label: sub.isActive === false ? `${sub.name} (Inactive)` : sub.name,
-        value: String(sub.id),
-      })),
-    [subCategories],
-  );
-
   const updateField = <K extends keyof ProductFormValues>(
     key: K,
     value: ProductFormValues[K],
   ) => {
     setValues((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const categoryOptions = useMemo(
+    () =>
+      categoriesTree.map((category) => ({
+        value: String(category.id),
+        label:
+          category.isActive === false
+            ? `${category.name} (Inactive)`
+            : category.name,
+      })),
+    [categoriesTree],
+  );
+
+  const selectedCategoryIdSet = useMemo(
+    () => new Set(values.categoryIds),
+    [values.categoryIds],
+  );
+
+  const subCategoryOptions = useMemo(() => {
+    if (selectedCategoryIdSet.size === 0) return [];
+    return categoriesTree.flatMap((category) => {
+      if (!selectedCategoryIdSet.has(String(category.id))) return [];
+      return category.subCategories.map((sub) => ({
+        value: String(sub.id),
+        label:
+          sub.isActive === false
+            ? `${category.name} · ${sub.name} (Inactive)`
+            : `${category.name} · ${sub.name}`,
+      }));
+    });
+  }, [categoriesTree, selectedCategoryIdSet]);
+
+  const allowedSubCategoryIds = useMemo(
+    () => new Set(subCategoryOptions.map((option) => option.value)),
+    [subCategoryOptions],
+  );
+
+  const handleCategoryIdsChange = (nextCategoryIds: string[]) => {
+    const nextSet = new Set(nextCategoryIds);
+    const allowedSubs = new Set(
+      categoriesTree.flatMap((category) =>
+        nextSet.has(String(category.id))
+          ? category.subCategories.map((sub) => String(sub.id))
+          : [],
+      ),
+    );
+    setValues((prev) => ({
+      ...prev,
+      categoryIds: nextCategoryIds,
+      subCategoryIds: prev.subCategoryIds.filter((id) => allowedSubs.has(id)),
+    }));
+  };
+
+  const handleSubCategoryIdsChange = (nextSubCategoryIds: string[]) => {
+    updateField(
+      "subCategoryIds",
+      nextSubCategoryIds.filter((id) => allowedSubCategoryIds.has(id)),
+    );
   };
 
   const handleNameBlur = () => {
@@ -191,8 +192,9 @@ export function ProductForm({
   const validate = () => {
     if (!values.name.trim()) return "Product name is required";
     if (!values.slug.trim()) return "Slug is required";
-    if (!categoryId) return "Category is required";
-    if (!values.subCategoryId) return "Sub-category is required";
+    if (values.categoryIds.length === 0) return "Select at least one category";
+    if (values.subCategoryIds.length === 0)
+      return "Select at least one sub-category";
     if (!values.price || parseFloat(values.price) < 0)
       return "Valid price is required";
     if (
@@ -203,6 +205,13 @@ export function ProductForm({
     }
     if (!values.stock || parseInt(values.stock, 10) < 0)
       return "Valid stock is required";
+    const warranty = values.warrantyMonths.trim();
+    if (warranty) {
+      const months = Number.parseInt(warranty, 10);
+      if (!Number.isFinite(months) || months < 1) {
+        return "Warranty must be an integer ≥ 1 month";
+      }
+    }
     const hsn = values.hsnCode.trim();
     if (hsn && !/^\d{4,8}$/.test(hsn)) {
       return "HSN code must be 4–8 digits";
@@ -316,72 +325,52 @@ export function ProductForm({
                   placeholder="Describe materials, craftsmanship, and key features..."
                 />
               </div>
-              <div className="space-y-2">
-                <Label>Category</Label>
-                <Select
-                  value={categoryId || null}
-                  onValueChange={(value) => {
-                    if (!value || value === categoryId) return;
-                    setCategoryId(value);
-                    updateField("subCategoryId", "");
-                  }}
-                  items={categoryItems}
-                  disabled={categoriesQuery.isLoading}
-                >
-                  <SelectTrigger className="h-10 w-full">
-                    <SelectValue
-                      placeholder={
-                        categoriesQuery.isLoading
-                          ? "Loading categories…"
-                          : "Select category"
-                      }
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categoriesTree.map((category) => (
-                      <SelectItem key={category.id} value={String(category.id)}>
-                        {category.name}
-                        {category.isActive === false ? " (Inactive)" : ""}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="space-y-2 sm:col-span-2">
+                <Label>Categories</Label>
+                <MultiSelect
+                  options={categoryOptions}
+                  value={values.categoryIds}
+                  onChange={handleCategoryIdsChange}
+                  placeholder={
+                    categoriesQuery.isLoading
+                      ? "Loading categories…"
+                      : "Select categories"
+                  }
+                  disabled={categoriesQuery.isLoading || isSubmitting}
+                  emptyMessage="No categories found"
+                />
                 {categoriesQuery.isError ? (
                   <p className="text-xs text-destructive">
                     Could not load categories. Refresh and try again.
                   </p>
-                ) : null}
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Select one or more categories. Sub-categories below are
+                    limited to these selections.
+                  </p>
+                )}
               </div>
-              <div className="space-y-2">
-                <Label>Sub-category</Label>
-                <Select
-                  value={values.subCategoryId || null}
-                  onValueChange={(value) => {
-                    if (value) updateField("subCategoryId", value);
-                  }}
-                  disabled={!categoryId || categoriesQuery.isLoading}
-                  items={subCategoryItems}
-                >
-                  <SelectTrigger className="h-10 w-full">
-                    <SelectValue
-                      placeholder={
-                        categoriesQuery.isLoading
-                          ? "Loading sub-categories…"
-                          : categoryId
-                            ? "Select sub-category"
-                            : "Select a category first"
-                      }
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {subCategories.map((sub) => (
-                      <SelectItem key={sub.id} value={String(sub.id)}>
-                        {sub.name}
-                        {sub.isActive === false ? " (Inactive)" : ""}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="space-y-2 sm:col-span-2">
+                <Label>Sub-categories</Label>
+                <MultiSelect
+                  options={subCategoryOptions}
+                  value={values.subCategoryIds}
+                  onChange={handleSubCategoryIdsChange}
+                  placeholder={
+                    values.categoryIds.length === 0
+                      ? "Select categories first"
+                      : "Select sub-categories"
+                  }
+                  disabled={
+                    values.categoryIds.length === 0 ||
+                    categoriesQuery.isLoading ||
+                    isSubmitting
+                  }
+                  emptyMessage="No sub-categories under the selected categories"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Only sub-categories from the selected categories are listed.
+                </p>
               </div>
             </div>
 
@@ -534,6 +523,25 @@ export function ProductForm({
             </div>
 
             <div className="space-y-1.5">
+              <Label htmlFor="warrantyMonths">Warranty (months)</Label>
+              <Input
+                id="warrantyMonths"
+                type="number"
+                value={values.warrantyMonths}
+                onChange={(e) =>
+                  updateField("warrantyMonths", e.target.value)
+                }
+                placeholder="Optional · e.g. 12"
+                min="1"
+                step="1"
+                className="h-9 tabular-nums"
+              />
+              <p className="text-xs text-muted-foreground">
+                Leave empty for no warranty. Clear and save to remove.
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
               <Label htmlFor="hsnCode">HSN code</Label>
               <Input
                 id="hsnCode"
@@ -617,6 +625,14 @@ export function ProductForm({
 
         <Card className="overflow-hidden shadow-xs">
           <CardContent className="space-y-2 pt-4 text-xs text-muted-foreground">
+            <SummaryRow
+              label="Categories"
+              value={String(values.categoryIds.length)}
+            />
+            <SummaryRow
+              label="Sub-categories"
+              value={String(values.subCategoryIds.length)}
+            />
             <SummaryRow
               label="Images"
               value={String(values.images.length)}

@@ -8,6 +8,7 @@ import { HomeCmsTagSection } from "@/components/website/HomeCmsTagSection";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { usePermission } from "@/hooks/usePermission";
 import { queryKeys } from "@/lib/query-keys";
+import { isShopEnabled } from "@/lib/shop-enabled";
 import { cn } from "@/lib/utils";
 import type { ProductMerchandisingTag } from "@/types/product";
 import { PERMISSIONS } from "@/lib/roles";
@@ -37,6 +38,7 @@ const CMS_SECTIONS: {
 export function WebsiteHomePage() {
   const { hasPermission } = usePermission();
   const queryClient = useQueryClient();
+  const shopEnabled = isShopEnabled();
 
   const canView = hasPermission(PERMISSIONS.VIEW_BANNERS);
   const canCreateBanners = hasPermission(PERMISSIONS.CREATE_BANNERS);
@@ -82,15 +84,17 @@ export function WebsiteHomePage() {
             >
               <RefreshCw className="size-4" />
             </Button>
-            <Link
-              to="/shop"
-              target="_blank"
-              rel="noreferrer"
-              className={cn(buttonVariants({ variant: "outline" }))}
-            >
-              <ExternalLink className="size-4" />
-              View storefront
-            </Link>
+            {shopEnabled ? (
+              <Link
+                to="/shop"
+                target="_blank"
+                rel="noreferrer"
+                className={cn(buttonVariants({ variant: "outline" }))}
+              >
+                <ExternalLink className="size-4" />
+                View storefront
+              </Link>
+            ) : null}
           </div>
         }
       />

@@ -20,9 +20,19 @@ export const PRODUCT_BULK_COLUMN_HELP: ProductBulkColumnHelp[] = [
   },
   { column: "stock", required: true, hint: "Integer ≥ 0" },
   {
-    column: "subCategoryId",
+    column: "categoryIds",
     required: true,
-    hint: "Integer ID or dropdown label: 12 - Living Room > Sofas",
+    hint: "Comma-separated IDs or labels: 1,2 or 1 - Bedroom",
+  },
+  {
+    column: "subCategoryIds",
+    required: true,
+    hint: "Comma-separated IDs or labels: 12,15 or 12 - Living Room > Sofas",
+  },
+  {
+    column: "warrantyMonths",
+    required: false,
+    hint: "Integer months (e.g. 12)",
   },
   {
     column: "isActive",

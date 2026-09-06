@@ -58,6 +58,9 @@ export function SubCategoryFormDialog({
   const [heading, setHeading] = useState(initial?.heading ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
   const [isActive, setIsActive] = useState(initial?.isActive ?? true);
+  const [sortOrder, setSortOrder] = useState(
+    initial?.sortOrder != null ? String(initial.sortOrder) : "",
+  );
   const [image, setImage] = useState<CategoryImageInput | null>(null);
   const [slugTouched, setSlugTouched] = useState(false);
 
@@ -71,6 +74,9 @@ export function SubCategoryFormDialog({
       setHeading(initial?.heading ?? "");
       setDescription(initial?.description ?? "");
       setIsActive(initial?.isActive ?? true);
+      setSortOrder(
+        initial?.sortOrder != null ? String(initial.sortOrder) : "",
+      );
       setImage(initial?.imageUrl ? { url: initial.imageUrl } : null);
       setSlugTouched(false);
     }
@@ -93,12 +99,19 @@ export function SubCategoryFormDialog({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const sortOrderTrimmed = sortOrder.trim();
+    const parsedSortOrder = sortOrderTrimmed
+      ? Number.parseInt(sortOrderTrimmed, 10)
+      : undefined;
     const base = {
       name: name.trim(),
       slug: slug.trim(),
       heading: heading.trim() || undefined,
       description: description.trim() || undefined,
       isActive,
+      ...(parsedSortOrder != null && Number.isFinite(parsedSortOrder)
+        ? { sortOrder: parsedSortOrder }
+        : {}),
       ...(image?.url
         ? {
             image: {
@@ -195,6 +208,21 @@ export function SubCategoryFormDialog({
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="sub-sort-order">Sort order</Label>
+            <Input
+              id="sub-sort-order"
+              type="number"
+              value={sortOrder}
+              onChange={(e) => setSortOrder(e.target.value)}
+              placeholder={initial ? undefined : "Auto-assigned if empty"}
+            />
+            <p className="text-xs text-muted-foreground">
+              Lower values appear first within the parent category. Leave empty
+              on create to auto-assign.
+            </p>
           </div>
 
           <SubCategoryImageUploader

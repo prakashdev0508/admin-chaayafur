@@ -43,7 +43,9 @@ export function CategoryFormDialog({
   const [isSignatureCollection, setIsSignatureCollection] = useState(
     initial?.isSignatureCollection ?? false,
   );
-  const [sortOrder, setSortOrder] = useState(String(initial?.sortOrder ?? 0));
+  const [sortOrder, setSortOrder] = useState(
+    initial?.sortOrder != null ? String(initial.sortOrder) : "",
+  );
   const [image, setImage] = useState<CategoryImageInput | null>(null);
   const [slugTouched, setSlugTouched] = useState(false);
 
@@ -54,7 +56,9 @@ export function CategoryFormDialog({
       setDescription(initial?.description ?? "");
       setIsActive(initial?.isActive ?? true);
       setIsSignatureCollection(initial?.isSignatureCollection ?? false);
-      setSortOrder(String(initial?.sortOrder ?? 0));
+      setSortOrder(
+        initial?.sortOrder != null ? String(initial.sortOrder) : "",
+      );
       setImage(
         initial?.imageUrl
           ? { url: initial.imageUrl }
@@ -72,14 +76,18 @@ export function CategoryFormDialog({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const sortOrderTrimmed = sortOrder.trim();
+    const parsedSortOrder = sortOrderTrimmed
+      ? Number.parseInt(sortOrderTrimmed, 10)
+      : undefined;
     const payload: CreateCategoryPayload | UpdateCategoryPayload = {
       name: name.trim(),
       slug: slug.trim(),
       description: description.trim() || undefined,
       isActive,
       isSignatureCollection,
-      ...(isSignatureCollection
-        ? { sortOrder: Number.parseInt(sortOrder, 10) || 0 }
+      ...(parsedSortOrder != null && Number.isFinite(parsedSortOrder)
+        ? { sortOrder: parsedSortOrder }
         : {}),
       ...(image?.url
         ? {
@@ -163,21 +171,20 @@ export function CategoryFormDialog({
             />
           </div>
 
-          {isSignatureCollection ? (
-            <div className="space-y-2">
-              <Label htmlFor="cat-sort-order">Sort order</Label>
-              <Input
-                id="cat-sort-order"
-                type="number"
-                value={sortOrder}
-                onChange={(e) => setSortOrder(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                Lower values appear first among signature collections (or use ← →
-                on the categories page).
-              </p>
-            </div>
-          ) : null}
+          <div className="space-y-2">
+            <Label htmlFor="cat-sort-order">Sort order</Label>
+            <Input
+              id="cat-sort-order"
+              type="number"
+              value={sortOrder}
+              onChange={(e) => setSortOrder(e.target.value)}
+              placeholder={initial ? undefined : "Auto-assigned if empty"}
+            />
+            <p className="text-xs text-muted-foreground">
+              Lower values appear first in the category list (or use ↑ ↓ on the
+              categories page). Leave empty on create to auto-assign.
+            </p>
+          </div>
 
           <div className="flex items-center justify-between rounded-lg border px-3 py-2.5">
             <div className="space-y-0.5">

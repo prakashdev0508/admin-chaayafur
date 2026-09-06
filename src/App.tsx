@@ -5,6 +5,7 @@ import { CustomerProtectedRoute } from "@/components/auth/CustomerProtectedRoute
 import { PermissionRoute } from "@/components/auth/PermissionRoute";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { ShopLayout } from "@/components/layout/ShopLayout";
+import { ShopProviders } from "@/components/shop/ShopProviders";
 import { LoginPage } from "@/pages/auth/LoginPage";
 import { ForgotPasswordPage } from "@/pages/auth/ForgotPasswordPage";
 import { ResetPasswordPage } from "@/pages/auth/ResetPasswordPage";
@@ -78,35 +79,44 @@ import { ShopReferralsPage } from "@/pages/shop/ShopReferralsPage";
 import { ShopWalletPage } from "@/pages/shop/ShopWalletPage";
 import { SuperAdminRoute } from "@/components/auth/SuperAdminRoute";
 import { StaffHomeRedirect } from "@/components/auth/StaffHomeRedirect";
+import { isShopEnabled } from "@/lib/shop-enabled";
 import { PERMISSIONS } from "@/lib/roles";
 
 const App = () => {
+  const shopEnabled = isShopEnabled();
+
   return (
     <Routes>
-      <Route element={<ShopLayout />}>
-        <Route path="/shop" element={<ShopHomePage />} />
-        <Route path="/shop/products" element={<ShopCatalogPage />} />
-        <Route path="/shop/products/:id" element={<ShopProductPage />} />
-        <Route path="/shop/contact" element={<ShopContactPage />} />
-        <Route path="/shop/careers" element={<ShopCareersPage />} />
-        <Route path="/shop/cart" element={<CartPage />} />
-        <Route element={<CustomerProtectedRoute />}>
-          <Route path="/shop/checkout" element={<CheckoutPage />} />
-          <Route path="/shop/orders/:id" element={<ShopOrderPage />} />
-          <Route path="/shop/account" element={<AccountPage />} />
-          <Route path="/shop/referrals" element={<ShopReferralsPage />} />
-          <Route path="/shop/wallet" element={<ShopWalletPage />} />
-          <Route path="/shop/customize" element={<ShopCustomizePage />} />
-          <Route
-            path="/shop/customize/requests"
-            element={<ShopCustomizationRequestsPage />}
-          />
-          <Route
-            path="/shop/customize/requests/:id"
-            element={<ShopCustomizationRequestDetailPage />}
-          />
+      {shopEnabled ? (
+        <Route element={<ShopProviders />}>
+          <Route element={<ShopLayout />}>
+            <Route path="/shop" element={<ShopHomePage />} />
+            <Route path="/shop/products" element={<ShopCatalogPage />} />
+            <Route path="/shop/products/:id" element={<ShopProductPage />} />
+            <Route path="/shop/contact" element={<ShopContactPage />} />
+            <Route path="/shop/careers" element={<ShopCareersPage />} />
+            <Route path="/shop/cart" element={<CartPage />} />
+            <Route element={<CustomerProtectedRoute />}>
+              <Route path="/shop/checkout" element={<CheckoutPage />} />
+              <Route path="/shop/orders/:id" element={<ShopOrderPage />} />
+              <Route path="/shop/account" element={<AccountPage />} />
+              <Route path="/shop/referrals" element={<ShopReferralsPage />} />
+              <Route path="/shop/wallet" element={<ShopWalletPage />} />
+              <Route path="/shop/customize" element={<ShopCustomizePage />} />
+              <Route
+                path="/shop/customize/requests"
+                element={<ShopCustomizationRequestsPage />}
+              />
+              <Route
+                path="/shop/customize/requests/:id"
+                element={<ShopCustomizationRequestDetailPage />}
+              />
+            </Route>
+          </Route>
         </Route>
-      </Route>
+      ) : (
+        <Route path="/shop/*" element={<Navigate to="/" replace />} />
+      )}
 
       <Route element={<GuestRoute />}>
         <Route path="/login" element={<LoginPage />} />

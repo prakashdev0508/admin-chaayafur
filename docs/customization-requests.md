@@ -176,7 +176,8 @@ Only when status is `APPROVED`.
 | Field | Type | Required | Rules |
 |-------|------|----------|-------|
 | `price` | number | Yes | Selling price (≥ 0) |
-| `subCategoryId` | number | Yes | Sub-category for the inactive product |
+| `categoryIds` | number[] | Yes | Category IDs for the inactive product (min 1) |
+| `subCategoryIds` | number[] | Yes | Sub-category IDs for the inactive product (min 1) |
 | `productName` | string | No | Override request name |
 | `quantity` | number | No | Override request quantity (min 1) |
 | `useReferenceImageAsProductImage` | boolean | No | Default `false` |

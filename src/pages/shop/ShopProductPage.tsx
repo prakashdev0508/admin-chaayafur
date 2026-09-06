@@ -27,6 +27,7 @@ import {
   formatUnitPriceAmount,
 } from "@/lib/customization-pricing";
 import {
+  formatProductTaxonomy,
   getActiveProductTags,
   getStockStatus,
   productTagLabels,
@@ -48,11 +49,7 @@ async function resolveProductReviewEligibility(productId: number): Promise<{
   existing: ProductReview | undefined;
   orderId: number | null;
 }> {
-  const [myReviews, delivered] = await Promise.all([
-    getMyReviews(),
-    listShopOrders({ status: "DELIVERED", limit: 50 }),
-  ]);
-
+  const myReviews = await getMyReviews();
   const existing = myReviews.productReviews.find(
     (review) => review.productId === productId,
   );
@@ -60,6 +57,8 @@ async function resolveProductReviewEligibility(productId: number): Promise<{
   if (existing?.orderId) {
     return { existing, orderId: existing.orderId };
   }
+
+  const delivered = await listShopOrders({ status: "DELIVERED", limit: 50 });
 
   for (const summary of delivered.items) {
     const order: Order =
@@ -113,11 +112,48 @@ export function ShopProductPage() {
     enabled: Number.isFinite(productId),
   });
 
+  const myReviewsQuery = useQuery({
+    queryKey: queryKeys.shop.reviews.mine,
+    queryFn: getMyReviews,
+    enabled: isAuthenticated,
+  });
+
+  const existingFromMine = myReviewsQuery.data?.productReviews.find(
+    (review) => review.productId === productId,
+  );
+
   const eligibilityQuery = useQuery({
     queryKey: [...queryKeys.shop.reviews.mine, "eligibility", productId],
     queryFn: () => resolveProductReviewEligibility(productId),
-    enabled: isAuthenticated && Number.isFinite(productId),
+    enabled:
+      isAuthenticated &&
+      reviewOpen &&
+      Number.isFinite(productId) &&
+      !existingFromMine?.orderId,
   });
+
+  useEffect(() => {
+    if (!reviewOpen || !isAuthenticated) return;
+    if (existingFromMine?.orderId) return;
+    if (eligibilityQuery.isLoading || eligibilityQuery.isFetching) return;
+    if (!eligibilityQuery.isFetched) return;
+
+    const orderId = eligibilityQuery.data?.orderId ?? null;
+    if (!orderId && !eligibilityQuery.data?.existing) {
+      toast.error(
+        "Reviews are available after a delivered purchase of this product",
+      );
+      setReviewOpen(false);
+    }
+  }, [
+    reviewOpen,
+    isAuthenticated,
+    existingFromMine?.orderId,
+    eligibilityQuery.isLoading,
+    eligibilityQuery.isFetching,
+    eligibilityQuery.isFetched,
+    eligibilityQuery.data,
+  ]);
 
   const reviewMutation = useMutation({
     mutationFn: createProductReview,
@@ -161,9 +197,10 @@ export function ShopProductPage() {
   const reviewCount =
     product?.reviewCount ?? reviewsQuery.data?.meta.reviewCount ?? 0;
 
-  const existingReview = eligibilityQuery.data?.existing;
-  const eligibleOrderId = eligibilityQuery.data?.orderId ?? null;
-  const canWriteReview = Boolean(isAuthenticated && eligibleOrderId);
+  const existingReview =
+    existingFromMine ?? eligibilityQuery.data?.existing;
+  const eligibleOrderId =
+    existingReview?.orderId ?? eligibilityQuery.data?.orderId ?? null;
 
   async function buildCartLine(): Promise<Omit<CartItem, "quantity"> | null> {
     if (!product) return null;
@@ -296,9 +333,7 @@ export function ShopProductPage() {
         <div className="flex flex-col gap-7 lg:pt-2">
           <div>
             <p className="text-[11px] font-semibold tracking-[0.2em] text-[#9A8B7A] uppercase">
-              {product.subCategory.category.name}
-              <span className="mx-1.5 text-[#D9CBB8]">·</span>
-              {product.subCategory.name}
+              {formatProductTaxonomy(product)}
             </p>
             <h1 className="mt-3 text-[2rem] leading-tight font-semibold tracking-tight text-[#1F1610] sm:text-[2.5rem]">
               {product.name}
@@ -450,19 +485,19 @@ export function ShopProductPage() {
               <Star className="size-4" />
               Sign in to review
             </Button>
-          ) : eligibilityQuery.isLoading ? (
-            <Button variant="outline" disabled>
-              Checking eligibility...
-            </Button>
-          ) : canWriteReview ? (
-            <Button variant="outline" onClick={() => setReviewOpen(true)}>
-              <Star className="size-4" />
-              {existingReview ? "Edit your review" : "Write a review"}
-            </Button>
           ) : (
-            <p className="text-sm text-[#9A8B7A]">
-              Available after a delivered purchase of this product
-            </p>
+            <Button
+              variant="outline"
+              disabled={reviewOpen && eligibilityQuery.isLoading}
+              onClick={() => setReviewOpen(true)}
+            >
+              <Star className="size-4" />
+              {reviewOpen && eligibilityQuery.isLoading
+                ? "Checking eligibility..."
+                : existingReview
+                  ? "Edit your review"
+                  : "Write a review"}
+            </Button>
           )}
         </div>
 
@@ -552,7 +587,11 @@ export function ShopProductPage() {
         description="Reviews are only for products from your delivered orders."
         initialRating={existingReview?.rating ?? 0}
         initialComment={existingReview?.comment}
-        loading={reviewMutation.isPending}
+        loading={
+          reviewMutation.isPending ||
+          (reviewOpen &&
+            (eligibilityQuery.isLoading || eligibilityQuery.isFetching))
+        }
         confirmLabel={existingReview ? "Update review" : "Submit review"}
         onSubmit={async ({ rating, comment }) => {
           if (!eligibleOrderId) {

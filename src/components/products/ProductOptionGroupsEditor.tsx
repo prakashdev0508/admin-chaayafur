@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { RedirectSlugProductPicker } from "@/components/shared/RedirectSlugProductPicker";
 import { MAX_PRODUCT_CUSTOMIZATION_OPTIONS } from "@/lib/product-customization";
 import { parseMoney } from "@/lib/customization-pricing";
 import { formatCurrency } from "@/lib/format";
@@ -93,7 +94,14 @@ export function ProductOptionGroupsEditor({
     setActiveGroupKey(key);
     onChange([
       ...options,
-      { groupName: name, value: "", price: "0", image: "", isActive: true },
+      {
+        groupName: name,
+        value: "",
+        price: "0",
+        image: "",
+        isActive: true,
+        redirectSlug: "",
+      },
     ]);
     setNewGroupName("");
   };
@@ -124,7 +132,14 @@ export function ProductOptionGroupsEditor({
     }
     onChange([
       ...options,
-      { groupName, value: "", price: "0", image: "", isActive: true },
+      {
+        groupName,
+        value: "",
+        price: "0",
+        image: "",
+        isActive: true,
+        redirectSlug: "",
+      },
     ]);
   };
 
@@ -520,6 +535,11 @@ function OptionCard({
               ? `Unit price ${formatCurrency(totalPrice)} (base ${formatCurrency(basePrice)} + ${formatCurrency(adj)})`
               : `Unit price ${formatCurrency(totalPrice)} (base ${formatCurrency(basePrice)} − ${formatCurrency(Math.abs(adj))})`}
         </p>
+        <RedirectSlugProductPicker
+          slug={option.redirectSlug}
+          disabled={disabled}
+          onChange={(nextSlug) => onChange({ redirectSlug: nextSlug })}
+        />
         <div className="flex items-center justify-between gap-2">
           <label className="flex items-center gap-2 text-xs text-muted-foreground">
             <Switch

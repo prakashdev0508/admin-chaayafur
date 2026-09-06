@@ -2,6 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
   FolderTree,
   ImageIcon,
   Layers,
@@ -43,6 +47,29 @@ import type {
 } from "@/types/category";
 import { PERMISSIONS } from "@/lib/roles";
 
+function bySortOrder<T extends { id: number; sortOrder?: number }>(a: T, b: T) {
+  return (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.id - b.id;
+}
+
+function groupSubsByHeading(subs: SubCategoryTreeItem[]) {
+  const sorted = [...subs].sort(bySortOrder);
+  const groups: { heading: string; items: SubCategoryTreeItem[] }[] = [];
+  const indexByHeading = new Map<string, number>();
+
+  for (const sub of sorted) {
+    const heading = sub.heading?.trim() || "Other";
+    const existing = indexByHeading.get(heading);
+    if (existing == null) {
+      indexByHeading.set(heading, groups.length);
+      groups.push({ heading, items: [sub] });
+    } else {
+      groups[existing].items.push(sub);
+    }
+  }
+
+  return groups;
+}
+
 export function CategoryMasterPage() {
   const queryClient = useQueryClient();
   const { hasPermission } = usePermission();
@@ -62,6 +89,12 @@ export function CategoryMasterPage() {
     categoryId?: number;
   }>({ open: false });
   const [signatureOrderOpen, setSignatureOrderOpen] = useState(false);
+  const [reorderingCategoryIds, setReorderingCategoryIds] = useState<
+    number[] | null
+  >(null);
+  const [reorderingSubIds, setReorderingSubIds] = useState<number[] | null>(
+    null,
+  );
 
   const { data: tree, isLoading, isFetching, refetch, error } = useQuery({
     queryKey: queryKeys.categories.adminTree,
@@ -69,7 +102,10 @@ export function CategoryMasterPage() {
     enabled: canView,
   });
 
-  const categories = useMemo(() => tree ?? [], [tree]);
+  const categories = useMemo(
+    () => [...(tree ?? [])].sort(bySortOrder),
+    [tree],
+  );
 
   const filterQuery = query.trim().toLowerCase();
 
@@ -118,14 +154,121 @@ export function CategoryMasterPage() {
 
   const visibleSubs = useMemo(() => {
     if (!selected) return [];
-    if (!filterQuery || !selectedEntry) return selected.subCategories;
+    if (!filterQuery || !selectedEntry) {
+      return [...selected.subCategories].sort(bySortOrder);
+    }
     // Category name hit → show all subs; sub-only hit → show matching subs
-    if (selectedEntry.matchedByCategory) return selected.subCategories;
-    return selectedEntry.matchedSubs;
+    if (selectedEntry.matchedByCategory) {
+      return [...selected.subCategories].sort(bySortOrder);
+    }
+    return [...selectedEntry.matchedSubs].sort(bySortOrder);
   }, [selected, selectedEntry, filterQuery]);
+
+  const visibleSubGroups = useMemo(
+    () => groupSubsByHeading(visibleSubs),
+    [visibleSubs],
+  );
+
+  const canReorderCategories = canUpdate && !filterQuery;
+  const canReorderSubs = canUpdate && !filterQuery;
 
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: queryKeys.categories.all });
+
+  const categoryReorderMutation = useMutation({
+    mutationFn: async ({
+      current,
+      neighbor,
+    }: {
+      current: CategoryTreeItem;
+      neighbor: CategoryTreeItem;
+    }) => {
+      await Promise.all([
+        updateCategory(current.id, {
+          sortOrder: neighbor.sortOrder ?? 0,
+        }),
+        updateCategory(neighbor.id, {
+          sortOrder: current.sortOrder ?? 0,
+        }),
+      ]);
+      await invalidate();
+    },
+    onMutate: ({ current, neighbor }) => {
+      setReorderingCategoryIds([current.id, neighbor.id]);
+      queryClient.setQueryData<CategoryTreeItem[]>(
+        queryKeys.categories.adminTree,
+        (old) =>
+          (old ?? []).map((category) => {
+            if (category.id === current.id) {
+              return { ...category, sortOrder: neighbor.sortOrder ?? 0 };
+            }
+            if (category.id === neighbor.id) {
+              return { ...category, sortOrder: current.sortOrder ?? 0 };
+            }
+            return category;
+          }),
+      );
+    },
+    onError: (err) => {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to reorder categories",
+      );
+      void invalidate();
+    },
+    onSettled: () => {
+      setReorderingCategoryIds(null);
+    },
+  });
+
+  const subReorderMutation = useMutation({
+    mutationFn: async ({
+      current,
+      neighbor,
+    }: {
+      current: SubCategoryTreeItem;
+      neighbor: SubCategoryTreeItem;
+    }) => {
+      await Promise.all([
+        updateSubCategory(current.id, {
+          sortOrder: neighbor.sortOrder ?? 0,
+        }),
+        updateSubCategory(neighbor.id, {
+          sortOrder: current.sortOrder ?? 0,
+        }),
+      ]);
+      await invalidate();
+    },
+    onMutate: ({ current, neighbor }) => {
+      setReorderingSubIds([current.id, neighbor.id]);
+      queryClient.setQueryData<CategoryTreeItem[]>(
+        queryKeys.categories.adminTree,
+        (old) =>
+          (old ?? []).map((category) => ({
+            ...category,
+            subCategories: category.subCategories.map((sub) => {
+              if (sub.id === current.id) {
+                return { ...sub, sortOrder: neighbor.sortOrder ?? 0 };
+              }
+              if (sub.id === neighbor.id) {
+                return { ...sub, sortOrder: current.sortOrder ?? 0 };
+              }
+              return sub;
+            }),
+          })),
+      );
+    },
+    onError: (err) => {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "Failed to reorder sub-categories",
+      );
+      void invalidate();
+    },
+    onSettled: () => {
+      setReorderingSubIds(null);
+    },
+  });
 
   const categoryMutation = useMutation({
     mutationFn: async (payload: {
@@ -204,6 +347,7 @@ export function CategoryMasterPage() {
                       heading: saved.heading,
                       description: saved.description ?? null,
                       isActive: saved.isActive,
+                      sortOrder: saved.sortOrder ?? sub.sortOrder,
                       imageUrl: resolvedImageUrl ?? sub.imageUrl ?? null,
                     }
                   : sub,
@@ -221,6 +365,7 @@ export function CategoryMasterPage() {
             categoryId: saved.categoryId,
             productsCount: saved.productsCount ?? 0,
             isActive: saved.isActive ?? true,
+            sortOrder: saved.sortOrder,
             imageUrl: resolvedImageUrl ?? null,
           };
 
@@ -409,77 +554,148 @@ export function CategoryMasterPage() {
           ) : (
             <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
               <aside className="flex w-full shrink-0 flex-col border-b lg:h-full lg:w-80 lg:border-b-0 lg:border-r lg:overflow-hidden">
-                <div className="flex gap-2 overflow-x-auto p-3 lg:flex-1 lg:flex-col lg:gap-1 lg:overflow-x-hidden lg:overflow-y-auto lg:overscroll-contain lg:p-2">
+                <div
+                  className={cn(
+                    "flex gap-2 overflow-x-auto p-3 lg:flex-1 lg:flex-col lg:gap-1 lg:overflow-x-hidden lg:overflow-y-auto lg:overscroll-contain lg:p-2",
+                    categoryReorderMutation.isPending &&
+                      "pointer-events-none opacity-70",
+                  )}
+                >
                   {filtered.map(({ category, matchedSubs }) => {
                     const active = category.id === selectedId;
                     const isInactive = category.isActive === false;
+                    const sortedIndex = categories.findIndex(
+                      (c) => c.id === category.id,
+                    );
+                    const prev = sortedIndex > 0 ? categories[sortedIndex - 1] : null;
+                    const next =
+                      sortedIndex >= 0 && sortedIndex < categories.length - 1
+                        ? categories[sortedIndex + 1]
+                        : null;
+                    const rowBusy = reorderingCategoryIds?.includes(category.id);
+
                     return (
-                      <button
+                      <div
                         key={category.id}
-                        type="button"
-                        onClick={() => setSelectedId(category.id)}
                         className={cn(
-                          "flex min-w-52 shrink-0 flex-col gap-2 rounded-lg border p-2 text-left transition lg:w-full lg:min-w-0 lg:border-transparent",
+                          "flex min-w-52 shrink-0 items-stretch gap-1 rounded-lg border p-1 transition lg:w-full lg:min-w-0 lg:border-transparent",
                           active
                             ? "border-foreground/15 bg-muted/80 lg:border-transparent"
-                            : "border-border/60 bg-background hover:bg-muted/40 lg:border-transparent",
+                            : "border-border/60 bg-background lg:border-transparent",
                         )}
                       >
-                        <div className="flex items-center gap-3">
-                          <div className="relative size-12 shrink-0 overflow-hidden rounded-md bg-muted">
-                            {category.imageUrl ? (
-                              <img
-                                src={category.imageUrl}
-                                alt=""
-                                className="size-full object-cover"
-                              />
-                            ) : (
-                              <div className="flex size-full items-center justify-center text-muted-foreground/50">
-                                <ImageIcon className="size-4" />
-                              </div>
-                            )}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-1.5">
-                              <p className="min-w-0 truncate text-sm leading-tight font-medium">
-                                {category.name}
-                              </p>
-                              <StatusBadge
-                                variant={isInactive ? "warning" : "success"}
-                                className="h-5 shrink-0 px-1.5 text-[10px] leading-none"
-                              >
-                                {isInactive ? "Inactive" : "Active"}
-                              </StatusBadge>
-                            </div>
-                            <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
-                              <p className="truncate text-[11px] text-muted-foreground">
-                                {category.subCategories.length} sub
-                                {category.subCategories.length === 1 ? "" : "s"}
-                              </p>
-                              {category.isSignatureCollection ? (
-                                <span className="inline-flex h-5 shrink-0 items-center rounded-full bg-white px-2 text-[10px] font-medium text-foreground ring-1 ring-border">
-                                  Signature
-                                </span>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedId(category.id)}
+                          className={cn(
+                            "flex min-w-0 flex-1 flex-col gap-2 rounded-md p-1.5 text-left transition",
+                            !active && "hover:bg-muted/40",
+                          )}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="relative size-12 shrink-0 overflow-hidden rounded-md bg-muted">
+                              {category.imageUrl ? (
+                                <img
+                                  src={category.imageUrl}
+                                  alt=""
+                                  className="size-full object-cover"
+                                />
+                              ) : (
+                                <div className="flex size-full items-center justify-center text-muted-foreground/50">
+                                  <ImageIcon className="size-4" />
+                                </div>
+                              )}
+                              {rowBusy ? (
+                                <div className="absolute inset-0 flex items-center justify-center bg-background/60">
+                                  <Loader2 className="size-3.5 animate-spin" />
+                                </div>
                               ) : null}
                             </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5">
+                                <p className="min-w-0 truncate text-sm leading-tight font-medium">
+                                  {category.name}
+                                </p>
+                                <StatusBadge
+                                  variant={isInactive ? "warning" : "success"}
+                                  className="h-5 shrink-0 px-1.5 text-[10px] leading-none"
+                                >
+                                  {isInactive ? "Inactive" : "Active"}
+                                </StatusBadge>
+                              </div>
+                              <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+                                <p className="truncate text-[11px] text-muted-foreground">
+                                  {category.subCategories.length} sub
+                                  {category.subCategories.length === 1
+                                    ? ""
+                                    : "s"}
+                                </p>
+                                {category.isSignatureCollection ? (
+                                  <span className="inline-flex h-5 shrink-0 items-center rounded-full bg-white px-2 text-[10px] font-medium text-foreground ring-1 ring-border">
+                                    Signature
+                                  </span>
+                                ) : null}
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                        {matchedSubs.length > 0 ? (
-                          <ul className="space-y-1 border-t border-border/50 pt-2 pl-1">
-                            {matchedSubs.map((sub) => (
-                              <li
-                                key={sub.id}
-                                className="truncate text-[11px] text-muted-foreground"
-                              >
-                                <span className="text-foreground/80">
-                                  {sub.name}
-                                </span>
-                                <span className="font-mono"> · /{sub.slug}</span>
-                              </li>
-                            ))}
-                          </ul>
+                          {matchedSubs.length > 0 ? (
+                            <ul className="space-y-1 border-t border-border/50 pt-2 pl-1">
+                              {matchedSubs.map((sub) => (
+                                <li
+                                  key={sub.id}
+                                  className="truncate text-[11px] text-muted-foreground"
+                                >
+                                  <span className="text-foreground/80">
+                                    {sub.name}
+                                  </span>
+                                  <span className="font-mono">
+                                    {" "}
+                                    · /{sub.slug}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : null}
+                        </button>
+                        {canReorderCategories ? (
+                          <div className="flex shrink-0 flex-col justify-center gap-0.5 pr-0.5">
+                            <Button
+                              type="button"
+                              size="icon-sm"
+                              variant="ghost"
+                              className="size-7"
+                              disabled={!prev || categoryReorderMutation.isPending}
+                              aria-label={`Move ${category.name} up`}
+                              onClick={() => {
+                                if (!prev) return;
+                                categoryReorderMutation.mutate({
+                                  current: category,
+                                  neighbor: prev,
+                                });
+                              }}
+                            >
+                              <ChevronUp className="size-3.5" />
+                            </Button>
+                            <Button
+                              type="button"
+                              size="icon-sm"
+                              variant="ghost"
+                              className="size-7"
+                              disabled={!next || categoryReorderMutation.isPending}
+                              aria-label={`Move ${category.name} down`}
+                              onClick={() => {
+                                if (!next) return;
+                                categoryReorderMutation.mutate({
+                                  current: category,
+                                  neighbor: next,
+                                });
+                              }}
+                            >
+                              <ChevronDown className="size-3.5" />
+                            </Button>
+                          </div>
                         ) : null}
-                      </button>
+                      </div>
                     );
                   })}
                 </div>
@@ -673,78 +889,155 @@ export function CategoryMasterPage() {
                           />
                         </div>
                       ) : (
-                        <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                          {visibleSubs.map((sub) => (
-                            <li
-                              key={sub.id}
-                              className={cn(
-                                "overflow-hidden rounded-xl border bg-background transition",
-                                sub.isActive === false && "opacity-60",
-                              )}
-                            >
-                              <div className="relative aspect-4/3 bg-muted">
-                                {sub.imageUrl ? (
-                                  <img
-                                    src={sub.imageUrl}
-                                    alt=""
-                                    className="absolute inset-0 size-full object-cover"
-                                  />
-                                ) : (
-                                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 text-muted-foreground/60">
-                                    <ImageIcon className="size-7" />
-                                    <span className="text-xs">No image</span>
-                                  </div>
-                                )}
-                                <div className="absolute top-2.5 left-2.5">
-                                  <StatusBadge
-                                    variant={
-                                      sub.isActive === false
-                                        ? "warning"
-                                        : "success"
-                                    }
-                                    className="bg-background/95 shadow-sm"
-                                  >
-                                    {sub.isActive === false
-                                      ? "Inactive"
-                                      : "Active"}
-                                  </StatusBadge>
-                                </div>
-                              </div>
-                              <div className="flex flex-col gap-3 p-3.5">
-                                <div className="min-w-0">
-                                  <p className="truncate leading-tight font-medium">
-                                    {sub.name}
-                                  </p>
-                                  <p className="mt-0.5 truncate font-mono text-xs text-muted-foreground">
-                                    /{sub.slug}
-                                  </p>
-                                  {sub.heading ? (
-                                    <p className="mt-1.5 line-clamp-1 text-sm text-muted-foreground">
-                                      {sub.heading}
-                                    </p>
-                                  ) : null}
-                                </div>
-                                <div className="flex items-center justify-between gap-2 border-t pt-3">
-                                  <span className="text-sm text-muted-foreground tabular-nums">
-                                    {sub.productsCount ?? 0} products
-                                  </span>
-                                  {canUpdate ? (
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() =>
-                                        setSubDialog({ open: true, sub })
-                                      }
+                        <div
+                          className={cn(
+                            "space-y-6",
+                            subReorderMutation.isPending &&
+                              "pointer-events-none opacity-70",
+                          )}
+                        >
+                          {visibleSubGroups.map((group) => (
+                            <div key={group.heading} className="space-y-3">
+                              <h4 className="text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase">
+                                {group.heading}
+                              </h4>
+                              <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                                {group.items.map((sub, index) => {
+                                  const prev = index > 0 ? group.items[index - 1] : null;
+                                  const next =
+                                    index < group.items.length - 1
+                                      ? group.items[index + 1]
+                                      : null;
+                                  const rowBusy = reorderingSubIds?.includes(
+                                    sub.id,
+                                  );
+
+                                  return (
+                                    <li
+                                      key={sub.id}
+                                      className={cn(
+                                        "overflow-hidden rounded-xl border bg-background transition",
+                                        sub.isActive === false && "opacity-60",
+                                      )}
                                     >
-                                      <Pencil className="size-3.5" />
-                                      Edit
-                                    </Button>
-                                  ) : null}
-                                </div>
-                              </div>
-                            </li>
+                                      <div className="relative aspect-4/3 bg-muted">
+                                        {sub.imageUrl ? (
+                                          <img
+                                            src={sub.imageUrl}
+                                            alt=""
+                                            className="absolute inset-0 size-full object-cover"
+                                          />
+                                        ) : (
+                                          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 text-muted-foreground/60">
+                                            <ImageIcon className="size-7" />
+                                            <span className="text-xs">
+                                              No image
+                                            </span>
+                                          </div>
+                                        )}
+                                        <div className="absolute top-2.5 left-2.5">
+                                          <StatusBadge
+                                            variant={
+                                              sub.isActive === false
+                                                ? "warning"
+                                                : "success"
+                                            }
+                                            className="bg-background/95 shadow-sm"
+                                          >
+                                            {sub.isActive === false
+                                              ? "Inactive"
+                                              : "Active"}
+                                          </StatusBadge>
+                                        </div>
+                                        {rowBusy ? (
+                                          <div className="absolute inset-0 flex items-center justify-center bg-background/50">
+                                            <Loader2 className="size-5 animate-spin" />
+                                          </div>
+                                        ) : null}
+                                      </div>
+                                      <div className="flex flex-col gap-3 p-3.5">
+                                        <div className="min-w-0">
+                                          <p className="truncate leading-tight font-medium">
+                                            {sub.name}
+                                          </p>
+                                          <p className="mt-0.5 truncate font-mono text-xs text-muted-foreground">
+                                            /{sub.slug}
+                                          </p>
+                                        </div>
+                                        <div className="flex items-center justify-between gap-2 border-t pt-3">
+                                          <span className="text-sm text-muted-foreground tabular-nums">
+                                            {sub.productsCount ?? 0} products
+                                          </span>
+                                          <div className="flex items-center gap-1">
+                                            {canReorderSubs ? (
+                                              <>
+                                                <Button
+                                                  type="button"
+                                                  size="icon"
+                                                  variant="outline"
+                                                  className="size-8"
+                                                  disabled={
+                                                    !prev ||
+                                                    subReorderMutation.isPending
+                                                  }
+                                                  aria-label={`Move ${sub.name} left`}
+                                                  onClick={() => {
+                                                    if (!prev) return;
+                                                    subReorderMutation.mutate({
+                                                      current: sub,
+                                                      neighbor: prev,
+                                                    });
+                                                  }}
+                                                >
+                                                  <ChevronLeft className="size-3.5" />
+                                                </Button>
+                                                <Button
+                                                  type="button"
+                                                  size="icon"
+                                                  variant="outline"
+                                                  className="size-8"
+                                                  disabled={
+                                                    !next ||
+                                                    subReorderMutation.isPending
+                                                  }
+                                                  aria-label={`Move ${sub.name} right`}
+                                                  onClick={() => {
+                                                    if (!next) return;
+                                                    subReorderMutation.mutate({
+                                                      current: sub,
+                                                      neighbor: next,
+                                                    });
+                                                  }}
+                                                >
+                                                  <ChevronRight className="size-3.5" />
+                                                </Button>
+                                              </>
+                                            ) : null}
+                                            {canUpdate ? (
+                                              <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() =>
+                                                  setSubDialog({
+                                                    open: true,
+                                                    sub,
+                                                  })
+                                                }
+                                              >
+                                                <Pencil className="size-3.5" />
+                                                Edit
+                                              </Button>
+                                            ) : null}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </li>
+                                  );
+                                })}
+                              </ul>
+                            </div>
                           ))}
-                        </ul>
+                        </div>
                       )}
                     </div>
                   </div>

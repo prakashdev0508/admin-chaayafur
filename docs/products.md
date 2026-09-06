@@ -17,14 +17,15 @@ Create, update, and list furniture products.
 - Default list shows only **active** products (`isActive=true`)
 - **`price`** is the selling price (after discount) — used for cart, checkout, and filters
 - **`priceWithoutDiscount`** is optional compare-at / MRP; display-only, does not affect checkout
-- **`hsnCode`** is optional (4–8 digits); tax invoices use it when set, otherwise `INVOICE_HSN`
-- **Product-level customization pricing** — woods, polishes, and fabrics each carry a per-product `priceAdjustment` (default `0`). Products also have a free-form **`customization`** JSON array (`groupName`, `value`, `price`, `image`, `isActive`). Cart/checkout unit price = `base price + wood adj + polish adj + fabric adj + selected customization prices`. See [Product-level customization pricing](#product-level-customization-pricing)
+- **`hsnCode`** is optional (4–8 digits); tax invoices use it when set, otherwise `-`
+- **`warrantyMonths`** — optional integer warranty duration in months (e.g. `12`, `24`); send `null` on PATCH to clear
+- **Product-level customization pricing** — woods, polishes, and fabrics each carry a per-product `priceAdjustment` (default `0`). Products also have a free-form **`customization`** JSON array (`groupName`, `value`, `price`, `image`, `isActive`, `redirectSlug`). Cart/checkout unit price = `base price + wood adj + polish adj + fabric adj + selected customization prices`. See [Product-level customization pricing](#product-level-customization-pricing)
 - **`woods`** — product wood options with nested polishes and `priceAdjustment` (see [woods.md](./woods.md)); detail includes unavailable woods with `isAvailable: false`
 - **`polishes`** — product polish options (also nested under each wood); must belong to an assigned wood
 - **`fabrics`** — product fabric options with `priceAdjustment` (see [fabrics.md](./fabrics.md)); same availability pattern as woods; independent of wood
-- **`customization`** — admin-defined option list `{ groupName, value, price, image, isActive }[]`. Identity is `groupName` + `value` (unique per product). `isActive` defaults to `true`. Product **detail** returns inactive options too (`isActive` / `isAvailable`: `false`) so the storefront can show “currently not available”; they cannot be added to cart or checkout. Product **list** returns active options only. Omit on PATCH to leave unchanged; pass `[]` to clear. Max **50** options. Cart/checkout pick by `groupName` + `value` (at most one value per group); server resolves `price` / `image` from this array. Existing stored options without `isActive` are treated as active.
+- **`customization`** — admin-defined option list `{ groupName, value, price, image, isActive, redirectSlug }[]`. Identity is `groupName` + `value` (unique per product). `isActive` defaults to `true`. Optional **`redirectSlug`** is another product’s slug for storefront redirect when the option is clicked (must exist when set; empty string clears). Product **detail** returns inactive options too (`isActive` / `isAvailable`: `false`) so the storefront can show “currently not available”; they cannot be added to cart or checkout. Product **list** returns active options only. Omit on PATCH to leave unchanged; pass `[]` to clear. Max **50** options. Cart/checkout pick by `groupName` + `value` (at most one value per group); server resolves `price` / `image` from this array. Existing stored options without `isActive` are treated as active.
 - **Backfill** — `npm run backfill:product-customization` copies active wood / polish / fabric assignments into `customization` for products that still have an empty array (`--dry-run` supported). Polish `value` is the polish name only. Duplicate polish names on a product are skipped. Catalog join rows are not deleted. `npm run backfill:activate-customization` sets `isActive: true` on every stored customization option (`--dry-run` supported).
-- Products link to **`subCategoryId`** (not top-level `categoryId`)
+- Products link to **`categoryIds`** and **`subCategoryIds`** arrays (many-to-many; at least one of each on create). List filters still accept single `categoryId` / `subCategoryId` / slug query params
 - Public list responses are **cached** in Upstash Redis (60s default) and return `Cache-Control` headers for CDN edge caching
 - Cache is invalidated automatically when products, categories, or sub-categories are created or updated
 
@@ -130,12 +131,12 @@ Frontend should show only these assigned options and recompute the displayed pri
 
 Use a sub-category ID from [categories.md](./categories.md). Example after seed:
 
-| Parent | Sub-category | `subCategoryId` |
+| Taxonomy | Categories + sub-categories | `categoryIds[]`, `subCategoryIds[]` |
 |--------|--------------|-----------------|
 | Bedroom | Beds | `1` |
 | Living | Coffee Tables | (use `GET /sub-categories`) |
 
-> `subCategoryId` must reference a row in the `SubCategory` table.
+> Each ID in `categoryIds` / `subCategoryIds` must exist. Cross-listing is allowed (a subcategory’s parent need not be in `categoryIds`).
 
 ### Who can access?
 
@@ -206,7 +207,9 @@ Authorization: Bearer <accessToken>
   "price": 24999.99,
   "priceWithoutDiscount": 29999.99,
   "stock": 10,
-  "subCategoryId": 1,
+  "categoryIds": [1],
+  "subCategoryIds": [1],
+  "warrantyMonths": 12,
   "isActive": true,
   "isBestSeller": false,
   "isFeaturedProduct": true,
@@ -250,9 +253,11 @@ Authorization: Bearer <accessToken>
 | `description` | string | No | — |
 | `price` | number | Yes | Min `0`. **Selling price** (after discount). Used for cart, checkout, and filters. |
 | `priceWithoutDiscount` | number | No | Min `0`. Compare-at / MRP before discount. Optional; does not affect checkout. |
-| `hsnCode` | string | No | 4–8 digits. Optional GST HSN; invoices fall back to `INVOICE_HSN` when omitted. |
+| `hsnCode` | string | No | 4–8 digits. Optional GST HSN; invoices show `-` when omitted. |
 | `stock` | number | Yes | Min `0` |
-| `subCategoryId` | integer | Yes | Must exist in `SubCategory` table |
+| `categoryIds` | integer[] | Yes | At least one existing category ID |
+| `subCategoryIds` | integer[] | Yes | At least one existing sub-category ID |
+| `warrantyMonths` | integer | No | Warranty in months (≥ 1). `null` clears on update |
 | `isActive` | boolean | No | Default `true` |
 | `isBestSeller` | boolean | No | Default `false` — CMS merchandising tag |
 | `isFeaturedProduct` | boolean | No | Default `false` — CMS merchandising tag |
@@ -262,7 +267,7 @@ Authorization: Bearer <accessToken>
 | `woods` | array | No | `{ woodId, isActive?, priceAdjustment? }[]` — assign woods for this product. Pass `[]` to clear. `priceAdjustment` defaults to `0`. See [woods.md](./woods.md) |
 | `polishes` | array | No | `{ woodPolishId, isActive?, priceAdjustment? }[]` — assign polishes for this product. Each polish must belong to an assigned wood. Pass `[]` to clear. Defaults to `0` when omitted |
 | `fabrics` | array | No | `{ fabricId, isActive?, priceAdjustment? }[]` — assign fabrics for this product. Pass `[]` to clear. `priceAdjustment` defaults to `0`. See [fabrics.md](./fabrics.md) |
-| `customization` | array | No | `{ groupName, value, price, image?, isActive? }[]`. Max 50. Unique `groupName` + `value`. `price` may be negative (discount). `image` optional URL or `""`. `isActive` defaults to `true`. Omit on update to leave unchanged; `[]` clears. |
+| `customization` | array | No | `{ groupName, value, price, image?, isActive?, redirectSlug? }[]`. Max 50. Unique `groupName` + `value`. `price` may be negative (discount). `image` optional URL or `""`. `isActive` defaults to `true`. `redirectSlug` optional existing product slug (or `""`). Omit on update to leave unchanged; `[]` clears. |
 | `images` | array | No | Max 11 items. Upload files first via [uploads.md](./uploads.md); include `storageKey` from upload response |
 
 ### Success response `201`
@@ -288,8 +293,11 @@ Authorization: Bearer <accessToken>
       "Seats 6 people",
       "1-year warranty"
     ],
-    "subCategoryId": 1,
-    "subCategory": {
+    "categoryIds": [1],
+  "subCategoryIds": [1],
+  "warrantyMonths": 12,
+    "subCategories": [
+      {
       "id": 1,
       "name": "Beds",
       "slug": "beds",
@@ -300,7 +308,8 @@ Authorization: Bearer <accessToken>
         "name": "Bedroom",
         "slug": "bedroom"
       }
-    },
+    }
+    ],
     "images": [
       {
         "id": 10,
@@ -344,7 +353,9 @@ curl -X POST http://localhost:5000/api/v1/products \
     "slug": "oak-dining-table",
     "price": 24999.99,
     "stock": 10,
-    "subCategoryId": 1,
+    "categoryIds": [1],
+  "subCategoryIds": [1],
+  "warrantyMonths": 12,
     "productFeatures": ["Solid oak wood", "Seats 6 people"]
   }'
 ```
@@ -359,7 +370,7 @@ Two-step async flow (DB-backed queue on the EC2 worker). Full job APIs: [upload-
 
 1. **Stage images** — name files `{productSlug}__{sortOrder}.{jpg|jpeg|png|webp}` (e.g. `oak-dining-table__0.jpg`, `oak-dining-table__1.png`), zip them, upload: `POST /api/v1/products/bulk-upload/images` → returns `{ jobId }`. A single underscore also works — see [Image filename convention](#image-filename-convention)
 2. Poll `GET /api/v1/upload-jobs/:jobId` until `COMPLETED` / `COMPLETED_WITH_ERRORS`. Optionally inspect staged rows: `GET /api/v1/products/bulk-upload/staged-images?slug=oak-dining-table&unconsumed=true`
-3. Download the sample template: `GET /api/v1/products/bulk-upload/sample` (includes a `Lookups` sheet + dropdowns for `subCategoryId`, the boolean columns, and every wood / polish / fabric slot)
+3. Download the sample template: `GET /api/v1/products/bulk-upload/sample` (includes a `Lookups` sheet for categories / sub-categories, boolean columns, and every wood / polish / fabric slot)
 4. Fill one product per row (**no images column required**) and upload: `POST /api/v1/products/bulk-upload` → returns `{ jobId }`
 5. Poll the sheet job. When done, download the result workbook via `GET /api/v1/upload-jobs/:id/download/result` (columns include `imagesAttached` + `status`)
 
@@ -401,7 +412,9 @@ Header names are case-insensitive. Backend appends **`imagesAttached`** and **`s
 | `priceWithoutDiscount` | No | number |
 | `hsnCode` | No | 4–8 digit HSN (optional) |
 | `stock` | Yes | integer ≥ 0 |
-| `subCategoryId` | Yes | integer **or** dropdown label `12 - Living Room > Sofas` |
+| `categoryIds` | Yes | comma-separated IDs or lookup labels (`1,2` or `1 - Bedroom`) |
+| `subCategoryIds` | Yes | comma-separated IDs or lookup labels |
+| `warrantyMonths` | No | integer months (e.g. `12`) |
 | `isActive` | No | `true` / `false` (dropdown; default true) |
 | `isBestSeller` | No | `true` / `false` |
 | `isFeaturedProduct` | No | `true` / `false` |
@@ -569,7 +582,9 @@ Partial update. All body fields are optional.
 | `priceWithoutDiscount` | number | Min `0`. Compare-at / MRP before discount. |
 | `hsnCode` | string | Optional 4–8 digit HSN code. |
 | `stock` | number | Min `0` |
-| `subCategoryId` | integer | Must exist in `SubCategory` table |
+| `categoryIds` | integer[] | Replace all category associations (min 1 when provided) |
+| `subCategoryIds` | integer[] | Replace all sub-category associations (min 1 when provided) |
+| `warrantyMonths` | integer \| null | Months; `null` clears |
 | `isActive` | boolean | Set `false` to hide product |
 | `isBestSeller` | boolean | CMS tag |
 | `isFeaturedProduct` | boolean | CMS tag |
@@ -719,8 +734,11 @@ Same shape as the create/update response: `description`, full `images` array, `p
         "isAvailable": false
       }
     ],
-    "subCategoryId": 1,
-    "subCategory": {
+    "categoryIds": [1],
+  "subCategoryIds": [1],
+  "warrantyMonths": 12,
+    "subCategories": [
+      {
       "id": 1,
       "name": "Beds",
       "slug": "beds",
@@ -731,7 +749,8 @@ Same shape as the create/update response: `description`, full `images` array, `p
         "name": "Bedroom",
         "slug": "bedroom"
       }
-    },
+    }
+    ],
     "images": [
       {
         "id": 10,
@@ -846,7 +865,8 @@ Paginated product catalogue for the storefront. Defaults to **active** products 
 | `slug` | string | — | Exact match |
 | `minPrice` | number | — | `price >= minPrice` |
 | `maxPrice` | number | — | `price <= maxPrice` |
-| `subCategoryId` | integer | — | Filter by sub-category |
+| `subCategoryId` | integer | — | Filter products linked to this sub-category |
+| `categoryId` | integer | — | Filter products linked to this category |
 | `subCategorySlug` | string | — | Filter by sub-category slug (e.g. `beds`) |
 | `categoryId` | integer | — | Filter by parent category |
 | `categorySlug` | string | — | Filter by parent category slug (e.g. `bedroom`) |
@@ -873,10 +893,12 @@ GET /api/v1/products?minPrice=1000&maxPrice=50000&sortBy=price&sortOrder=asc
 
 | Field | Description |
 |-------|-------------|
-| `subCategoryId` | Sub-category ID |
+| `categoryIds` / `categories` | Associated category IDs and summaries |
+| `subCategoryIds` / `subCategories` | Associated sub-category IDs and summaries |
+| `warrantyMonths` | Warranty months (or `null`) |
 | `subCategory` | Nested sub-category + parent category |
 | `productFeatures` | Array of feature strings (empty array if none) |
-| `customization` | Free-form `{ groupName, value, price, image, isActive }[]` (list returns active only; empty array if none) |
+| `customization` | Free-form `{ groupName, value, price, image, isActive, redirectSlug }[]` (list returns active only; empty array if none) |
 | `woods` / `polishes` / `fabrics` | Assigned customizations with `priceAdjustment` (list returns available only) |
 | `isBestSeller` / `isFeaturedProduct` / `isMostPopular` / `isNewArrival` | CMS merchandising flags |
 | `primaryImage` | Lowest `sortOrder` image, or `null` |
@@ -902,7 +924,7 @@ curl http://localhost:5000/api/v1/sub-categories?categoryId=1 -H "Authorization:
 curl -X POST http://localhost:5000/api/v1/products \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"name":"Oak Table","slug":"oak-table","price":15000,"stock":5,"subCategoryId":1,"productFeatures":["Solid wood","Easy assembly"]}'
+  -d '{"name":"Oak Table","slug":"oak-table","price":15000,"stock":5,"categoryIds":[1],"subCategoryIds":[1],"warrantyMonths":12,"productFeatures":["Solid wood","Easy assembly"]}'
 
 # 3. List products in Bedroom category (public — no token)
 curl "http://localhost:5000/api/v1/products?categoryId=1"

@@ -66,7 +66,11 @@ const money: CSSProperties = {
 export function QuotationPreview({ draft, company }: QuotationPreviewProps) {
   const issued = formatQuoteBannerDate();
   const issuedAt = formatQuoteDateTime();
-  const totals = quotationTotals(draft.items);
+  const totals = quotationTotals(
+    draft.items,
+    draft.discountType,
+    draft.discountValue,
+  );
   const contact = contactLine(company);
 
   return (
@@ -507,9 +511,33 @@ export function QuotationPreview({ draft, company }: QuotationPreviewProps) {
           >
             <span>GST total</span>
             <span style={{ fontVariantNumeric: "tabular-nums" }}>
-              {formatQuoteRupees(totals.gst)}
+              {formatQuoteRupees(
+                totals.discountAmount > 0 ? totals.gstAfter : totals.gst,
+              )}
             </span>
           </div>
+          {totals.discountAmount > 0 ? (
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                gap: 32,
+                padding: "2px 0",
+                color: BODY,
+              }}
+            >
+              <span>
+                Discount
+                {draft.discountType === "PERCENTAGE" &&
+                draft.discountValue != null
+                  ? ` (${formatQuoteAmount(draft.discountValue)}%)`
+                  : ""}
+              </span>
+              <span style={{ fontVariantNumeric: "tabular-nums" }}>
+                −{formatQuoteRupees(totals.discountAmount)}
+              </span>
+            </div>
+          ) : null}
           <div
             style={{
               marginTop: 8,
@@ -524,7 +552,7 @@ export function QuotationPreview({ draft, company }: QuotationPreviewProps) {
           >
             <span>Total</span>
             <span style={{ fontVariantNumeric: "tabular-nums" }}>
-              {formatQuoteRupees(totals.inclusive)}
+              {formatQuoteRupees(totals.totalAfterDiscount)}
             </span>
           </div>
         </div>
