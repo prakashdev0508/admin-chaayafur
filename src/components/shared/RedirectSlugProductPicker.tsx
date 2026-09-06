@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Loader2, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { formatCurrency } from "@/lib/format";
 import { queryKeys } from "@/lib/query-keys";
 import { listProducts } from "@/services/products.service";
 import type { ProductListItem } from "@/types/product";
@@ -18,7 +19,10 @@ function useDebouncedValue<T>(value: T, delayMs: number) {
 
 type RedirectSlugProductPickerProps = {
   slug: string;
-  onChange: (slug: string) => void;
+  onChange: (next: {
+    slug: string;
+    product: ProductListItem | null;
+  }) => void;
   disabled?: boolean;
 };
 
@@ -72,13 +76,13 @@ export function RedirectSlugProductPicker({
 
   function selectProduct(product: ProductListItem) {
     setPicked(product);
-    onChange(product.slug);
+    onChange({ slug: product.slug, product });
     setSearch("");
   }
 
   function clear() {
     setPicked(null);
-    onChange("");
+    onChange({ slug: "", product: null });
     setSearch("");
   }
 
@@ -111,6 +115,9 @@ export function RedirectSlugProductPicker({
                 </p>
                 <p className="truncate font-mono text-[10px] text-muted-foreground">
                   {trimmedSlug}
+                  {resolved
+                    ? ` · ${formatCurrency(resolved.price)}`
+                    : ""}
                 </p>
               </>
             )}
@@ -186,7 +193,7 @@ export function RedirectSlugProductPicker({
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-xs font-medium">{product.name}</p>
                       <p className="truncate font-mono text-[10px] text-muted-foreground">
-                        {product.slug}
+                        {product.slug} · {formatCurrency(product.price)}
                       </p>
                     </div>
                   </button>
