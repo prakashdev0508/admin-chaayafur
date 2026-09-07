@@ -59,6 +59,19 @@ export function downloadProductBulkUploadSample() {
   return apiBlobRequest("/products/bulk-upload/sample");
 }
 
+/**
+ * Admin catalog Excel export (`products-export.xlsx`).
+ * Same filters as the product list; omit `isActive` to include active + inactive.
+ * @see docs/products.md — GET /api/v1/admin/products/export
+ */
+export function exportProducts(
+  params: Omit<ListProductsParams, "page" | "limit"> = {},
+) {
+  return apiBlobRequest(
+    `/admin/products/export${buildQueryString(params)}`,
+  );
+}
+
 /** Enqueues a BULK_PRODUCT_UPLOAD job. Poll GET /upload-jobs/:jobId. */
 export function bulkUploadProducts(file: File) {
   const formData = new FormData();

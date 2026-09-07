@@ -1,6 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { Filter, FileSpreadsheet, Loader2, Plus, RefreshCw, Upload } from "lucide-react";
+import {
+  Download,
+  Filter,
+  FileSpreadsheet,
+  Loader2,
+  Plus,
+  RefreshCw,
+  Upload,
+} from "lucide-react";
+import { toast } from "sonner";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/data-table/data-table";
@@ -14,9 +23,15 @@ import {
 } from "@/components/products/ProductFilterSheet";
 import { usePermission } from "@/hooks/usePermission";
 import { ApiError } from "@/lib/api";
+import { triggerBrowserDownload } from "@/lib/download";
 import { getStockStatus } from "@/lib/product-utils";
+import { PERMISSIONS } from "@/lib/roles";
 import { fetchCategoriesTree } from "@/services/categories.service";
-import { listProducts, updateProduct } from "@/services/products.service";
+import {
+  exportProducts,
+  listProducts,
+  updateProduct,
+} from "@/services/products.service";
 import type { CategoryTreeItem } from "@/types/category";
 import type {
   ListProductsParams,
@@ -25,7 +40,6 @@ import type {
   ProductSortBy,
   SortOrder,
 } from "@/types/product";
-import { PERMISSIONS } from "@/lib/roles";
 
 const VISIBILITY_VALUES = new Set(["all", "active", "inactive"]);
 const STOCK_VALUES = new Set(["all", "in_stock", "low_stock", "out_of_stock"]);
@@ -209,6 +223,19 @@ function buildBaseParams(
   return params;
 }
 
+/** Export query mirrors list filters; omit isActive when visibility is “all”. */
+function buildExportParams(
+  filters: ProductFilters,
+  categoryId?: number,
+): Omit<ListProductsParams, "page" | "limit"> {
+  const params: Omit<ListProductsParams, "page" | "limit"> = {
+    ...buildBaseParams(filters, categoryId),
+  };
+  if (filters.active === "active") params.isActive = true;
+  if (filters.active === "inactive") params.isActive = false;
+  return params;
+}
+
 function removeFilter(
   filters: ProductFilters,
   key: keyof ProductFilters,
@@ -222,12 +249,14 @@ function removeFilter(
 
 export function ProductListPage() {
   const { hasPermission } = usePermission();
+  const canView = hasPermission(PERMISSIONS.VIEW_PRODUCTS);
   const canCreate = hasPermission(PERMISSIONS.CREATE_PRODUCTS);
   const canUpdate = hasPermission(PERMISSIONS.UPDATE_PRODUCTS);
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [filterOpen, setFilterOpen] = useState(false);
   const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [appliedFilters, setAppliedFilters] = useState<ProductFilters>(() =>
     filtersFromSearchParams(searchParams),
   );
@@ -398,6 +427,39 @@ export function ProductListPage() {
     syncUrl(appliedFilters, 0, size);
   };
 
+  async function handleExport() {
+    if (!isCategoryFilterReady) return;
+    setExporting(true);
+    try {
+      const { blob } = await exportProducts(
+        buildExportParams(appliedFilters, categoryId),
+      );
+      const now = new Date();
+      const pad = (n: number) => String(n).padStart(2, "0");
+      const timestamp = [
+        now.getFullYear(),
+        pad(now.getMonth() + 1),
+        pad(now.getDate()),
+        "_",
+        pad(now.getHours()),
+        pad(now.getMinutes()),
+        pad(now.getSeconds()),
+      ].join("");
+      triggerBrowserDownload(blob, `products_export_${timestamp}.xlsx`);
+      toast.success("Products exported");
+    } catch (err) {
+      toast.error(
+        err instanceof ApiError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : "Export failed",
+      );
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
@@ -425,6 +487,20 @@ export function ProductListPage() {
                 </span>
               )}
             </Button>
+            {canView && (
+              <Button
+                variant="outline"
+                disabled={exporting || !isCategoryFilterReady}
+                onClick={() => void handleExport()}
+              >
+                {exporting ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Download className="size-4" />
+                )}
+                Export Excel
+              </Button>
+            )}
             {canCreate && (
               <>
                 <Button
