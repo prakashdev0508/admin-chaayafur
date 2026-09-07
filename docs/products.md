@@ -12,6 +12,7 @@ Create, update, and list furniture products.
 - **Product images** — upload via [uploads.md](./uploads.md) (Cloudflare R2), then attach URLs in product create/update (max **11** per product)
 - **`productFeatures`** — optional array of feature strings (e.g. `"Solid oak wood"`, `"1-year warranty"`) for product detail bullets; max **10** items, 200 chars each
 - **Bulk Excel upload** — stage images via ZIP (`{productSlug}__{sortOrder}.{ext}`), download a sample template with dropdowns, then enqueue an Excel job that matches staged images by slug (see [Bulk upload](#bulk-upload) and [upload-jobs.md](./upload-jobs.md))
+- **Catalog Excel export** — `GET /admin/products/export` downloads a full products workbook (core fields, taxonomy, woods/polishes/fabrics, customization JSON, images). Requires `view-products` (see [Export products](#get-apiv1adminproductsexport))
 - **CMS tags** — optional booleans `isBestSeller`, `isFeaturedProduct`, `isMostPopular`, `isNewArrival` for storefront sections; filter with `GET /products?tag=isFeaturedProduct`, or assign via `PATCH /admin/cms/products/:id/tags` (see [home.md](./home.md))
 - Aggregated home sections: [home.md](./home.md) (`GET /home`)
 - Default list shows only **active** products (`isActive=true`)
@@ -25,7 +26,7 @@ Create, update, and list furniture products.
 - **`fabrics`** — product fabric options with `priceAdjustment` (see [fabrics.md](./fabrics.md)); same availability pattern as woods; independent of wood
 - **`customization`** — admin-defined option list `{ groupName, value, price, image, isActive, redirectSlug }[]`. Identity is `groupName` + `value` (unique per product). `isActive` defaults to `true`. Optional **`redirectSlug`** is another product’s slug for storefront redirect when the option is clicked (must exist when set; empty string clears). Product **detail** returns inactive options too (`isActive` / `isAvailable`: `false`) so the storefront can show “currently not available”; they cannot be added to cart or checkout. Product **list** returns active options only. Omit on PATCH to leave unchanged; pass `[]` to clear. Max **50** options. Cart/checkout pick by `groupName` + `value` (at most one value per group); server resolves `price` / `image` from this array. Existing stored options without `isActive` are treated as active.
 - **Backfill** — `npm run backfill:product-customization` copies active wood / polish / fabric assignments into `customization` for products that still have an empty array (`--dry-run` supported). Polish `value` is the polish name only. Duplicate polish names on a product are skipped. Catalog join rows are not deleted. `npm run backfill:activate-customization` sets `isActive: true` on every stored customization option (`--dry-run` supported).
-- Products link to **`categoryIds`** and **`subCategoryIds`** arrays (many-to-many; at least one of each on create). List filters still accept single `categoryId` / `subCategoryId` / slug query params
+- Products link to **`categoryIds`** and **`subCategoryIds`** arrays (many-to-many; at least one of each on create). List filters still accept single `categoryId` / `subCategoryId` / slug query params. Responses also include backward-compatible singular `subCategory` / `subCategoryId` (primary / filter-matched)
 - Public list responses are **cached** in Upstash Redis (60s default) and return `Cache-Control` headers for CDN edge caching
 - Cache is invalidated automatically when products, categories, or sub-categories are created or updated
 
@@ -153,6 +154,7 @@ Use a sub-category ID from [categories.md](./categories.md). Example after seed:
 | `GET /upload-jobs/:id/download/result` | `view-products` | Yes | Yes | Yes |
 | `PATCH /products/:id` | `update-products` | Yes | Yes | No |
 | `PATCH /admin/cms/products/:id/tags` | `update-products` | Yes | Yes | No |
+| `GET /admin/products/export` | `view-products` | Yes | Yes | Yes |
 | `GET /admin/products/:id` | `view-products` | Yes | Yes | Yes |
 | `POST /uploads/product-images` | `create-products` or `update-products` | Yes | Yes | No |
 | `GET /products` | **Public** | — | — | — |
@@ -176,6 +178,7 @@ Use a sub-category ID from [categories.md](./categories.md). Example after seed:
 | `GET` | `/api/v1/upload-jobs/:id/download/uploaded` | `view-products` | `200` |
 | `GET` | `/api/v1/upload-jobs/:id/download/result` | `view-products` | `200` |
 | `PATCH` | `/api/v1/products/:id` | `update-products` | `200` |
+| `GET` | `/api/v1/admin/products/export` | `view-products` | `200` |
 | `GET` | `/api/v1/admin/products/:id` | `view-products` | `200` |
 | `GET` | `/api/v1/products` | **Public** | `200` |
 | `GET` | `/api/v1/products/filters` | **Public** | `200` |
@@ -623,6 +626,38 @@ curl -X PATCH http://localhost:5000/api/v1/products/1 \
 
 ---
 
+## GET /api/v1/admin/products/export
+
+| | |
+|---|---|
+| **Auth** | Bearer token + `view-products` |
+| **Status** | `200` (Excel download) / `413` if over `REPORT_EXPORT_MAX_ROWS` (default 50 000) |
+
+Downloads `products-export.xlsx` with one row per product and full catalog fields:
+
+- Core: id, name, slug, description, price, MRP, stock, active, CMS flags, HSN, warranty, features, timestamps
+- Taxonomy: category / sub-category IDs, names, slugs (pipe-separated)
+- Woods / polishes / fabrics: `id:name:…:priceAdj:active` (pipe-separated assignments)
+- `customization` as JSON
+- Images as `sortOrder:url:altText` (pipe-separated)
+
+### Query (all optional)
+
+Same filters as the product list (`name`, `slug`, `categoryId` / `categorySlug`, `subCategoryId` / `subCategorySlug`, `minPrice` / `maxPrice`, `tag`, `sortBy`, `sortOrder`). **`isActive` is not defaulted** — omit it to export active and inactive; pass `true` or `false` to filter.
+
+### cURL
+
+```bash
+curl -OJ "http://localhost:5000/api/v1/admin/products/export" \
+  -H "Authorization: Bearer $TOKEN"
+
+# Active only
+curl -OJ "http://localhost:5000/api/v1/admin/products/export?isActive=true" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+---
+
 ## GET /api/v1/admin/products/:id
 
 | | |
@@ -866,10 +901,11 @@ Paginated product catalogue for the storefront. Defaults to **active** products 
 | `minPrice` | number | — | `price >= minPrice` |
 | `maxPrice` | number | — | `price <= maxPrice` |
 | `subCategoryId` | integer | — | Filter products linked to this sub-category |
-| `categoryId` | integer | — | Filter products linked to this category |
 | `subCategorySlug` | string | — | Filter by sub-category slug (e.g. `beds`) |
-| `categoryId` | integer | — | Filter by parent category |
+| `categoryId` | integer | — | Filter by parent category (via `ProductCategory` when used alone) |
 | `categorySlug` | string | — | Filter by parent category slug (e.g. `bedroom`) |
+
+When **both** a category and subcategory filter are sent (typical storefront tree URL), matching is done through the subcategory’s parent category — a separate `ProductCategory` row is not required. Category-only filters still use `ProductCategory`.
 | `isActive` | boolean | `true` | Use `false` for hidden products |
 | `tag` | string | — | CMS tag filter: `isBestSeller` \| `isFeaturedProduct` \| `isMostPopular` \| `isNewArrival` |
 | `page` | number | `1` | Page number |
@@ -895,8 +931,8 @@ GET /api/v1/products?minPrice=1000&maxPrice=50000&sortBy=price&sortOrder=asc
 |-------|-------------|
 | `categoryIds` / `categories` | Associated category IDs and summaries |
 | `subCategoryIds` / `subCategories` | Associated sub-category IDs and summaries |
+| `subCategoryId` / `subCategory` | **Primary** subcategory for storefront compatibility. On list requests, prefers the subcategory matching `subCategorySlug` / `subCategoryId` (then category filter, then first by name). Nested `subCategory.category` is the parent of that primary subcategory. |
 | `warrantyMonths` | Warranty months (or `null`) |
-| `subCategory` | Nested sub-category + parent category |
 | `productFeatures` | Array of feature strings (empty array if none) |
 | `customization` | Free-form `{ groupName, value, price, image, isActive, redirectSlug }[]` (list returns active only; empty array if none) |
 | `woods` / `polishes` / `fabrics` | Assigned customizations with `priceAdjustment` (list returns available only) |
