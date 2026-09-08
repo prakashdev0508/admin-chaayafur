@@ -1,4 +1,5 @@
-import { ChevronsUpDown, X } from "lucide-react";
+import { useMemo, useState } from "react";
+import { ChevronsUpDown, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -8,6 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 export type MultiSelectOption = {
@@ -26,6 +28,9 @@ type MultiSelectProps = {
   /** Optional section label inside the menu */
   menuLabel?: string;
   emptyMessage?: string;
+  /** Show a filter field at the top of the menu */
+  searchable?: boolean;
+  searchPlaceholder?: string;
 };
 
 export function MultiSelect({
@@ -37,11 +42,23 @@ export function MultiSelect({
   className,
   menuLabel,
   emptyMessage = "No options available",
+  searchable = false,
+  searchPlaceholder = "Search…",
 }: MultiSelectProps) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
   const selectedSet = new Set(value);
   const selectedOptions = options.filter((option) =>
     selectedSet.has(option.value),
   );
+
+  const filteredOptions = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return options;
+    return options.filter((option) =>
+      option.label.toLowerCase().includes(query),
+    );
+  }, [options, search]);
 
   const toggle = (optionValue: string, checked: boolean) => {
     const next = new Set(selectedSet);
@@ -67,7 +84,13 @@ export function MultiSelect({
             .join(", ")} +${selectedOptions.length - 2}`;
 
   return (
-    <DropdownMenu>
+    <DropdownMenu
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) setSearch("");
+      }}
+    >
       <DropdownMenuTrigger
         disabled={disabled}
         render={
@@ -110,31 +133,57 @@ export function MultiSelect({
           </Button>
         }
       />
-      <DropdownMenuContent align="start" className="w-(--anchor-width) min-w-56">
+      <DropdownMenuContent
+        align="start"
+        className="w-(--anchor-width) min-w-56 p-0"
+      >
         {menuLabel ? (
-          <>
+          <div className="px-1 pt-1">
             <DropdownMenuLabel>{menuLabel}</DropdownMenuLabel>
             <DropdownMenuSeparator />
-          </>
+          </div>
         ) : null}
-        {options.length === 0 ? (
-          <p className="px-2 py-3 text-sm text-muted-foreground">
-            {emptyMessage}
-          </p>
-        ) : (
-          options.map((option) => (
-            <DropdownMenuCheckboxItem
-              key={option.value}
-              checked={selectedSet.has(option.value)}
-              disabled={option.disabled}
-              onCheckedChange={(checked) =>
-                toggle(option.value, Boolean(checked))
-              }
-            >
-              {option.label}
-            </DropdownMenuCheckboxItem>
-          ))
-        )}
+        {searchable ? (
+          <div className="sticky top-0 z-10 border-b bg-popover p-2">
+            <div className="relative">
+              <Search className="pointer-events-none absolute top-2.5 left-2.5 size-3.5 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder={searchPlaceholder}
+                className="h-9 pl-8"
+                autoComplete="off"
+                aria-label={searchPlaceholder}
+                onKeyDown={(event) => event.stopPropagation()}
+                onClick={(event) => event.stopPropagation()}
+              />
+            </div>
+          </div>
+        ) : null}
+        <div className="max-h-64 overflow-y-auto p-1">
+          {options.length === 0 ? (
+            <p className="px-2 py-3 text-sm text-muted-foreground">
+              {emptyMessage}
+            </p>
+          ) : filteredOptions.length === 0 ? (
+            <p className="px-2 py-3 text-sm text-muted-foreground">
+              No matches for “{search.trim()}”
+            </p>
+          ) : (
+            filteredOptions.map((option) => (
+              <DropdownMenuCheckboxItem
+                key={option.value}
+                checked={selectedSet.has(option.value)}
+                disabled={option.disabled}
+                onCheckedChange={(checked) =>
+                  toggle(option.value, Boolean(checked))
+                }
+              >
+                {option.label}
+              </DropdownMenuCheckboxItem>
+            ))
+          )}
+        </div>
       </DropdownMenuContent>
     </DropdownMenu>
   );
