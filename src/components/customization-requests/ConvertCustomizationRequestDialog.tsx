@@ -63,21 +63,26 @@ export function ConvertCustomizationRequestDialog({
     [categoriesTree],
   );
 
-  const selectedCategoryIdSet = useMemo(
-    () => new Set(categoryIds),
-    [categoryIds],
+  const subCategoryOptions = useMemo(
+    () =>
+      categoriesTree.flatMap((category) =>
+        category.subCategories.map((sub) => ({
+          value: String(sub.id),
+          label: `${category.name} · ${sub.name}`,
+        })),
+      ),
+    [categoriesTree],
   );
 
-  const subCategoryOptions = useMemo(() => {
-    if (selectedCategoryIdSet.size === 0) return [];
-    return categoriesTree.flatMap((category) => {
-      if (!selectedCategoryIdSet.has(String(category.id))) return [];
-      return category.subCategories.map((sub) => ({
-        value: String(sub.id),
-        label: `${category.name} · ${sub.name}`,
-      }));
-    });
-  }, [categoriesTree, selectedCategoryIdSet]);
+  const subIdToCategoryId = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const category of categoriesTree) {
+      for (const sub of category.subCategories) {
+        map.set(String(sub.id), String(category.id));
+      }
+    }
+    return map;
+  }, [categoriesTree]);
 
   useEffect(() => {
     if (!open) return;
@@ -103,6 +108,18 @@ export function ConvertCustomizationRequestDialog({
     );
     setCategoryIds(nextCategoryIds);
     setSubCategoryIds((prev) => prev.filter((id) => allowedSubs.has(id)));
+  };
+
+  const handleSubCategoryIdsChange = (nextSubCategoryIds: string[]) => {
+    setSubCategoryIds(nextSubCategoryIds);
+    setCategoryIds((prev) => {
+      const next = new Set(prev);
+      for (const subId of nextSubCategoryIds) {
+        const categoryId = subIdToCategoryId.get(subId);
+        if (categoryId) next.add(categoryId);
+      }
+      return [...next];
+    });
   };
 
   async function handleSubmit() {
@@ -194,6 +211,8 @@ export function ConvertCustomizationRequestDialog({
               options={categoryOptions}
               value={categoryIds}
               onChange={handleCategoryIdsChange}
+              searchable
+              searchPlaceholder="Search categories…"
               placeholder={
                 categoriesQuery.isLoading
                   ? "Loading categories…"
@@ -209,21 +228,20 @@ export function ConvertCustomizationRequestDialog({
             <MultiSelect
               options={subCategoryOptions}
               value={subCategoryIds}
-              onChange={setSubCategoryIds}
+              onChange={handleSubCategoryIdsChange}
+              searchable
+              searchPlaceholder="Search sub-categories…"
               placeholder={
-                categoryIds.length === 0
-                  ? "Select categories first"
+                categoriesQuery.isLoading
+                  ? "Loading sub-categories…"
                   : "Select sub-categories"
               }
-              disabled={
-                categoryIds.length === 0 ||
-                categoriesQuery.isLoading ||
-                loading
-              }
-              emptyMessage="No sub-categories under the selected categories"
+              disabled={categoriesQuery.isLoading || loading}
+              emptyMessage="No sub-categories found"
             />
             <p className="text-xs text-muted-foreground">
-              Only sub-categories from the selected categories are listed.
+              All sub-categories are listed. Selecting one adds its category
+              automatically.
             </p>
           </div>
 

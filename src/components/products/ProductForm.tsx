@@ -114,29 +114,29 @@ export function ProductForm({
     [categoriesTree],
   );
 
-  const selectedCategoryIdSet = useMemo(
-    () => new Set(values.categoryIds),
-    [values.categoryIds],
+  const subCategoryOptions = useMemo(
+    () =>
+      categoriesTree.flatMap((category) =>
+        category.subCategories.map((sub) => ({
+          value: String(sub.id),
+          label:
+            sub.isActive === false
+              ? `${category.name} · ${sub.name} (Inactive)`
+              : `${category.name} · ${sub.name}`,
+        })),
+      ),
+    [categoriesTree],
   );
 
-  const subCategoryOptions = useMemo(() => {
-    if (selectedCategoryIdSet.size === 0) return [];
-    return categoriesTree.flatMap((category) => {
-      if (!selectedCategoryIdSet.has(String(category.id))) return [];
-      return category.subCategories.map((sub) => ({
-        value: String(sub.id),
-        label:
-          sub.isActive === false
-            ? `${category.name} · ${sub.name} (Inactive)`
-            : `${category.name} · ${sub.name}`,
-      }));
-    });
-  }, [categoriesTree, selectedCategoryIdSet]);
-
-  const allowedSubCategoryIds = useMemo(
-    () => new Set(subCategoryOptions.map((option) => option.value)),
-    [subCategoryOptions],
-  );
+  const subIdToCategoryId = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const category of categoriesTree) {
+      for (const sub of category.subCategories) {
+        map.set(String(sub.id), String(category.id));
+      }
+    }
+    return map;
+  }, [categoriesTree]);
 
   const handleCategoryIdsChange = (nextCategoryIds: string[]) => {
     const nextSet = new Set(nextCategoryIds);
@@ -155,10 +155,18 @@ export function ProductForm({
   };
 
   const handleSubCategoryIdsChange = (nextSubCategoryIds: string[]) => {
-    updateField(
-      "subCategoryIds",
-      nextSubCategoryIds.filter((id) => allowedSubCategoryIds.has(id)),
-    );
+    setValues((prev) => {
+      const nextCategoryIds = new Set(prev.categoryIds);
+      for (const subId of nextSubCategoryIds) {
+        const categoryId = subIdToCategoryId.get(subId);
+        if (categoryId) nextCategoryIds.add(categoryId);
+      }
+      return {
+        ...prev,
+        subCategoryIds: nextSubCategoryIds,
+        categoryIds: [...nextCategoryIds],
+      };
+    });
   };
 
   const handleNameBlur = () => {
@@ -331,6 +339,8 @@ export function ProductForm({
                   options={categoryOptions}
                   value={values.categoryIds}
                   onChange={handleCategoryIdsChange}
+                  searchable
+                  searchPlaceholder="Search categories…"
                   placeholder={
                     categoriesQuery.isLoading
                       ? "Loading categories…"
@@ -345,8 +355,8 @@ export function ProductForm({
                   </p>
                 ) : (
                   <p className="text-xs text-muted-foreground">
-                    Select one or more categories. Sub-categories below are
-                    limited to these selections.
+                    Select one or more categories. Choosing a sub-category below
+                    also selects its parent category.
                   </p>
                 )}
               </div>
@@ -356,20 +366,19 @@ export function ProductForm({
                   options={subCategoryOptions}
                   value={values.subCategoryIds}
                   onChange={handleSubCategoryIdsChange}
+                  searchable
+                  searchPlaceholder="Search sub-categories…"
                   placeholder={
-                    values.categoryIds.length === 0
-                      ? "Select categories first"
+                    categoriesQuery.isLoading
+                      ? "Loading sub-categories…"
                       : "Select sub-categories"
                   }
-                  disabled={
-                    values.categoryIds.length === 0 ||
-                    categoriesQuery.isLoading ||
-                    isSubmitting
-                  }
-                  emptyMessage="No sub-categories under the selected categories"
+                  disabled={categoriesQuery.isLoading || isSubmitting}
+                  emptyMessage="No sub-categories found"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Only sub-categories from the selected categories are listed.
+                  All sub-categories are listed. Selecting one adds its category
+                  automatically.
                 </p>
               </div>
             </div>
