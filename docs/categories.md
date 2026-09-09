@@ -20,7 +20,37 @@ Category (top-level)  ←→  Product  ←→  SubCategory
 - **`sortOrder`** — display order for **all** categories and sub-categories (lower first). Lists and trees always sort by `sortOrder ASC`, then `id ASC` (same pattern as home banners). Set via create/PATCH; auto-assigned on create when omitted (categories: global max+1; sub-categories: max+1 within parent category)
 - **Category image** — optional single image via [uploads.md](./uploads.md) (`POST /uploads/category-images`), then attach on create/update
 - **Sub-category image** — optional single image via [uploads.md](./uploads.md) (`POST /uploads/sub-category-images`), then attach on create/update
-- **No delete endpoints** — update records as needed; set `isActive: false` to deactivate
+- **Delete** — `DELETE /categories/:id` and `DELETE /sub-categories/:id` permanently remove a row when **no products** are attached (active or inactive). Returns `409` if any product link exists. Prefer `isActive: false` to hide without deleting.
+
+### Sync catalog from JSON (slug merge)
+
+Use when production already has some categories/subcategories and you need to add missing ones from a fuller catalog without overwriting existing rows (except `sortOrder`).
+
+1. Point `DATABASE_URL` at the **source** DB and export:
+
+```bash
+npm run sync:categories -- --export
+```
+
+Writes [`public/categories-subcategories.json`](../public/categories-subcategories.json).
+
+2. Point `DATABASE_URL` at **production** and sync:
+
+```bash
+npm run sync:categories -- --dry-run   # simulate
+npm run sync:categories                # apply
+```
+
+**Rules:** match by `slug`. Existing slug → update `sortOrder` only. Missing slug → insert (subcategories resolve parent by **category slug**). Rows only in production are left untouched. No deletes.
+
+### Cleanup empty categories / subcategories
+
+Permanently deletes **inactive** subcategories with no product links, then **inactive** categories with no product links and no active/product-linked subcategories. Active empty rows are left alone.
+
+```bash
+npm run cleanup:empty-categories -- --dry-run
+npm run cleanup:empty-categories
+```
 
 ### Who can access?
 
@@ -32,12 +62,14 @@ Category (top-level)  ←→  Product  ←→  SubCategory
 | `GET /admin/categories/tree` | `view-categories` | Yes | Yes | Yes |
 | `GET /categories/:id` | `view-categories` | Yes | Yes | Yes |
 | `PATCH /categories/:id` | `update-categories` | Yes | Yes | No |
+| `DELETE /categories/:id` | `delete-categories` | Yes | Yes | No |
 | `POST /uploads/category-images` | `create-categories` **or** `update-categories` | Yes | Yes | No |
 | `POST /uploads/sub-category-images` | `create-categories` **or** `update-categories` | Yes | Yes | No |
 | `POST /sub-categories` | `create-categories` | Yes | Yes | No |
 | `GET /sub-categories` | `view-categories` | Yes | Yes | Yes |
 | `GET /sub-categories/:id` | `view-categories` | Yes | Yes | Yes |
 | `PATCH /sub-categories/:id` | `update-categories` | Yes | Yes | No |
+| `DELETE /sub-categories/:id` | `delete-categories` | Yes | Yes | No |
 
 ---
 
@@ -53,6 +85,7 @@ Category (top-level)  ←→  Product  ←→  SubCategory
 | `GET` | `/api/v1/admin/categories/tree` | `view-categories` | `200` |
 | `GET` | `/api/v1/categories/:id` | `view-categories` | `200` |
 | `PATCH` | `/api/v1/categories/:id` | `update-categories` | `200` |
+| `DELETE` | `/api/v1/categories/:id` | `delete-categories` | `204` / `409` if products attached |
 
 ### POST /api/v1/categories
 
@@ -214,6 +247,34 @@ Use `PATCH /api/v1/categories/:id` or `PATCH /api/v1/sub-categories/:id`:
 { "isActive": false }
 ```
 
+### DELETE /api/v1/categories/:id
+
+| | |
+|---|---|
+| **Auth** | Bearer + `delete-categories` |
+| **Status** | `204` on success; `404` if missing; `409` if any product is linked |
+
+Blocks delete when **any** product (active or inactive) is linked via `ProductCategory` **or** via any subcategory’s `ProductSubCategory`. Empty child subcategories are removed by cascade.
+
+```bash
+curl -X DELETE http://localhost:5000/api/v1/categories/1 \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+### DELETE /api/v1/sub-categories/:id
+
+| | |
+|---|---|
+| **Auth** | Bearer + `delete-categories` |
+| **Status** | `204` on success; `404` if missing; `409` if any product is linked |
+
+Blocks delete when **any** product (active or inactive) is linked via `ProductSubCategory`.
+
+```bash
+curl -X DELETE http://localhost:5000/api/v1/sub-categories/1 \
+  -H "Authorization: Bearer $TOKEN"
+```
+
 ---
 
 ## Sub-categories
@@ -226,6 +287,7 @@ Use `PATCH /api/v1/categories/:id` or `PATCH /api/v1/sub-categories/:id`:
 | `GET` | `/api/v1/sub-categories` | `view-categories` | `200` |
 | `GET` | `/api/v1/sub-categories/:id` | `view-categories` | `200` |
 | `PATCH` | `/api/v1/sub-categories/:id` | `update-categories` | `200` |
+| `DELETE` | `/api/v1/sub-categories/:id` | `delete-categories` | `204` / `409` if products attached |
 
 ### POST /api/v1/sub-categories
 

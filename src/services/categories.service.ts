@@ -48,6 +48,13 @@ export function updateCategory(id: number, payload: UpdateCategoryPayload) {
   });
 }
 
+/** Permanently delete a category. 409 if any product is linked. */
+export function deleteCategory(id: number) {
+  return apiRequest<void>(`/categories/${id}`, {
+    method: "DELETE",
+  });
+}
+
 export function listSubCategories(params: ListSubCategoriesParams = {}) {
   return apiRequest<PaginatedResponse<SubCategory>>(
     `/sub-categories${buildQueryString(params)}`,
@@ -72,5 +79,12 @@ export function updateSubCategory(
   return apiRequest<SubCategory>(`/sub-categories/${id}`, {
     method: "PATCH",
     body: JSON.stringify(payload),
+  });
+}
+
+/** Permanently delete a sub-category. 409 if any product is linked. */
+export function deleteSubCategory(id: number) {
+  return apiRequest<void>(`/sub-categories/${id}`, {
+    method: "DELETE",
   });
 }
