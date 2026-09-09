@@ -91,9 +91,29 @@ export async function apiRequest<T>(
     headers,
   });
 
-  const payload = (await response.json()) as
-    | ApiSuccessResponse<T>
-    | ApiErrorResponse;
+  // DELETE and some other endpoints return 204 with an empty body.
+  const rawBody = await response.text();
+  if (!rawBody) {
+    if (!response.ok) {
+      throw new ApiError(
+        response.statusText || "Something went wrong",
+        response.status,
+      );
+    }
+    return undefined as T;
+  }
+
+  let payload: ApiSuccessResponse<T> | ApiErrorResponse;
+  try {
+    payload = JSON.parse(rawBody) as
+      | ApiSuccessResponse<T>
+      | ApiErrorResponse;
+  } catch {
+    throw new ApiError(
+      response.statusText || "Invalid response from server",
+      response.status,
+    );
+  }
 
   if (!response.ok || !payload.success) {
     const message =

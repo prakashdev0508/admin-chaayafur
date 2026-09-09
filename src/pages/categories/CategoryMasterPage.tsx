@@ -16,6 +16,7 @@ import {
   RefreshCw,
   Search,
   Sparkles,
+  Trash2,
 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -24,8 +25,10 @@ import { Separator } from "@/components/ui/separator";
 import { CategoryFormDialog } from "@/components/categories/CategoryFormDialog";
 import { SignatureCollectionOrderDialog } from "@/components/categories/SignatureCollectionOrderDialog";
 import { SubCategoryFormDialog } from "@/components/categories/SubCategoryFormDialog";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { ApiError } from "@/lib/api";
 import { queryKeys } from "@/lib/query-keys";
 import { PERMISSIONS } from "@/lib/roles";
 import {
@@ -37,6 +40,8 @@ import { cn } from "@/lib/utils";
 import {
   createCategory,
   createSubCategory,
+  deleteCategory,
+  deleteSubCategory,
   fetchAdminCategoriesTree,
   updateCategory,
   updateSubCategory,
@@ -77,6 +82,7 @@ export function CategoryMasterPage() {
   const canView = hasPermission(PERMISSIONS.VIEW_CATEGORIES);
   const canCreate = hasPermission(PERMISSIONS.CREATE_CATEGORIES);
   const canUpdate = hasPermission(PERMISSIONS.UPDATE_CATEGORIES);
+  const canDelete = hasPermission(PERMISSIONS.DELETE_CATEGORIES);
 
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -89,6 +95,11 @@ export function CategoryMasterPage() {
     sub?: SubCategoryTreeItem;
     categoryId?: number;
   }>({ open: false });
+  const [deleteTarget, setDeleteTarget] = useState<
+    | { type: "category"; id: number; name: string }
+    | { type: "subcategory"; id: number; name: string }
+    | null
+  >(null);
   const [signatureOrderOpen, setSignatureOrderOpen] = useState(false);
   const [reorderingCategoryIds, setReorderingCategoryIds] = useState<
     number[] | null
@@ -422,6 +433,57 @@ export function CategoryMasterPage() {
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: async (
+      target:
+        | { type: "category"; id: number; name: string }
+        | { type: "subcategory"; id: number; name: string },
+    ) => {
+      if (target.type === "category") {
+        await deleteCategory(target.id);
+      } else {
+        await deleteSubCategory(target.id);
+      }
+      return target;
+    },
+    onSuccess: async (target) => {
+      queryClient.setQueryData<CategoryTreeItem[]>(
+        queryKeys.categories.adminTree,
+        (old) => {
+          const current = old ?? [];
+          if (target.type === "category") {
+            return current.filter((category) => category.id !== target.id);
+          }
+          return current.map((category) => ({
+            ...category,
+            subCategories: category.subCategories.filter(
+              (sub) => sub.id !== target.id,
+            ),
+          }));
+        },
+      );
+      if (target.type === "category" && selectedId === target.id) {
+        setSelectedId(null);
+      }
+      setDeleteTarget(null);
+      await invalidate();
+      toast.success(
+        target.type === "category"
+          ? "Category deleted"
+          : "Sub-category deleted",
+      );
+    },
+    onError: (err) => {
+      toast.error(
+        err instanceof ApiError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : "Failed to delete",
+      );
+    },
+  });
+
   if (!canView) {
     return (
       <div className="flex flex-col gap-4">
@@ -730,10 +792,32 @@ export function CategoryMasterPage() {
                           <p className="text-sm">No category image</p>
                         </div>
                       )}
-                      {selected.isSignatureCollection ? (
-                        <span className="absolute top-3 right-3 z-10 inline-flex h-7 items-center rounded-full bg-white px-3 text-xs font-medium text-foreground shadow-sm">
-                          Signature
-                        </span>
+                      {selected.isSignatureCollection || canDelete ? (
+                        <div className="absolute top-3 right-3 z-10 flex flex-col items-end gap-2">
+                          {selected.isSignatureCollection ? (
+                            <span className="inline-flex h-7 items-center rounded-full bg-white px-3 text-xs font-medium text-foreground shadow-sm">
+                              Signature
+                            </span>
+                          ) : null}
+                          {canDelete ? (
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              className="shadow-sm"
+                              disabled={deleteMutation.isPending}
+                              onClick={() =>
+                                setDeleteTarget({
+                                  type: "category",
+                                  id: selected.id,
+                                  name: selected.name,
+                                })
+                              }
+                            >
+                              <Trash2 className="size-3.5" />
+                              Delete
+                            </Button>
+                          ) : null}
+                        </div>
                       ) : null}
                       <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/55 via-black/20 to-transparent px-5 pt-16 pb-4">
                         <div className="flex flex-wrap items-end justify-between gap-3">
@@ -940,7 +1024,7 @@ export function CategoryMasterPage() {
                                             </span>
                                           </div>
                                         )}
-                                        <div className="absolute top-2.5 left-2.5">
+                                        <div className="absolute top-2.5 left-2.5 z-10">
                                           <StatusBadge
                                             variant={
                                               sub.isActive === false
@@ -954,8 +1038,28 @@ export function CategoryMasterPage() {
                                               : "Active"}
                                           </StatusBadge>
                                         </div>
+                                        {canDelete ? (
+                                          <div className="absolute top-2.5 right-2.5 z-10">
+                                            <Button
+                                              size="icon"
+                                              variant="destructive"
+                                              className="size-8 shadow-sm"
+                                              disabled={deleteMutation.isPending}
+                                              aria-label={`Delete ${sub.name}`}
+                                              onClick={() =>
+                                                setDeleteTarget({
+                                                  type: "subcategory",
+                                                  id: sub.id,
+                                                  name: sub.name,
+                                                })
+                                              }
+                                            >
+                                              <Trash2 className="size-3.5" />
+                                            </Button>
+                                          </div>
+                                        ) : null}
                                         {rowBusy ? (
-                                          <div className="absolute inset-0 flex items-center justify-center bg-background/50">
+                                          <div className="absolute inset-0 z-20 flex items-center justify-center bg-background/50">
                                             <Loader2 className="size-5 animate-spin" />
                                           </div>
                                         ) : null}
@@ -1099,6 +1203,32 @@ export function CategoryMasterPage() {
         onOpenChange={setSignatureOrderOpen}
         categories={categories}
         canUpdate={canUpdate}
+      />
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+        title={
+          deleteTarget?.type === "category"
+            ? "Delete this category?"
+            : "Delete this sub-category?"
+        }
+        description={
+          deleteTarget?.type === "category"
+            ? `Are you sure you want to delete “${deleteTarget.name}”? This permanently removes the category and any empty child sub-categories. Delete is blocked if any products are linked.`
+            : deleteTarget
+              ? `Are you sure you want to delete “${deleteTarget.name}”? This cannot be undone. Delete is blocked if any products are linked.`
+              : ""
+        }
+        confirmLabel="Delete"
+        variant="destructive"
+        loading={deleteMutation.isPending}
+        onConfirm={() => {
+          if (!deleteTarget) return Promise.resolve();
+          return deleteMutation.mutateAsync(deleteTarget);
+        }}
       />
     </div>
   );
