@@ -55,13 +55,12 @@ const IMAGE_PRESETS: Record<
     desktop: {
       aspectClassName: "aspect-[16/9]",
       hint: "Wide hero for desktop and tablet carousel.",
-      dimensionLabel: "16:9 · e.g. 1920 × 1080 px",
+      dimensionLabel: "16:9 · 1600 × 900 px",
     },
     mobile: {
-      aspectClassName: "aspect-[9/16]",
-      previewFrameClassName: "mx-auto max-w-[220px]",
-      hint: "Portrait crop for phones. Falls back to desktop when omitted.",
-      dimensionLabel: "9:16 · e.g. 750 × 1334 px",
+      aspectClassName: "aspect-[1400/933]",
+      hint: "Landscape crop for phones. Falls back to desktop when omitted.",
+      dimensionLabel: "1400 × 933 px",
     },
   },
   SUB: {

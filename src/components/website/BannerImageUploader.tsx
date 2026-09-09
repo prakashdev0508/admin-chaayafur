@@ -23,7 +23,7 @@ type BannerImageUploaderProps = {
   label?: string;
   hint?: string;
   aspectClassName?: string;
-  /** Short recommended size label shown under the hint, e.g. "1920 × 1080 px" */
+  /** Short recommended size label shown under the hint, e.g. "1600 × 900 px" */
   dimensionLabel?: string;
   previewFrameClassName?: string;
 };
