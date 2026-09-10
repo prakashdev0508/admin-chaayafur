@@ -6,6 +6,7 @@ import {
   Loader2,
   Pencil,
   Plus,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { BannerFormDialog } from "@/components/website/BannerFormDialog";
@@ -23,6 +24,7 @@ import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
 import {
   createBanner,
+  deleteBanner,
   getBanner,
   listBanners,
   updateBanner,
@@ -40,6 +42,7 @@ type HomeBannerSectionProps = {
   description: string;
   canCreate: boolean;
   canUpdate: boolean;
+  canDelete: boolean;
 };
 
 async function invalidateHomeQueries(queryClient: ReturnType<typeof useQueryClient>) {
@@ -53,6 +56,7 @@ export function HomeBannerSection({
   description,
   canCreate,
   canUpdate,
+  canDelete,
 }: HomeBannerSectionProps) {
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -60,6 +64,7 @@ export function HomeBannerSection({
   const [editingId, setEditingId] = useState<number | null>(null);
   const [loadingEdit, setLoadingEdit] = useState(false);
   const [reorderingIds, setReorderingIds] = useState<number[] | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const listParams = useMemo(
     () => ({ type, page: 1, limit: 50 }),
@@ -145,7 +150,29 @@ export function HomeBannerSection({
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => deleteBanner(id),
+    onMutate: (id) => {
+      setDeletingId(id);
+    },
+    onSuccess: async () => {
+      toast.success(
+        type === "MAIN" ? "Main banner deleted" : "Sub banner deleted",
+      );
+      await invalidateHomeQueries(queryClient);
+    },
+    onError: (err) => {
+      toast.error(
+        err instanceof ApiError ? err.message : "Failed to delete banner",
+      );
+    },
+    onSettled: () => {
+      setDeletingId(null);
+    },
+  });
+
   const reorderBusy = reorderMutation.isPending;
+  const deleteBusy = deleteMutation.isPending;
   async function openEdit(banner: AdminBanner) {
     setLoadingEdit(true);
     setEditingId(banner.id);
@@ -258,87 +285,127 @@ export function HomeBannerSection({
                         ) : null}
                       </div>
                       <div className="flex min-w-0 items-center gap-1">
-                        {canUpdate && (
+                        {(canUpdate || canDelete) && (
                           <>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="icon-sm"
-                              disabled={index === 0 || reorderBusy}
-                              aria-label="Move earlier"
-                              onClick={() =>
-                                reorderMutation.mutate({
-                                  current: banner,
-                                  neighbor: banners[index - 1],
-                                })
-                              }
-                            >
-                              {isMoving ? (
-                                <Loader2 className="size-3.5 animate-spin" />
-                              ) : (
-                                <ChevronLeft className="size-3.5" />
-                              )}
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="icon-sm"
-                              disabled={
-                                index === banners.length - 1 || reorderBusy
-                              }
-                              aria-label="Move later"
-                              onClick={() =>
-                                reorderMutation.mutate({
-                                  current: banner,
-                                  neighbor: banners[index + 1],
-                                })
-                              }
-                            >
-                              {isMoving ? (
-                                <Loader2 className="size-3.5 animate-spin" />
-                              ) : (
-                                <ChevronRight className="size-3.5" />
-                              )}
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="icon-sm"
-                              aria-label="Edit banner"
-                              disabled={reorderBusy}
-                              onClick={() => void openEdit(banner)}
-                            >
-                              <Pencil className="size-3.5" />
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className={cn(
-                                "ml-auto h-7 shrink-0 px-2 text-xs",
-                                banner.isActive && "text-destructive",
-                              )}
-                              disabled={
-                                toggleActiveMutation.isPending || reorderBusy
-                              }
-                              onClick={() => {
-                                if (banner.isActive) {
+                            {canUpdate && (
+                              <>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="icon-sm"
+                                  disabled={index === 0 || reorderBusy || deleteBusy}
+                                  aria-label="Move earlier"
+                                  onClick={() =>
+                                    reorderMutation.mutate({
+                                      current: banner,
+                                      neighbor: banners[index - 1],
+                                    })
+                                  }
+                                >
+                                  {isMoving ? (
+                                    <Loader2 className="size-3.5 animate-spin" />
+                                  ) : (
+                                    <ChevronLeft className="size-3.5" />
+                                  )}
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="icon-sm"
+                                  disabled={
+                                    index === banners.length - 1 ||
+                                    reorderBusy ||
+                                    deleteBusy
+                                  }
+                                  aria-label="Move later"
+                                  onClick={() =>
+                                    reorderMutation.mutate({
+                                      current: banner,
+                                      neighbor: banners[index + 1],
+                                    })
+                                  }
+                                >
+                                  {isMoving ? (
+                                    <Loader2 className="size-3.5 animate-spin" />
+                                  ) : (
+                                    <ChevronRight className="size-3.5" />
+                                  )}
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="icon-sm"
+                                  aria-label="Edit banner"
+                                  disabled={reorderBusy || deleteBusy}
+                                  onClick={() => void openEdit(banner)}
+                                >
+                                  <Pencil className="size-3.5" />
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className={cn(
+                                    "ml-auto h-7 shrink-0 px-2 text-xs",
+                                    banner.isActive && "text-destructive",
+                                  )}
+                                  disabled={
+                                    toggleActiveMutation.isPending ||
+                                    reorderBusy ||
+                                    deleteBusy
+                                  }
+                                  onClick={() => {
+                                    if (banner.isActive) {
+                                      if (
+                                        !window.confirm(
+                                          `Deactivate "${banner.title || `banner #${banner.id}`}"?`,
+                                        )
+                                      ) {
+                                        return;
+                                      }
+                                    }
+                                    toggleActiveMutation.mutate({
+                                      id: banner.id,
+                                      isActive: !banner.isActive,
+                                    });
+                                  }}
+                                >
+                                  {banner.isActive ? "Deactivate" : "Activate"}
+                                </Button>
+                              </>
+                            )}
+                            {canDelete && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-sm"
+                                className={cn(
+                                  "text-destructive hover:text-destructive",
+                                  !canUpdate && "ml-auto",
+                                )}
+                                aria-label="Delete banner"
+                                disabled={reorderBusy || deleteBusy}
+                                onClick={() => {
+                                  const label =
+                                    banner.title ||
+                                    `${type === "MAIN" ? "main" : "sub"} banner #${banner.id}`;
                                   if (
                                     !window.confirm(
-                                      `Deactivate "${banner.title || `banner #${banner.id}`}"?`,
+                                      `Permanently delete "${label}"? This cannot be undone.`,
                                     )
                                   ) {
                                     return;
                                   }
-                                }
-                                toggleActiveMutation.mutate({
-                                  id: banner.id,
-                                  isActive: !banner.isActive,
-                                });
-                              }}
-                            >
-                              {banner.isActive ? "Deactivate" : "Activate"}
-                            </Button>
+                                  deleteMutation.mutate(banner.id);
+                                }}
+                              >
+                                {deletingId === banner.id ? (
+                                  <Loader2 className="size-3.5 animate-spin" />
+                                ) : (
+                                  <Trash2 className="size-3.5" />
+                                )}
+                              </Button>
+                            )}
                           </>
                         )}
                       </div>

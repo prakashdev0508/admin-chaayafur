@@ -12,7 +12,7 @@ Public aggregated home payload (banners + CMS-tagged products) and admin APIs to
 - Returns **main banners**, **sub-banners**, and up to **8 products** for each CMS tag (`featuredProducts`, `bestSellers`, `mostPopular`, `newArrivals`)
 - **Banners** — upload via [uploads.md](./uploads.md), then create/update with `imageUrl` + optional `imageStorageKey`, optional `mobileImageUrl` + `mobileImageStorageKey`, and a `redirectUrl`
 - **CMS tags** — assign on a product with `PATCH /admin/cms/products/:id/tags` (or full `PATCH /products/:id`)
-- No hard delete for banners — set `isActive: false`
+- Hide with `isActive: false`, or permanently remove with `DELETE /admin/home/banners/:id` (works for both `MAIN` and `SUB`)
 
 ### Who can access?
 
@@ -24,6 +24,7 @@ Public aggregated home payload (banners + CMS-tagged products) and admin APIs to
 | `GET /admin/home/banners` | `view-banners` | Yes | Yes | No |
 | `GET /admin/home/banners/:id` | `view-banners` | Yes | Yes | No |
 | `PATCH /admin/home/banners/:id` | `update-banners` | Yes | Yes | No |
+| `DELETE /admin/home/banners/:id` | `delete-banners` | Yes | Yes | No |
 | `PATCH /admin/cms/products/:id/tags` | `update-products` | Yes | Yes | No |
 
 ---
@@ -70,7 +71,7 @@ Public aggregated home payload (banners + CMS-tagged products) and admin APIs to
 }
 ```
 
-Product arrays use the same list-item shape as `GET /products` (`primaryImage`, price string, CMS flags, subcategory summary). Each section returns at most **8** **active** products for that tag, newest first.
+Product arrays use the same list-item shape as `GET /products` (`primaryImage`, `secondaryImage`, price string, CMS flags, subcategory summary). Each section returns at most **8** **active** products for that tag, newest first.
 
 `mobileImageUrl` is optional on banners. When null, the storefront should fall back to `imageUrl`.
 
@@ -139,7 +140,23 @@ Stored keys look like `banners/{year}/{month}/{uuid}.webp`.
 
 ### PATCH /api/v1/admin/home/banners/:id
 
-Partial update. When `imageUrl` or `mobileImageUrl` is replaced, pass the new storage key; the previous R2 object is deleted when the key changes. Hide with `{ "isActive": false }`.
+Partial update. Storage keys are **only** changed when `imageStorageKey` / `mobileImageStorageKey` are sent; updating URL alone no longer clears the key or deletes R2. When replacing an image, send the new URL **and** storage key — the previous R2 object is deleted only if the key actually changes. Hide with `{ "isActive": false }`.
+
+Applies to both `MAIN` (banners) and `SUB` (stories / sub-banners).
+
+### DELETE /api/v1/admin/home/banners/:id
+
+| | |
+|---|---|
+| **Auth** | Bearer staff JWT + `delete-banners` |
+| **Status** | `204` No Content |
+
+Permanently deletes a main banner or sub-banner. Also removes linked R2 objects when `imageStorageKey` / `mobileImageStorageKey` are set, and bumps the home cache.
+
+```bash
+curl -X DELETE http://localhost:5000/api/v1/admin/home/banners/1 \
+  -H "Authorization: Bearer $TOKEN"
+```
 
 ---
 
@@ -174,6 +191,6 @@ curl -X PATCH http://localhost:5000/api/v1/admin/cms/products/7/tags \
   -d '{"isFeaturedProduct": true, "isNewArrival": true}'
 ```
 
-Updating tags (or any product create/update) bumps the **products** and **home** cache versions so `GET /home` refreshes. Banner create/update bumps the home cache only.
+Updating tags (or any product create/update) bumps the **products** and **home** cache versions so `GET /home` refreshes. Banner create/update/delete bumps the home cache only.
 
 You can still set the same flags via [products.md](./products.md) (`POST` / `PATCH /products`) or filter the catalogue with `GET /products?tag=isFeaturedProduct`.

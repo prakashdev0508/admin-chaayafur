@@ -4,6 +4,7 @@ import { ProductCard } from "@/components/shop/ProductCard";
 import { HomeCategoryStrip } from "@/components/shop/HomeCategoryStrip";
 import { HomeHeroCarousel } from "@/components/shop/HomeHeroCarousel";
 import { HomeSubBannerCards } from "@/components/shop/HomeSubBannerCards";
+import { ShopInstagramReelsSection } from "@/components/shop/ShopInstagramReelsSection";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fetchCategoriesTree } from "@/services/categories.service";
 import { fetchHome } from "@/services/home.service";
@@ -152,6 +153,8 @@ export function ShopHomePage() {
           isLoading={homeQuery.isLoading}
         />
       ))}
+
+      <ShopInstagramReelsSection />
 
       {homeQuery.isError && (
         <p className="rounded-xl border border-dashed border-[#E8DFD3] p-6 text-center text-sm text-muted-foreground">

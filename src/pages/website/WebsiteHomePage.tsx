@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { HomeBannerSection } from "@/components/website/HomeBannerSection";
 import { HomeCmsTagSection } from "@/components/website/HomeCmsTagSection";
+import { HomeInstagramReelsSection } from "@/components/website/HomeInstagramReelsSection";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { usePermission } from "@/hooks/usePermission";
 import { queryKeys } from "@/lib/query-keys";
@@ -43,7 +44,10 @@ export function WebsiteHomePage() {
   const canView = hasPermission(PERMISSIONS.VIEW_BANNERS);
   const canCreateBanners = hasPermission(PERMISSIONS.CREATE_BANNERS);
   const canUpdateBanners = hasPermission(PERMISSIONS.UPDATE_BANNERS);
+  const canDeleteBanners = hasPermission(PERMISSIONS.DELETE_BANNERS);
   const canUpdateProducts = hasPermission(PERMISSIONS.UPDATE_PRODUCTS);
+  const canViewInstagram = hasPermission(PERMISSIONS.VIEW_INSTAGRAM);
+  const canUpdateInstagram = hasPermission(PERMISSIONS.UPDATE_INSTAGRAM);
 
   if (!canView) {
     return (
@@ -80,6 +84,12 @@ export function WebsiteHomePage() {
                 void queryClient.invalidateQueries({
                   queryKey: queryKeys.shop.home,
                 });
+                void queryClient.invalidateQueries({
+                  queryKey: queryKeys.admin.instagram.all,
+                });
+                void queryClient.invalidateQueries({
+                  queryKey: queryKeys.shop.instagram,
+                });
               }}
             >
               <RefreshCw className="size-4" />
@@ -105,6 +115,7 @@ export function WebsiteHomePage() {
         description="Carousel slides on the left of the homepage hero. Use ← → to change order."
         canCreate={canCreateBanners}
         canUpdate={canUpdateBanners}
+        canDelete={canDeleteBanners}
       />
 
       <HomeBannerSection
@@ -113,6 +124,7 @@ export function WebsiteHomePage() {
         description="Promo cards beside the carousel. The storefront shows up to two active cards."
         canCreate={canCreateBanners}
         canUpdate={canUpdateBanners}
+        canDelete={canDeleteBanners}
       />
 
       {CMS_SECTIONS.map((section) => (
@@ -123,6 +135,11 @@ export function WebsiteHomePage() {
           canUpdate={canUpdateProducts}
         />
       ))}
+
+      <HomeInstagramReelsSection
+        canView={canViewInstagram}
+        canUpdate={canUpdateInstagram}
+      />
     </div>
   );
 }

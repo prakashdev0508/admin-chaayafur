@@ -48,3 +48,10 @@ export function updateBanner(id: number, payload: UpdateBannerPayload) {
     body: JSON.stringify(payload),
   });
 }
+
+/** Permanently delete a MAIN or SUB banner (`204`). */
+export function deleteBanner(id: number) {
+  return apiRequest<void>(`/admin/home/banners/${id}`, {
+    method: "DELETE",
+  });
+}
