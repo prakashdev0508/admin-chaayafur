@@ -122,6 +122,11 @@ export const queryKeys = {
         ["admin", "banners", "list", params] as const,
       detail: (id: number) => ["admin", "banners", "detail", id] as const,
     },
+    instagram: {
+      all: ["admin", "instagram"] as const,
+      media: ["admin", "instagram", "media"] as const,
+      selections: ["admin", "instagram", "selections"] as const,
+    },
     siteSettings: ["admin", "site-settings"] as const,
     shippingPincodes: {
       all: ["admin", "shipping-pincodes"] as const,
@@ -138,6 +143,7 @@ export const queryKeys = {
       liftAccessAvailable?: boolean;
     }) => ["shop", "shipping-quote", params] as const,
     home: ["shop", "home"] as const,
+    instagram: ["shop", "instagram"] as const,
     search: (params: Record<string, unknown>) =>
       ["shop", "search", params] as const,
     products: {
