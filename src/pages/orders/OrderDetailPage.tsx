@@ -34,6 +34,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { OrderStatusSelect } from "@/components/orders/OrderStatusSelect";
+import { PaymentLinkShare } from "@/components/orders/PaymentLinkShare";
 import { CustomizationMaterialsHighlight } from "@/components/customization-requests/CustomizationMaterialsHighlight";
 import {
   getCustomizationRequestMaterialChips,
@@ -63,6 +64,7 @@ import type {
 import { formatCurrency, formatDate } from "@/lib/format";
 import { paymentStatusLabels, paymentStatusVariants } from "@/lib/payment-status";
 import { isActiveRefund, refundStatusLabels, refundStatusVariants } from "@/lib/refund-status";
+import { isUnpaidManualOrder } from "@/lib/order-status";
 import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
 import { ApiError } from "@/lib/api";
@@ -77,6 +79,7 @@ import {
   getOrderTracking,
   initiateOrderRefund,
   markPaidAdminOrder,
+  regenerateAdminOrderPaymentLink,
   updateOrder,
 } from "@/services/orders.service";
 import { listSupportTickets } from "@/services/support-tickets.service";
@@ -108,6 +111,7 @@ export function OrderDetailPage() {
   const [markPaidOpen, setMarkPaidOpen] = useState(false);
   const [markPaidTransactionId, setMarkPaidTransactionId] = useState("");
   const [markPaidNotes, setMarkPaidNotes] = useState("");
+  const [regenerateLinkOpen, setRegenerateLinkOpen] = useState(false);
 
   const invalidateOrderQueries = () => {
     void queryClient.invalidateQueries({
@@ -190,6 +194,25 @@ export function OrderDetailPage() {
     onError: (error) => {
       toast.error(
         error instanceof Error ? error.message : "Failed to mark payment",
+      );
+    },
+  });
+
+  const regenerateLinkMutation = useMutation({
+    mutationFn: () => regenerateAdminOrderPaymentLink(orderId),
+    onSuccess: (updated) => {
+      setRegenerateLinkOpen(false);
+      queryClient.setQueryData(queryKeys.orders.detail(orderId), updated);
+      invalidateOrderQueries();
+      toast.success(
+        "New payment link created — copy it to share with the customer",
+      );
+    },
+    onError: (error) => {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to regenerate payment link",
       );
     },
   });
@@ -286,10 +309,10 @@ export function OrderDetailPage() {
     );
   }
 
-  const isManualPending =
-    order.payment.paymentMethod === "MANUAL" &&
-    order.payment.status === "PENDING";
-  const canMarkPaid = isManualPending && (canGenerateInvoice || canRefund);
+  const isManualPending = isUnpaidManualOrder(order);
+  const canManageManualPayment =
+    isManualPending && (canGenerateInvoice || canRefund);
+  const canMarkPaid = canManageManualPayment;
 
   const invoiceNotFound =
     invoiceQuery.error instanceof ApiError && invoiceQuery.error.statusCode === 404;
@@ -373,6 +396,7 @@ export function OrderDetailPage() {
             <OrderStatusSelect
               status={order.status}
               orderNumber={order.orderNumber}
+              unpaidManual={isManualPending}
               onUpdate={(payload) => updateMutation.mutateAsync(payload)}
             />
             {latestRefund && refundStatusLabel && (
@@ -489,7 +513,7 @@ export function OrderDetailPage() {
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {order.paymentMethod}
+                  {order.orderType === "MANUAL" ? "Manual" : order.paymentMethod}
                   {latestRefund && refundStatusLabel
                     ? ` · Refund ${refundStatusLabel}`
                     : ""}
@@ -573,8 +597,24 @@ export function OrderDetailPage() {
                       Payment method
                     </p>
                     <p className="mt-1 text-base font-semibold">
-                      {order.paymentMethod}
+                      {order.payment.paymentMethod}
                     </p>
+                    {order.orderType === "MANUAL" && (
+                      <p className="mt-0.5 text-sm text-muted-foreground">
+                        Manual order
+                      </p>
+                    )}
+                    {order.quotation && (
+                      <p className="mt-0.5 text-sm text-muted-foreground">
+                        From quotation{" "}
+                        <Link
+                          to={`/quotations/${order.quotation.id}`}
+                          className="font-medium text-foreground hover:underline"
+                        >
+                          {order.quotation.quotationNumber}
+                        </Link>
+                      </p>
+                    )}
                     {order.coupon && (
                       <p className="mt-0.5 text-sm text-muted-foreground">
                         Coupon{" "}
@@ -684,9 +724,26 @@ export function OrderDetailPage() {
                     )}
                   </div>
                   <p className="mt-2 text-sm text-muted-foreground">
-                    {order.paymentMethod}
+                    {order.payment.paymentMethod}
                   </p>
                 </div>
+                {order.payment.status === "PENDING" &&
+                (order.payment.paymentLinkUrl || isManualPending) ? (
+                  <PaymentLinkShare
+                    url={order.payment.paymentLinkUrl}
+                    description={
+                      order.payment.paymentMethod === "MANUAL"
+                        ? "Share this Razorpay link with anyone. It stays valid for up to 6 months. If it expires or is lost, regenerate it. Marking the order paid cancels the link."
+                        : "Customer checkout on Razorpay."
+                    }
+                    onRegenerate={
+                      isManualPending
+                        ? () => setRegenerateLinkOpen(true)
+                        : undefined
+                    }
+                    regenerating={regenerateLinkMutation.isPending}
+                  />
+                ) : null}
                 <Link
                   to={`/payments/${order.payment.id}`}
                   className={cn(
@@ -725,7 +782,8 @@ export function OrderDetailPage() {
               <DialogHeader>
                 <DialogTitle>Mark manual payment as paid</DialogTitle>
                 <DialogDescription>
-                  This will complete bookkeeping for the offline payment.
+                  Records offline payment, confirms the order, and cancels the
+                  open Razorpay payment link so the customer cannot pay twice.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-3">
@@ -780,6 +838,16 @@ export function OrderDetailPage() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+
+          <ConfirmDialog
+            open={regenerateLinkOpen}
+            onOpenChange={setRegenerateLinkOpen}
+            title="Regenerate payment link?"
+            description="This cancels the previous Razorpay link when possible and creates a new shareable link valid for up to 6 months. Share only the new URL with the customer."
+            confirmLabel="Regenerate link"
+            loading={regenerateLinkMutation.isPending}
+            onConfirm={() => regenerateLinkMutation.mutateAsync()}
+          />
 
           <Card>
             <CardHeader className="pb-3">

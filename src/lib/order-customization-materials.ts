@@ -134,7 +134,7 @@ export function getCustomizationRequestMaterialChips(
 }
 
 export function orderShowsSeparateBilling(order: {
-  addressId: number;
+  addressId: number | null;
   billingAddressId: number | null;
   shippingAddress: string;
   billingAddress: string;

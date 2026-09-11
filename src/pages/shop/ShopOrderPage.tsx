@@ -262,6 +262,7 @@ export function ShopOrderPage() {
   const hasDiscount = parseFloat(order.discountAmount) > 0;
   const canOpenSupport =
     order.status !== "CANCELLED" &&
+    order.status !== "PAYMENT_FAILED" &&
     order.status !== "REFUNDED" &&
     order.status !== "PARTIALLY_REFUNDED" &&
     order.status !== "REFUND_INITIATED";
@@ -322,8 +323,19 @@ export function ShopOrderPage() {
               </Button>
             )}
             {showLinkRetry && (
-              <Button variant="outline" disabled={paying} onClick={handlePayWithLink}>
-                Pay via Razorpay link
+              <Button
+                className={
+                  showEmbeddedRetry ? undefined : "bg-[#8B5E3C] hover:bg-[#744C31]"
+                }
+                variant={showEmbeddedRetry ? "outline" : "default"}
+                disabled={paying}
+                onClick={handlePayWithLink}
+              >
+                {showEmbeddedRetry
+                  ? "Pay via Razorpay link"
+                  : paying
+                    ? "Opening payment..."
+                    : "Pay now"}
               </Button>
             )}
           </div>

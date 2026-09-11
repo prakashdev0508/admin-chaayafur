@@ -21,12 +21,19 @@ export const orderColumns: ColumnDef<OrderListItem>[] = [
     accessorKey: "orderNumber",
     header: "Order",
     cell: ({ row }) => (
-      <Link
-        to={`/orders/${row.original.id}`}
-        className="font-medium hover:underline"
-      >
-        {row.getValue("orderNumber")}
-      </Link>
+      <div className="min-w-0">
+        <Link
+          to={`/orders/${row.original.id}`}
+          className="font-medium hover:underline"
+        >
+          {row.getValue("orderNumber")}
+        </Link>
+        {row.original.quotation?.quotationNumber ? (
+          <p className="text-xs text-muted-foreground">
+            {row.original.quotation.quotationNumber}
+          </p>
+        ) : null}
+      </div>
     ),
   },
   {

@@ -1,6 +1,8 @@
 import { Link, useParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, ExternalLink, Loader2 } from "lucide-react";
+import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,6 +14,7 @@ import {
 } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Separator } from "@/components/ui/separator";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { formatCurrency, formatDate } from "@/lib/format";
 import {
   paymentStatusLabels,
@@ -26,15 +29,18 @@ import { getOrderStatusLabel } from "@/lib/order-status";
 import { queryKeys } from "@/lib/query-keys";
 import { ApiError } from "@/lib/api";
 import { getPayment } from "@/services/payments.service";
-import { getOrderRefund } from "@/services/orders.service";
+import { getOrderRefund, regenerateAdminOrderPaymentLink } from "@/services/orders.service";
 import { usePermission } from "@/hooks/usePermission";
 import { PERMISSIONS } from "@/lib/roles";
+import { PaymentLinkShare } from "@/components/orders/PaymentLinkShare";
 
 export function PaymentDetailPage() {
   const { id } = useParams();
   const paymentId = Number(id);
   const isValidId = Number.isFinite(paymentId) && paymentId > 0;
+  const queryClient = useQueryClient();
   const { hasPermission } = usePermission();
+  const [regenerateLinkOpen, setRegenerateLinkOpen] = useState(false);
   const canViewRefund =
     hasPermission(PERMISSIONS.VIEW_PAYMENTS) ||
     hasPermission(PERMISSIONS.VIEW_ORDERS);
@@ -57,6 +63,31 @@ export function PaymentDetailPage() {
     enabled: Boolean(linkedOrderId) && canViewRefund,
     retry: (count, err) =>
       !(err instanceof ApiError && err.statusCode === 404) && count < 1,
+  });
+
+  const regenerateLinkMutation = useMutation({
+    mutationFn: () => regenerateAdminOrderPaymentLink(linkedOrderId!),
+    onSuccess: () => {
+      setRegenerateLinkOpen(false);
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.payments.detail(paymentId),
+      });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.payments.all });
+      if (linkedOrderId) {
+        void queryClient.invalidateQueries({
+          queryKey: queryKeys.orders.detail(linkedOrderId),
+        });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.orders.all });
+      }
+      toast.success(
+        "New payment link created — copy it to share with the customer",
+      );
+    },
+    onError: (err) => {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to regenerate payment link",
+      );
+    },
   });
 
   if (!isValidId) {
@@ -106,6 +137,10 @@ export function PaymentDetailPage() {
         ? [refundData]
         : [];
   const latestRefund = refundItems[0] ?? null;
+  const canRegenerateLink =
+    Boolean(linkedOrderId) &&
+    payment.paymentMethod === "MANUAL" &&
+    payment.status === "PENDING";
 
   return (
     <div className="flex flex-col gap-4">
@@ -200,19 +235,20 @@ export function PaymentDetailPage() {
               </div>
             )}
 
-            {payment.paymentLinkUrl && (
-              <Button
-                className="w-full"
-                render={
-                  <a
-                    href={payment.paymentLinkUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    <ExternalLink className="size-4" />
-                    Open payment link
-                  </a>
+            {(payment.paymentLinkUrl || canRegenerateLink) && (
+              <PaymentLinkShare
+                url={payment.paymentLinkUrl}
+                description={
+                  payment.paymentMethod === "MANUAL"
+                    ? "Shareable Razorpay link (up to 6 months). Anyone with the URL can pay. If it expires or is lost, regenerate it. Mark-paid cancels this link."
+                    : undefined
                 }
+                onRegenerate={
+                  canRegenerateLink
+                    ? () => setRegenerateLinkOpen(true)
+                    : undefined
+                }
+                regenerating={regenerateLinkMutation.isPending}
               />
             )}
           </CardContent>
@@ -383,6 +419,16 @@ export function PaymentDetailPage() {
           )}
         </div>
       </div>
+
+      <ConfirmDialog
+        open={regenerateLinkOpen}
+        onOpenChange={setRegenerateLinkOpen}
+        title="Regenerate payment link?"
+        description="This cancels the previous Razorpay link when possible and creates a new shareable link valid for up to 6 months. Share only the new URL with the customer."
+        confirmLabel="Regenerate link"
+        loading={regenerateLinkMutation.isPending}
+        onConfirm={() => regenerateLinkMutation.mutateAsync()}
+      />
     </div>
   );
 }

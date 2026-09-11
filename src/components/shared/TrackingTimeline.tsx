@@ -42,6 +42,7 @@ const statusIcons: Record<OrderStatus, typeof Clock3> = {
   PARTIALLY_REFUNDED: RotateCcw,
   REFUNDED: RotateCcw,
   CANCELLED: X,
+  PAYMENT_FAILED: X,
 };
 
 const ROUTE_PATH =

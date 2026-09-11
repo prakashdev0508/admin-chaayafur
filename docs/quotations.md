@@ -16,7 +16,7 @@ Staff quotations for walk-in / outbound quotes. The PDF is generated on the fron
 5. PATCH /admin/quotations/:id      → update fields / status / products
 6. POST /admin/quotations/:id/remarks     → add follow-up remark
 7. POST /admin/quotations/:id/send-email  → email customer with PDF attached
-8. POST /admin/quotations/:id/convert-to-order → MANUAL unpaid order from quoted lines
+8. POST /admin/quotations/:id/convert-to-order → MANUAL order + shareable payment link from quoted lines
 ```
 
 - **Staff only** — no public customer endpoints
@@ -26,7 +26,7 @@ Staff quotations for walk-in / outbound quotes. The PDF is generated on the fron
 - **Cart-level discount** — optional `discountType` (`FLAT` | `PERCENTAGE`) + `discountValue`. Server computes `discountAmount` from the sum of line totals (capped at subtotal). Applied on convert-to-order as `Order.discountAmount`
 - Follow-up remarks are append-only
 - Send-email attaches the PDF from `pdfStorageKey` (R2) when present, otherwise fetches `pdfUrl`
-- Convert creates a **MANUAL** order linked 1:1 (`Order.quotationId` unique). Quotation becomes `CONVERTED`
+- Convert creates a **MANUAL** order linked 1:1 (`Order.quotationId` unique) with a shareable 6-month Razorpay payment link. Quotation becomes `CONVERTED`
 
 ---
 
@@ -164,7 +164,7 @@ Customer is find-or-created by `phone` (same as `POST /admin/orders`). Shipping/
 }
 ```
 
-Response is the order detail from `POST /admin/orders` (`orderType: "MANUAL"`, `quotation: { id, quotationNumber, status: "CONVERTED" }`). After convert, quotation list/detail include `order: { id, orderNumber, status, orderType, totalAmount }`.
+Response is the order detail from `POST /admin/orders` (`orderType: "MANUAL"`, `payment.paymentLinkUrl` shareable 6-month Razorpay link, `quotation: { id, quotationNumber, status: "CONVERTED" }`). After convert, quotation list/detail include `order: { id, orderNumber, status, orderType, totalAmount }`.
 
 ---
 

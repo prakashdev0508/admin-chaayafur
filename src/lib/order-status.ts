@@ -12,6 +12,7 @@ export const orderStatusLabels: Record<OrderStatus, string> = {
   PARTIALLY_REFUNDED: "Partially refunded",
   REFUNDED: "Refunded",
   CANCELLED: "Cancelled",
+  PAYMENT_FAILED: "Payment failed",
 };
 
 export const orderStatusVariants: Record<OrderStatus, StatusVariant> = {
@@ -25,6 +26,7 @@ export const orderStatusVariants: Record<OrderStatus, StatusVariant> = {
   PARTIALLY_REFUNDED: "warning",
   REFUNDED: "neutral",
   CANCELLED: "danger",
+  PAYMENT_FAILED: "danger",
 };
 
 /** Staff PATCH transitions from docs/orders.md lifecycle. */
@@ -39,6 +41,7 @@ const allowedTransitions: Record<OrderStatus, OrderStatus[]> = {
   PARTIALLY_REFUNDED: [],
   REFUNDED: [],
   CANCELLED: [],
+  PAYMENT_FAILED: [],
 };
 
 export function getOrderStatusLabel(status: string) {
@@ -66,15 +69,34 @@ export function isRefundOrderStatus(status: OrderStatus) {
   return (REFUND_ORDER_STATUSES as readonly string[]).includes(status);
 }
 
-/** Statuses staff can choose in Update order (excludes refund-driven ones). */
+/** System-set statuses that staff should not choose in PATCH. */
+export const SYSTEM_ORDER_STATUSES: readonly OrderStatus[] = [
+  "PAYMENT_FAILED",
+] as const;
+
+/** Statuses staff can choose in Update order (excludes refund-driven and system ones). */
 export const STAFF_SELECTABLE_ORDER_STATUSES: OrderStatus[] = (
   Object.keys(orderStatusLabels) as OrderStatus[]
-).filter((status) => !isRefundOrderStatus(status));
+).filter(
+  (status) =>
+    !isRefundOrderStatus(status) &&
+    !(SYSTEM_ORDER_STATUSES as readonly string[]).includes(status),
+);
+
+export function isUnpaidManualOrder(order: {
+  payment: { paymentMethod: string; status: string };
+}) {
+  return (
+    order.payment.paymentMethod === "MANUAL" &&
+    order.payment.status === "PENDING"
+  );
+}
 
 export function isOrderEditable(status: OrderStatus) {
   return (
     status !== "CANCELLED" &&
     status !== "DELIVERED" &&
+    status !== "PAYMENT_FAILED" &&
     !isRefundOrderStatus(status)
   );
 }

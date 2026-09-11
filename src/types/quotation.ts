@@ -63,6 +63,14 @@ export type QuotationRemark = {
   createdAt: string;
 };
 
+export type QuotationOrderSummary = {
+  id: number;
+  orderNumber: string;
+  status: string;
+  orderType: string;
+  totalAmount: string;
+};
+
 export type Quotation = {
   id: number;
   quotationNumber: string;
@@ -82,6 +90,7 @@ export type Quotation = {
   discountAmount?: string | number | null;
   products: QuotationProduct[];
   followUpRemarks: QuotationRemark[];
+  order?: QuotationOrderSummary | null;
   createdAt: string;
   updatedAt: string;
 };
