@@ -48,8 +48,6 @@ export function PaymentDetailPage() {
     queryKey: queryKeys.payments.detail(paymentId),
     queryFn: () => getPayment(paymentId),
     enabled: isValidId,
-    refetchInterval: (query) =>
-      query.state.data?.status === "PENDING" ? 4000 : false,
   });
 
   const linkedOrderId = payment?.order?.id ?? payment?.orderId;
@@ -59,8 +57,6 @@ export function PaymentDetailPage() {
     enabled: Boolean(linkedOrderId) && canViewRefund,
     retry: (count, err) =>
       !(err instanceof ApiError && err.statusCode === 404) && count < 1,
-    refetchInterval: (query) =>
-      query.state.data?.status === "PROCESSING" ? 4000 : false,
   });
 
   if (!isValidId) {

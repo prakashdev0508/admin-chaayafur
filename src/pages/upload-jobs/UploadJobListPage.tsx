@@ -58,13 +58,6 @@ export function UploadJobListPage() {
     queryKey: queryKeys.uploadJobs.list(params),
     queryFn: () => listUploadJobs(params),
     enabled: canView,
-    refetchInterval: (query) => {
-      const items = query.state.data?.items ?? [];
-      const hasActive = items.some(
-        (job) => job.status === "PENDING" || job.status === "PROCESSING",
-      );
-      return hasActive ? 4000 : false;
-    },
   });
 
   const handleDownload = async (

@@ -36,10 +36,6 @@ export function SupportTicketDetailPage() {
     queryKey: queryKeys.supportTickets.detail(ticketId),
     queryFn: () => getSupportTicket(ticketId),
     enabled: Number.isFinite(ticketId) && hasPermission(PERMISSIONS.VIEW_ORDER_SUPPORT),
-    refetchInterval: (query) => {
-      const status = query.state.data?.status;
-      return status && isSupportTicketActive(status) ? 5000 : false;
-    },
   });
 
   const messageMutation = useMutation({
