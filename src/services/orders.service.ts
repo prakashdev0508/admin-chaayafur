@@ -145,3 +145,10 @@ export function markPaidAdminOrder(
     body: JSON.stringify(payload),
   });
 }
+
+export function regenerateAdminOrderPaymentLink(orderId: number) {
+  return apiRequest<Order>(
+    `/admin/orders/${orderId}/regenerate-payment-link`,
+    { method: "POST" },
+  );
+}

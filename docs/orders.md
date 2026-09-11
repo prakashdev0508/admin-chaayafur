@@ -421,6 +421,24 @@ Share `payment.paymentLinkUrl` (`https://rzp.io/...`) with the customer. The lin
 
 If Razorpay link creation fails, the order is marked `PAYMENT_FAILED` and stock is restored in the same request (same as checkout).
 
+## POST /api/v1/admin/orders/:id/regenerate-payment-link
+
+Creates a **new** shareable Razorpay payment link (6-month max expiry) for a **MANUAL** `PENDING` order. Use when the previous link expired or was lost. Cancels the previous Razorpay link when possible. Requires `update-orders` **or** `update-payments`.
+
+| | |
+|---|---|
+| **Auth** | Staff Bearer (`update-orders` or `update-payments`) |
+| **Status** | `200` |
+| **Body** | none |
+
+Response is the same order detail shape as `GET /orders/:id`, with the new `payment.paymentLinkUrl`.
+
+| Status | When |
+|--------|------|
+| `400` | Not MANUAL, not PENDING, payment already completed/failed |
+| `403` | Missing permission |
+| `404` | Order not found |
+
 ## POST /api/v1/admin/orders/:id/mark-paid
 
 Record offline payment for a **MANUAL** `PENDING` order. Sets payment `COMPLETED`, **cancels the open Razorpay payment link** (if any), confirms the order, generates Performa, and sends the order-placed email. Requires `update-orders` **or** `update-payments`.

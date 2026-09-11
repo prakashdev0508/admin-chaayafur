@@ -17,7 +17,7 @@ Razorpay Payment Links integration. Payments are created at checkout and updated
 - Webhooks also handle `refund.processed` / `refund.failed` (documented in [refund.md](./refund.md))
 - Staff can **poll** payment status via `GET /payments/:id`
 - Staff can **list** all payments via `GET /payments`; customers see only their own order payments
-- **MANUAL** payments are created by `POST /admin/orders` (and quotation convert-to-order) with a **shareable 6-month Razorpay payment link**. They complete via `payment_link.paid` webhook **or** `POST /admin/orders/:id/mark-paid`. Link expiry/failure does **not** cancel a MANUAL order. Mark-paid cancels the open Razorpay link to avoid double payment.
+- **MANUAL** payments are created by `POST /admin/orders` (and quotation convert-to-order) with a **shareable 6-month Razorpay payment link**. They complete via `payment_link.paid` webhook **or** `POST /admin/orders/:id/mark-paid`. Link expiry/failure does **not** cancel a MANUAL order. Staff can mint a new link with `POST /admin/orders/:id/regenerate-payment-link`. Mark-paid cancels the open Razorpay link to avoid double payment.
 
 ### Payment statuses
 
@@ -251,7 +251,7 @@ payment_link.paid
 
 payment_link.expired / payment.failed / payment_link.cancelled
     → CHECKOUT: Payment FAILED, Order PAYMENT_FAILED, stock restored
-    → MANUAL: ignored — order stays PENDING (staff can still mark-paid)
+    → MANUAL: ignored — order stays PENDING (staff can still mark-paid or regenerate the link)
 ```
 
 ### Frontend integration
