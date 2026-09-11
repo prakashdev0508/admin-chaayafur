@@ -156,15 +156,6 @@ export function OrderDetailPage() {
     enabled: Number.isFinite(orderId) && (canViewRefund || canRefund),
     retry: (count, error) =>
       !(error instanceof ApiError && error.statusCode === 404) && count < 1,
-    refetchInterval: (query) => {
-      const data = query.state.data;
-      if (!data) return false;
-      const items =
-        Array.isArray(data.items) && data.items.length > 0
-          ? data.items
-          : [data];
-      return items.some((item) => item.status === "PROCESSING") ? 4000 : false;
-    },
   });
 
   const auditQuery = useQuery({

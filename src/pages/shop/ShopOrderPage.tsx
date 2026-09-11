@@ -121,8 +121,6 @@ export function ShopOrderPage() {
     queryKey: queryKeys.shop.orders.tracking(orderId),
     queryFn: () => getShopOrderTracking(orderId),
     enabled: Number.isFinite(orderId),
-    refetchInterval: (query) =>
-      query.state.data?.currentStatus === "PENDING" ? 4000 : false,
   });
 
   const invoiceQuery = useQuery({
@@ -176,11 +174,6 @@ export function ShopOrderPage() {
     canRetryPayment && order && canUseEmbeddedCheckout(order.payment);
   const showLinkRetry =
     canRetryPayment && order && canUsePaymentLink(order.payment);
-
-  useEffect(() => {
-    if (tracking?.currentStatus !== "PENDING") return;
-    void orderQuery.refetch();
-  }, [tracking?.currentStatus, orderQuery]);
 
   useEffect(() => {
     if (

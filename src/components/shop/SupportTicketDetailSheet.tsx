@@ -44,10 +44,6 @@ export function SupportTicketDetailSheet({
     queryKey: queryKeys.shop.supportTickets.detail(ticketId ?? 0),
     queryFn: () => getShopSupportTicket(ticketId!),
     enabled: open && ticketId !== null,
-    refetchInterval: (query) => {
-      const status = query.state.data?.status;
-      return status && isSupportTicketActive(status) ? 5000 : false;
-    },
   });
 
   const replyMutation = useMutation({
