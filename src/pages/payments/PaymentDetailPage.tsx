@@ -1,6 +1,6 @@
 import { Link, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, ExternalLink, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,6 +29,7 @@ import { getPayment } from "@/services/payments.service";
 import { getOrderRefund } from "@/services/orders.service";
 import { usePermission } from "@/hooks/usePermission";
 import { PERMISSIONS } from "@/lib/roles";
+import { PaymentLinkShare } from "@/components/orders/PaymentLinkShare";
 
 export function PaymentDetailPage() {
   const { id } = useParams();
@@ -201,17 +202,12 @@ export function PaymentDetailPage() {
             )}
 
             {payment.paymentLinkUrl && (
-              <Button
-                className="w-full"
-                render={
-                  <a
-                    href={payment.paymentLinkUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    <ExternalLink className="size-4" />
-                    Open payment link
-                  </a>
+              <PaymentLinkShare
+                url={payment.paymentLinkUrl}
+                description={
+                  payment.paymentMethod === "MANUAL"
+                    ? "Shareable Razorpay link (up to 6 months). Anyone with the URL can pay. Mark-paid cancels this link."
+                    : undefined
                 }
               />
             )}

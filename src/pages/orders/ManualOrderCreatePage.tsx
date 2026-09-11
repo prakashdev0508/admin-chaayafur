@@ -117,7 +117,13 @@ export function ManualOrderCreatePage() {
   const createMutation = useMutation({
     mutationFn: (payload: CreateAdminOrderPayload) => createAdminOrder(payload),
     onSuccess: async (order) => {
-      toast.success("Manual order created");
+      if (order.payment?.paymentLinkUrl) {
+        toast.success("Order created — share the payment link with the customer");
+      } else if (order.status === "PAYMENT_FAILED") {
+        toast.error("Order created but the payment link could not be generated");
+      } else {
+        toast.success("Manual order created");
+      }
       await queryClient.invalidateQueries({ queryKey: queryKeys.orders.all });
       navigate(`/orders/${order.id}`);
     },
@@ -240,7 +246,7 @@ export function ManualOrderCreatePage() {
     <div className="flex flex-col gap-4 pb-24">
       <PageHeader
         title="Create manual order"
-        description="Create a MANUAL order with mixed catalog + custom off-catalog items."
+        description="Creates a MANUAL order and a shareable Razorpay payment link (valid up to 6 months). You can send the link to anyone, or mark the order paid if you collect payment offline."
         action={
           <div className="flex flex-wrap items-center gap-2">
             <Button
@@ -267,7 +273,8 @@ export function ManualOrderCreatePage() {
         <CardHeader>
           <CardTitle>Customer & addresses</CardTitle>
           <CardDescription>
-            Shipping and billing snapshots are stored on the MANUAL order.
+            Shipping and billing snapshots are stored on the MANUAL order — not
+            in the customer address book. Catalog stock is decremented on create.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

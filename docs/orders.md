@@ -11,12 +11,12 @@ Checkout from frontend cart, Razorpay payment links, order tracking, and staff o
 - **Backend cart** — see [cart.md](./cart.md); `GET/PATCH /cart` for logged-in customers
 - **Checkout** — send `items` in the body (legacy) or `useCart: true` to charge the saved server cart
 - **Server-side pricing** — totals use `Product.price` plus **product-level** wood / polish / fabric `priceAdjustment` values and selected free-form `customization` prices; frontend prices are never trusted (see [products.md](./products.md#product-level-customization-pricing))
-- **Order types** — `CHECKOUT` (customer cart + Razorpay) or `MANUAL` (staff-created, offline payment). Same `Order` table, tracking, and invoices.
+- **Order types** — `CHECKOUT` (customer cart + Razorpay) or `MANUAL` (staff-created). Same `Order` table, tracking, and invoices. MANUAL orders get a **shareable Razorpay payment link** (6-month max expiry) and can also be completed with staff mark-paid.
 - **Order line snapshots** — checkout and admin create store `productName` (and optional image) plus unit price and wood/polish/fabric adjustments so historical totals and invoices stay fixed even if a catalog product is renamed or a custom line has no `productId`
 - **Stock is decremented** atomically when the order is created (catalog lines only; custom/off-catalog lines skip stock)
-- **Stock is restored** when payment fails/expires (webhook) or staff cancels an order (catalog lines only)
+- **Stock is restored** when a **CHECKOUT** payment fails/expires (webhook) or staff cancels an order (catalog lines only). MANUAL link expiry does **not** fail the order.
 - Each order gets a human-readable `orderNumber` (e.g. `ORD-20260710-0001`)
-- A `Payment` record is created at checkout (`RAZORPAY` + payment link) or admin create (`MANUAL`, pending until mark-paid)
+- A `Payment` record is created at checkout (`RAZORPAY` + 30-minute payment link) or admin create (`MANUAL` + shareable 6-month payment link; still pending until paid or mark-paid)
 - **Order tracking timeline** — each status change is stored in `order_status_events` and exposed via `GET /orders/:id/tracking`
 - **Customer emails (Resend)** — transactional emails on confirm / ship / deliver (see below)
 
@@ -370,7 +370,7 @@ curl -X POST http://localhost:5000/api/v1/orders \
 
 ## POST /api/v1/admin/orders
 
-Staff-created **MANUAL** order. Can mix catalog products and off-catalog custom lines. Payment is `MANUAL` / `PENDING` (no Razorpay link). Requires `create-orders`.
+Staff-created **MANUAL** order. Can mix catalog products and off-catalog custom lines. Creates a **shareable Razorpay payment link** with Razorpay’s maximum expiry (**6 months**) so it can be sent to anyone. Payment stays `MANUAL` / `PENDING` until the customer pays via the link (webhook) or staff record offline payment with mark-paid. Requires `create-orders`.
 
 Staff pass a **phone** (mandatory). If no customer exists for that number, one is created. Shipping and billing are **inline snapshots** on the order — they are **not** written to the customer address book (`addressId` / `billingAddressId` stay `null`). Invoices use those snapshots.
 
@@ -415,11 +415,15 @@ Staff pass a **phone** (mandatory). If no customer exists for that number, one i
 | `shippingAmount` | Optional override; otherwise computed from site settings |
 | Catalog stock | Decremented for `CATALOG` lines only |
 
-Response is the same order detail shape as `GET /orders/:id`, with `orderType: "MANUAL"`, `payment.paymentMethod: "MANUAL"`, and `quotation` when created from a quote.
+Response is the same order detail shape as `GET /orders/:id`, with `orderType: "MANUAL"`, `payment.paymentMethod: "MANUAL"`, `payment.paymentLinkUrl` (share this), and `quotation` when created from a quote.
+
+Share `payment.paymentLinkUrl` (`https://rzp.io/...`) with the customer. The link is not bound to a login — anyone with the URL can pay. Checkout links still expire in `RAZORPAY_PAYMENT_LINK_EXPIRE_MINUTES` (default 30); MANUAL links omit `expire_by` so Razorpay uses its 6-month maximum.
+
+If Razorpay link creation fails, the order is marked `PAYMENT_FAILED` and stock is restored in the same request (same as checkout).
 
 ## POST /api/v1/admin/orders/:id/mark-paid
 
-Record offline payment for a **MANUAL** `PENDING` order. Sets payment `COMPLETED`, confirms the order, generates Performa, and sends the order-placed email. Requires `update-orders` **or** `update-payments`.
+Record offline payment for a **MANUAL** `PENDING` order. Sets payment `COMPLETED`, **cancels the open Razorpay payment link** (if any), confirms the order, generates Performa, and sends the order-placed email. Requires `update-orders` **or** `update-payments`.
 
 ```json
 { "transactionId": "UPI/123456789", "notes": "Cash collected at showroom" }

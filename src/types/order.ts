@@ -15,7 +15,14 @@ export type OrderStatus =
   | "REFUND_INITIATED"
   | "PARTIALLY_REFUNDED"
   | "REFUNDED"
-  | "CANCELLED";
+  | "CANCELLED"
+  | "PAYMENT_FAILED";
+
+export type OrderQuotationSummary = {
+  id: number;
+  quotationNumber: string;
+  status: string;
+};
 
 export type OrderType = "CHECKOUT" | "MANUAL";
 
@@ -145,6 +152,8 @@ export type OrderListItem = {
   cancellationReason?: string | null;
   totalAmount: string;
   paymentMethod: string;
+  paymentStatus?: string | null;
+  quotation?: OrderQuotationSummary | null;
   createdAt: string;
   updatedAt: string;
   customer?: {
@@ -157,8 +166,10 @@ export type Order = {
   id: number;
   orderNumber: string;
   customerId: number;
-  addressId: number;
+  addressId: number | null;
   billingAddressId: number | null;
+  orderType?: OrderType;
+  quotation?: OrderQuotationSummary | null;
   status: OrderStatus;
   /** Set when cancelled (staff reason or system message). */
   cancellationReason?: string | null;

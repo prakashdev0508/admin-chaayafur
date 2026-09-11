@@ -45,6 +45,8 @@ type OrderStatusSelectProps = {
   status: OrderStatus;
   orderNumber: string;
   onUpdate: (payload: UpdateOrderPayload) => Promise<unknown>;
+  /** Unpaid MANUAL orders can only stay PENDING or be cancelled. */
+  unpaidManual?: boolean;
   className?: string;
 };
 
@@ -52,6 +54,7 @@ export function OrderStatusSelect({
   status,
   orderNumber,
   onUpdate,
+  unpaidManual = false,
   className,
 }: OrderStatusSelectProps) {
   const { hasPermission, myPermissions } = usePermission();
@@ -60,13 +63,16 @@ export function OrderStatusSelect({
     myPermissions?.roleSlug ?? myPermissions?.role,
   );
   /** Cancelled orders are read-only for everyone except SUPER_ADMIN. */
-  const showEditable = canUpdate && (status !== "CANCELLED" || isSuperAdmin);
+  const showEditable =
+    canUpdate &&
+    status !== "PAYMENT_FAILED" &&
+    (status !== "CANCELLED" || isSuperAdmin);
   const [saving, setSaving] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
 
   const statusItems = useMemo(
-    () => toOrderStatusSelectItems(status),
-    [status],
+    () => toOrderStatusSelectItems(status, { unpaidManual }),
+    [status, unpaidManual],
   );
   const variant = getOrderStatusVariant(status);
 
@@ -89,6 +95,23 @@ export function OrderStatusSelect({
           />
           <TooltipContent side="bottom" className="max-w-[16rem] text-center">
             To reopen this order, please contact a Super Admin.
+          </TooltipContent>
+        </Tooltip>
+      );
+    }
+
+    if (status === "PAYMENT_FAILED") {
+      return (
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <span className="inline-flex cursor-default outline-none">
+                {badge}
+              </span>
+            }
+          />
+          <TooltipContent side="bottom" className="max-w-[16rem] text-center">
+            Payment failed or the checkout link expired. This status is set by the system.
           </TooltipContent>
         </Tooltip>
       );
@@ -125,6 +148,13 @@ export function OrderStatusSelect({
     if (isRefundOrderStatus(next)) {
       toast.error(
         "This is a legacy refund order status. Choose a fulfillment status instead — refunds are managed separately.",
+      );
+      return;
+    }
+
+    if (unpaidManual && next !== "PENDING" && next !== "CANCELLED") {
+      toast.error(
+        "Unpaid manual orders can only stay pending or be cancelled. Mark paid first, or share the payment link.",
       );
       return;
     }

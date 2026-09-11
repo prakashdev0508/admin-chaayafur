@@ -7,6 +7,8 @@ import {
 } from "@/lib/order-status";
 import type { OrderStatus } from "@/types/order";
 
+const UNPAID_MANUAL_STATUSES: OrderStatus[] = ["PENDING", "CANCELLED"];
+
 export type SelectOption = {
   label: ReactNode;
   value: string;
@@ -39,6 +41,7 @@ export const ORDER_STATUS_FILTER_ITEMS: SelectOption[] = [
     value,
     label: orderStatusLabels[value],
   })),
+  { value: "PAYMENT_FAILED", label: orderStatusLabels.PAYMENT_FAILED },
 ];
 
 export const ORDER_TYPE_FILTER_ITEMS: SelectOption[] = [
@@ -141,11 +144,17 @@ export const SORT_ORDER_ITEMS: SelectOption[] = [
  * Staff-selectable fulfillment statuses for Update order.
  * Legacy refund-driven order statuses are not choosable, but if an order
  * still has one, it is included as the current value so the control stays enabled.
+ * Unpaid MANUAL orders can only stay PENDING or be CANCELLED.
  */
 export function toOrderStatusSelectItems(
   currentStatus: OrderStatus,
+  options?: { unpaidManual?: boolean },
 ): SelectOption[] {
-  const items = STAFF_SELECTABLE_ORDER_STATUSES.map((status) => ({
+  const selectable = options?.unpaidManual
+    ? UNPAID_MANUAL_STATUSES
+    : STAFF_SELECTABLE_ORDER_STATUSES;
+
+  const items = selectable.map((status) => ({
     value: status,
     label:
       status === currentStatus
@@ -153,7 +162,11 @@ export function toOrderStatusSelectItems(
         : getOrderStatusLabel(status),
   }));
 
-  if (isRefundOrderStatus(currentStatus)) {
+  if (
+    isRefundOrderStatus(currentStatus) ||
+    currentStatus === "PAYMENT_FAILED" ||
+    !selectable.includes(currentStatus)
+  ) {
     items.unshift({
       value: currentStatus,
       label: `${getOrderStatusLabel(currentStatus)} (current)`,

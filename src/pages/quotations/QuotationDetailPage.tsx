@@ -51,6 +51,7 @@ import {
   taxableAmount,
 } from "@/lib/quotation";
 import { queryKeys } from "@/lib/query-keys";
+import { getOrderStatusLabel } from "@/lib/order-status";
 import { isValidGstin } from "@/lib/address-utils";
 import { PERMISSIONS } from "@/lib/roles";
 import { usePermission } from "@/hooks/usePermission";
@@ -146,10 +147,19 @@ export function QuotationDetailPage() {
     mutationFn: (payload: ConvertQuotationToOrderPayload) =>
       convertQuotationToOrder(quotationId, payload),
     onSuccess: (order) => {
-      toast.success("Order created from quotation");
+      if (order.payment?.paymentLinkUrl) {
+        toast.success("Order created — share the payment link with the customer");
+      } else if (order.status === "PAYMENT_FAILED") {
+        toast.error("Order created but the payment link could not be generated");
+      } else {
+        toast.success("Order created from quotation");
+      }
       setConvertOpen(false);
       void queryClient.invalidateQueries({
         queryKey: queryKeys.quotations.all,
+      });
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.quotations.detail(quotationId),
       });
       void queryClient.invalidateQueries({
         queryKey: queryKeys.orders.detail(order.id),
@@ -333,6 +343,17 @@ export function QuotationDetailPage() {
                 Convert to order
               </Button>
             ) : null}
+            {quotation.order ? (
+              <Button
+                type="button"
+                variant="outline"
+                render={
+                  <Link to={`/orders/${quotation.order.id}`}>
+                    View order {quotation.order.orderNumber}
+                  </Link>
+                }
+              />
+            ) : null}
           </div>
         }
       />
@@ -438,6 +459,33 @@ export function QuotationDetailPage() {
           </CardContent>
         </Card>
       </div>
+
+      {quotation.order ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Linked order</CardTitle>
+            <CardDescription>
+              This quotation was converted to a MANUAL order with a shareable
+              payment link.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-wrap items-center justify-between gap-3 text-sm">
+            <div className="space-y-1">
+              <p className="font-medium">{quotation.order.orderNumber}</p>
+              <p className="text-muted-foreground">
+                {getOrderStatusLabel(quotation.order.status)}
+                {quotation.order.totalAmount
+                  ? ` · ${formatCurrency(quotation.order.totalAmount)}`
+                  : ""}
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              render={<Link to={`/orders/${quotation.order.id}`}>Open order</Link>}
+            />
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader>
@@ -591,8 +639,9 @@ export function QuotationDetailPage() {
           <DialogHeader>
             <DialogTitle>Convert to manual order</DialogTitle>
             <DialogDescription>
-              Create a MANUAL order from the quoted lines. Stock is decremented for
-              catalog lines only; custom/off-catalog lines are snapshotted as-is.
+              Creates a MANUAL unpaid order from the quoted lines, with a
+              shareable Razorpay payment link (valid up to 6 months). Stock is
+              decremented for catalog lines only.
             </DialogDescription>
           </DialogHeader>
 

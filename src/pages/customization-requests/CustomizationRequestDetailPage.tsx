@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Check, ClipboardList, Copy, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { copyPaymentLink } from "@/components/orders/PaymentLinkShare";
 import { ConvertCustomizationRequestDialog } from "@/components/customization-requests/ConvertCustomizationRequestDialog";
 import { CustomizationRequestEditCard } from "@/components/customization-requests/CustomizationRequestEditCard";
 import { CustomizationRequestStatusBadge } from "@/components/customization-requests/CustomizationRequestStatusBadge";
@@ -132,15 +133,6 @@ export function CustomizationRequestDetailPage() {
       invalidate();
     },
   });
-
-  async function copyPaymentLink(url: string) {
-    try {
-      await navigator.clipboard.writeText(url);
-      toast.success("Payment link copied");
-    } catch {
-      toast.error("Could not copy link");
-    }
-  }
 
   if (!canView) {
     return (
