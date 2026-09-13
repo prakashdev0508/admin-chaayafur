@@ -6,6 +6,9 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { getOrderStatusLabel } from "@/lib/order-status";
 import {
+  getRefundSource,
+  refundSourceLabels,
+  refundSourceVariants,
   refundStatusLabels,
   refundStatusVariants,
 } from "@/lib/refund-status";
@@ -69,6 +72,18 @@ export const refundColumns: ColumnDef<RefundListItem>[] = [
         {refundStatusLabels[row.original.status]}
       </StatusBadge>
     ),
+  },
+  {
+    id: "source",
+    header: "Type",
+    cell: ({ row }) => {
+      const source = getRefundSource(row.original);
+      return (
+        <StatusBadge variant={refundSourceVariants[source]}>
+          {refundSourceLabels[source]}
+        </StatusBadge>
+      );
+    },
   },
   {
     accessorKey: "reason",

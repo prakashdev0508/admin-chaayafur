@@ -31,6 +31,8 @@ type RefundCompleteOtpDialogProps = {
   amount: string;
   orderNumber: string;
   staffEmail?: string | null;
+  /** MANUAL refunds are bookkeeping only after OTP; Razorpay is not charged. */
+  paymentMethod?: string | null;
   onVerified: (refund: OrderRefund) => void;
 };
 
@@ -42,6 +44,7 @@ export function RefundCompleteOtpDialog({
   amount,
   orderNumber,
   staffEmail,
+  paymentMethod,
   onVerified,
 }: RefundCompleteOtpDialogProps) {
   const [step, setStep] = useState<Step>("confirm");
@@ -148,7 +151,10 @@ export function RefundCompleteOtpDialog({
                     </span>
                   </>
                 ) : null}
-                . Razorpay is charged only after you verify the OTP.
+                .{" "}
+                {paymentMethod === "MANUAL"
+                  ? "This is a manual payment — verifying the OTP records the refund in the database only (no bank payout)."
+                  : "Razorpay is charged only after you verify the OTP."}
               </>
             ) : (
               <>

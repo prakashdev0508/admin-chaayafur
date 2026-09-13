@@ -26,6 +26,7 @@ Staff refund flow for completed payments: initiate with reason → staff email O
 - At most **one active** refund (`INITIATED` or `PROCESSING`) per payment
 - Staff order list supports `?refundStatus=INITIATED` to find orders with an open refund
 - Global refund inbox: `GET /refunds` and `GET /refunds/:id`
+- **Razorpay-initiated refunds** — Dashboard / auto refunds that never went through staff initiate still create a local `Refund` (`source=RAZORPAY`) when `refund.processed` / `refund.failed` webhooks arrive
 - **Customer emails (Resend)** — refund initiated (includes amount) and refund completed; see [orders.md](./orders.md) for env vars. Recipient = shipping/billing address email; skipped if missing
 - **Staff email OTP (Resend)** — every refund completion (partial or full) requires an OTP sent to the logged-in staff email. For `RAZORPAY` payments, OTP verification calls Razorpay. For `MANUAL` payments, OTP verification records the refund in the database only (no bank payout). OTP is single-use (deleted on success), TTL/attempts/resend cooldown reuse `OTP_LENGTH` / `OTP_TTL_MS` / `OTP_MAX_ATTEMPTS` / `OTP_RESEND_COOLDOWN_MS`. Production fails closed if Resend is not configured.
 
@@ -34,10 +35,17 @@ Staff refund flow for completed payments: initiate with reason → staff email O
 | Status | Meaning |
 |--------|---------|
 | `INITIATED` | Staff created refund request with reason — Razorpay not called yet (OTP may be pending) |
-| `PROCESSING` | OTP verified; Razorpay refund submitted |
+| `PROCESSING` | OTP verified; Razorpay refund submitted (also used briefly for Razorpay-initiated ingest) |
 | `PROCESSED` | Money refunded for this request; payment becomes `REFUNDED` only when remaining balance is 0 |
 | `FAILED` | Razorpay API or `refund.failed` webhook reported failure |
 | `CANCELLED` | Staff cancelled before OTP verification / completion |
+
+### Refund source
+
+| Source | Meaning |
+|--------|---------|
+| `STAFF` | Created via staff initiate API (default) |
+| `RAZORPAY` | Created from a Razorpay webhook with no prior local refund row |
 
 ### Event timeline types
 
@@ -386,7 +394,23 @@ Subscribe in Razorpay Dashboard (same URL as payments — see [payments.md](./pa
 - `refund.processed` — finalizes refund → `PROCESSED` (idempotent if already processed)
 - `refund.failed` — marks refund → `FAILED` (**does not** cancel order or restore stock)
 
-Resolve by `razorpayRefundId`. If refund is already `PROCESSED` / `FAILED`, webhook is a no-op.
+### Resolution
+
+1. Lookup by `payload.refund.entity.id` → local `Refund.razorpayRefundId`
+2. If **found** — finalize / fail that row (same as staff-initiated flow)
+3. If **not found** (Razorpay Dashboard / auto refund) — create a local `Refund` with:
+   - `source = RAZORPAY`
+   - `initiatedByStaffId = null`
+   - `amount` from `payload.refund.entity.amount` (paise → rupees; clamped to remaining balance on `refund.processed`)
+   - payment resolved via `payload.refund.entity.payment_id`
+   - reason `"Refunded via Razorpay"` (appends gateway notes when present)
+   - then mark `PROCESSED` or `FAILED` and run the same side effects as staff refunds
+
+If the payment cannot be found, is `PENDING`/`FAILED`, amount is missing, or the payment is already fully refunded (`refund.processed` only), the webhook is acknowledged with `processed: false` and a reason — no silent drop for known payments.
+
+Gateway-created refunds appear in `GET /refunds` / order refund history like staff refunds.
+
+If refund is already `PROCESSED` / `FAILED`, webhook is a no-op.
 
 ---
 

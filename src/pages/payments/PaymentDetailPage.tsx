@@ -21,6 +21,10 @@ import {
   paymentStatusVariants,
 } from "@/lib/payment-status";
 import {
+  getRefundSource,
+  refundInitiatedByLabel,
+  refundSourceLabels,
+  refundSourceVariants,
   refundStatusLabels,
   refundStatusVariants,
 } from "@/lib/refund-status";
@@ -368,20 +372,26 @@ export function PaymentDetailPage() {
                             <span className="font-medium">
                               {formatCurrency(item.amount)}
                             </span>
-                            <StatusBadge
-                              variant={refundStatusVariants[item.status]}
-                            >
-                              {refundStatusLabels[item.status]}
-                            </StatusBadge>
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <StatusBadge
+                                variant={
+                                  refundSourceVariants[getRefundSource(item)]
+                                }
+                              >
+                                {refundSourceLabels[getRefundSource(item)]}
+                              </StatusBadge>
+                              <StatusBadge
+                                variant={refundStatusVariants[item.status]}
+                              >
+                                {refundStatusLabels[item.status]}
+                              </StatusBadge>
+                            </div>
                           </div>
                           <p className="mt-1 text-muted-foreground">
                             {item.reason}
                           </p>
                           <p className="mt-1 text-xs text-muted-foreground">
-                            Initiated by{" "}
-                            {item.initiatedBy
-                              ? formatStaffName(item.initiatedBy)
-                              : `Staff #${item.initiatedByStaffId}`}
+                            Initiated by {refundInitiatedByLabel(item)}
                             {item.completedBy && (
                               <>
                                 {" · "}Completed by{" "}

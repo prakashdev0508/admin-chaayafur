@@ -1440,6 +1440,7 @@ export function OrderDetailPage() {
           amount={selectedRefund.amount}
           orderNumber={order.orderNumber}
           staffEmail={user?.email}
+          paymentMethod={order.payment.paymentMethod}
           onVerified={(refund) => {
             invalidateOrderQueries();
             setCompleteResultRefund(refund);

@@ -114,6 +114,7 @@ export type {
 
 export type {
   RefundStatus,
+  RefundSource,
   RefundEventType,
   RefundEventActorType,
   RefundEvent,
