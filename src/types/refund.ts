@@ -5,6 +5,9 @@ export type RefundStatus =
   | "FAILED"
   | "CANCELLED";
 
+/** How the refund row was created. Defaults to STAFF when omitted. */
+export type RefundSource = "STAFF" | "RAZORPAY";
+
 export type RefundEventType =
   | "INITIATED"
   | "COMPLETE_REQUESTED"
@@ -37,12 +40,14 @@ export type OrderRefund = {
   orderId: number;
   paymentId: number;
   status: RefundStatus;
+  /** STAFF = admin initiate API; RAZORPAY = gateway webhook with no prior local row. */
+  source?: RefundSource;
   reason: string;
   amount: string;
   paymentAmount?: string;
   refundedAmount?: string;
   remainingAmount?: string;
-  initiatedByStaffId: number;
+  initiatedByStaffId: number | null;
   initiatedBy?: RefundStaffSummary | null;
   initiatedAt: string;
   completedByStaffId: number | null;
@@ -77,9 +82,11 @@ export type RefundListItem = {
   orderId: number;
   paymentId: number;
   status: RefundStatus;
+  source?: RefundSource;
   reason: string;
   amount: string;
   initiatedAt: string;
+  initiatedByStaffId?: number | null;
   processedAt: string | null;
   failedAt: string | null;
   razorpayRefundId: string | null;

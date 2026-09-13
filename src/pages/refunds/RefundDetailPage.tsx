@@ -21,7 +21,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { getOrderStatusLabel } from "@/lib/order-status";
 import {
+  getRefundSource,
+  isStaffInitiatedRefund,
   refundEventLabels,
+  refundInitiatedByLabel,
+  refundSourceLabels,
+  refundSourceVariants,
   refundStatusLabels,
   refundStatusVariants,
 } from "@/lib/refund-status";
@@ -132,8 +137,11 @@ export function RefundDetailPage() {
   }
 
   const refund = refundQuery.data;
-  const canComplete = canUpdate && refund.status === "INITIATED";
-  const canCancel = canUpdate && refund.status === "INITIATED";
+  const source = getRefundSource(refund);
+  const canComplete =
+    canUpdate && refund.status === "INITIATED" && isStaffInitiatedRefund(refund);
+  const canCancel =
+    canUpdate && refund.status === "INITIATED" && isStaffInitiatedRefund(refund);
 
   return (
     <div className="flex flex-col gap-4">
@@ -171,9 +179,14 @@ export function RefundDetailPage() {
                 Refund lifecycle is separate from order fulfillment status.
               </CardDescription>
             </div>
-            <StatusBadge variant={refundStatusVariants[refund.status]}>
-              {refundStatusLabels[refund.status]}
-            </StatusBadge>
+            <div className="flex flex-wrap items-center gap-2">
+              <StatusBadge variant={refundSourceVariants[source]}>
+                {refundSourceLabels[source]}
+              </StatusBadge>
+              <StatusBadge variant={refundStatusVariants[refund.status]}>
+                {refundStatusLabels[refund.status]}
+              </StatusBadge>
+            </div>
           </CardHeader>
           <CardContent className="space-y-4 text-sm">
             <div className="grid gap-3 sm:grid-cols-3">
@@ -197,6 +210,14 @@ export function RefundDetailPage() {
               </div>
             </div>
             <div>
+              <p className="text-xs text-muted-foreground">Type</p>
+              <p className="mt-1">
+                {source === "RAZORPAY"
+                  ? "Created from Razorpay (Dashboard or auto refund). No staff initiate step."
+                  : "Created by staff in this admin console."}
+              </p>
+            </div>
+            <div>
               <p className="text-xs text-muted-foreground">Reason</p>
               <p className="mt-1">{refund.reason || "—"}</p>
             </div>
@@ -204,11 +225,7 @@ export function RefundDetailPage() {
               <div>
                 <p className="text-xs text-muted-foreground">Initiated</p>
                 <p className="mt-1">
-                  {refund.initiatedBy
-                    ? [refund.initiatedBy.firstName, refund.initiatedBy.lastName]
-                        .filter(Boolean)
-                        .join(" ") || refund.initiatedBy.email
-                    : `Staff #${refund.initiatedByStaffId}`}
+                  {refundInitiatedByLabel(refund)}
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {formatDate(refund.initiatedAt)}

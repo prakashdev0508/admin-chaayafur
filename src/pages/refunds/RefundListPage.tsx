@@ -77,7 +77,7 @@ export function RefundListPage() {
     <div className="flex flex-col gap-4">
       <PageHeader
         title="Refunds"
-        description="Track initiated, processing, and completed refunds."
+        description="Staff-initiated refunds and refunds created from Razorpay."
         action={
           <div className="flex gap-2">
             <Button

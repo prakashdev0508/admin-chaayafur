@@ -4,14 +4,17 @@ import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatCurrency, formatDate } from "@/lib/format";
 import {
+  getRefundSource,
+  isStaffInitiatedRefund,
+  refundInitiatedByLabel,
+  refundSourceLabels,
+  refundSourceVariants,
   refundStatusLabels,
   refundStatusVariants,
 } from "@/lib/refund-status";
-import { formatStaffName } from "@/lib/staff-utils";
 import type {
   OrderRefund,
   OrderRefundsResponse,
-  RefundStaffSummary,
   RefundStatus,
 } from "@/types/refund";
 
@@ -32,15 +35,6 @@ function statusVariant(status: string) {
   return refundStatusVariants[status as RefundStatus] ?? "neutral";
 }
 
-function refundActorLabel(
-  staff: RefundStaffSummary | null | undefined,
-  staffId: number | null | undefined,
-) {
-  if (staff) return formatStaffName(staff);
-  if (staffId != null) return `Staff #${staffId}`;
-  return "—";
-}
-
 function RefundItemCard({
   refund,
   canUpdate,
@@ -57,8 +51,12 @@ function RefundItemCard({
   onCancel: () => void;
 }) {
   const busy = Boolean(completeLoading || cancelLoading);
-  const canComplete = canUpdate && refund.status === "INITIATED";
-  const canCancelRequest = canUpdate && refund.status === "INITIATED";
+  const staffInitiated = isStaffInitiatedRefund(refund);
+  const source = getRefundSource(refund);
+  const canComplete =
+    canUpdate && refund.status === "INITIATED" && staffInitiated;
+  const canCancelRequest =
+    canUpdate && refund.status === "INITIATED" && staffInitiated;
 
   return (
     <div className="space-y-4 rounded-lg border p-4">
@@ -74,9 +72,14 @@ function RefundItemCard({
             {formatCurrency(refund.amount)}
           </p>
         </div>
-        <StatusBadge variant={statusVariant(refund.status)}>
-          {statusLabel(refund.status)}
-        </StatusBadge>
+        <div className="flex flex-wrap items-center gap-2">
+          <StatusBadge variant={refundSourceVariants[source]}>
+            {refundSourceLabels[source]}
+          </StatusBadge>
+          <StatusBadge variant={statusVariant(refund.status)}>
+            {statusLabel(refund.status)}
+          </StatusBadge>
+        </div>
       </div>
 
       <div className="space-y-2 text-sm">
@@ -88,10 +91,7 @@ function RefundItemCard({
           <div>
             <p className="text-muted-foreground">Initiated by</p>
             <p>
-              {refundActorLabel(
-                refund.initiatedBy,
-                refund.initiatedByStaffId,
-              )}
+              {refundInitiatedByLabel(refund)}
             </p>
             <p className="text-xs text-muted-foreground">
               {refund.initiatedAt ? formatDate(refund.initiatedAt) : "—"}
@@ -103,10 +103,10 @@ function RefundItemCard({
             <div>
               <p className="text-muted-foreground">Completed by</p>
               <p>
-                {refundActorLabel(
-                  refund.completedBy,
-                  refund.completedByStaffId,
-                )}
+                {refundInitiatedByLabel({
+                  initiatedBy: refund.completedBy,
+                  initiatedByStaffId: refund.completedByStaffId,
+                })}
               </p>
               {refund.completedAt && (
                 <p className="text-xs text-muted-foreground">
@@ -143,7 +143,9 @@ function RefundItemCard({
         {refund.status === "PROCESSING" && (
           <p className="flex items-center gap-2 text-xs text-muted-foreground">
             <Loader2 className="size-3.5 animate-spin" />
-            Waiting for Razorpay to finalize the refund…
+            {source === "RAZORPAY"
+              ? "Recorded from Razorpay. Waiting for a final webhook if needed…"
+              : "Waiting for Razorpay to finalize the refund…"}
           </p>
         )}
       </div>
