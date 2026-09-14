@@ -15,6 +15,8 @@ const routePermissions: Record<string, Permission | Permission[] | []> = {
   "/categories": PERMISSIONS.VIEW_CATEGORIES,
   "/website": PERMISSIONS.VIEW_BANNERS,
   "/website/home": PERMISSIONS.VIEW_BANNERS,
+  "/content": PERMISSIONS.VIEW_INSTAGRAM,
+  "/content/instagram": PERMISSIONS.VIEW_INSTAGRAM,
   "/orders": PERMISSIONS.VIEW_ORDERS,
   "/support-tickets": PERMISSIONS.VIEW_ORDER_SUPPORT,
   "/customization-requests": PERMISSIONS.VIEW_CUSTOMIZATION_REQUESTS,

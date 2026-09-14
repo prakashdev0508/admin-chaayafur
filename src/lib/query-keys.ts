@@ -126,6 +126,8 @@ export const queryKeys = {
       all: ["admin", "instagram"] as const,
       media: ["admin", "instagram", "media"] as const,
       selections: ["admin", "instagram", "selections"] as const,
+      insights: (mediaId: string) =>
+        ["admin", "instagram", "insights", mediaId] as const,
     },
     siteSettings: ["admin", "site-settings"] as const,
     shippingPincodes: {

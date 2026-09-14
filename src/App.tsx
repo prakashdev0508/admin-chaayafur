@@ -55,6 +55,8 @@ import { RoleDetailPage } from "@/pages/roles/RoleDetailPage";
 import { SupportTicketListPage } from "@/pages/support-tickets/SupportTicketListPage";
 import { SupportTicketDetailPage } from "@/pages/support-tickets/SupportTicketDetailPage";
 import { WebsiteHomePage } from "@/pages/website/WebsiteHomePage";
+import { InstagramMediaListPage } from "@/pages/content/InstagramMediaListPage";
+import { InstagramMediaReportPage } from "@/pages/content/InstagramMediaReportPage";
 import { SettingsPage } from "@/pages/settings/SettingsPage";
 import { ReviewListPage } from "@/pages/reviews/ReviewListPage";
 import { ContactInquiryListPage } from "@/pages/contact/ContactInquiryListPage";
@@ -153,6 +155,18 @@ const App = () => {
             element={<PermissionRoute permission={PERMISSIONS.VIEW_BANNERS} />}
           >
             <Route path="website/home" element={<WebsiteHomePage />} />
+          </Route>
+          <Route path="content" element={<Navigate to="/content/instagram" replace />} />
+          <Route
+            element={
+              <PermissionRoute permission={PERMISSIONS.VIEW_INSTAGRAM} />
+            }
+          >
+            <Route path="content/instagram" element={<InstagramMediaListPage />} />
+            <Route
+              path="content/instagram/:mediaId"
+              element={<InstagramMediaReportPage />}
+            />
           </Route>
           <Route
             element={

@@ -3,6 +3,7 @@ import type {
   AdminInstagramMedia,
   AdminInstagramMediaListPayload,
   InstagramMedia,
+  InstagramMediaInsights,
   InstagramMediaListPayload,
   InstagramSelection,
   InstagramSelectionItemInput,
@@ -23,6 +24,12 @@ export async function listAdminInstagramMedia(): Promise<AdminInstagramMedia[]> 
     "/admin/instagram/media",
   );
   return payload?.data ?? [];
+}
+
+export function getInstagramMediaInsights(mediaId: string) {
+  return apiRequest<InstagramMediaInsights>(
+    `/admin/instagram/media/${encodeURIComponent(mediaId)}/insights`,
+  );
 }
 
 export function listInstagramSelections() {
