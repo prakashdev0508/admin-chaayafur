@@ -19,6 +19,7 @@ export const STAFF_HOME_CANDIDATES: StaffHomeCandidate[] = [
   { path: "/quotations", permission: PERMISSIONS.VIEW_QUOTATIONS },
   { path: "/categories", permission: PERMISSIONS.VIEW_CATEGORIES },
   { path: "/website/home", permission: PERMISSIONS.VIEW_BANNERS },
+  { path: "/content/instagram", permission: PERMISSIONS.VIEW_INSTAGRAM },
   { path: "/orders", permission: PERMISSIONS.VIEW_ORDERS },
   { path: "/support-tickets", permission: PERMISSIONS.VIEW_ORDER_SUPPORT },
   {
@@ -50,6 +51,8 @@ const ROUTE_PERMISSIONS: Record<string, Permission | null> = {
   "/categories": PERMISSIONS.VIEW_CATEGORIES,
   "/website": PERMISSIONS.VIEW_BANNERS,
   "/website/home": PERMISSIONS.VIEW_BANNERS,
+  "/content": PERMISSIONS.VIEW_INSTAGRAM,
+  "/content/instagram": PERMISSIONS.VIEW_INSTAGRAM,
   "/orders": PERMISSIONS.VIEW_ORDERS,
   "/support-tickets": PERMISSIONS.VIEW_ORDER_SUPPORT,
   "/customization-requests": PERMISSIONS.VIEW_CUSTOMIZATION_REQUESTS,

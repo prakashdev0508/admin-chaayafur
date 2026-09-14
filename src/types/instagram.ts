@@ -52,3 +52,41 @@ export type InstagramSelectionItemInput = {
 export type PutInstagramSelectionsPayload = {
   items: InstagramSelectionItemInput[];
 };
+
+export type InstagramInsightItem = {
+  name: string;
+  period: string;
+  title: string;
+  description: string;
+  value: number | null;
+};
+
+export type InstagramMediaInsightsMetrics = {
+  reach: number | null;
+  views: number | null;
+  likes: number | null;
+  comments: number | null;
+  shares: number | null;
+  saved: number | null;
+  total_interactions: number | null;
+  ig_reels_video_view_total_time: number | null;
+  ig_reels_avg_watch_time: number | null;
+  clips_replays_count: number | null;
+  reels_skip_rate: number | null;
+  [key: string]: number | null | undefined;
+};
+
+export type InstagramMediaWatchTime = {
+  avgWatchTimeMs: number | null;
+  avgWatchTimeSeconds: number | null;
+  totalWatchTimeMs: number | null;
+  totalWatchTimeSeconds: number | null;
+};
+
+export type InstagramMediaInsights = {
+  mediaId: string;
+  media: InstagramMedia | null;
+  metrics: InstagramMediaInsightsMetrics;
+  watchTime: InstagramMediaWatchTime;
+  insights: InstagramInsightItem[];
+};

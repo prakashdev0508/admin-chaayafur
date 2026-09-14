@@ -54,6 +54,7 @@ import { ADMIN_SEARCH_PERMISSIONS } from "@/components/layout/AdminSearchOverlay
 import { PERMISSIONS } from "@/lib/roles";
 import { formatRoleLabel, isSuperAdminSlug } from "@/lib/staff-utils";
 import { CollapsibleSidebarNav } from "@/components/layout/CollapsibleSidebarNav";
+import { ContentSidebarNav } from "@/components/layout/ContentSidebarNav";
 import { CustomizationSidebarNav } from "@/components/layout/CustomizationSidebarNav";
 import { FinanceSidebarNav } from "@/components/layout/FinanceSidebarNav";
 import { ReportsSidebarNav } from "@/components/layout/ReportsSidebarNav";
@@ -328,6 +329,7 @@ export function AppSidebar({ onOpenSearch }: AppSidebarProps) {
                 </SidebarMenuItem>
               ))}
               <FinanceSidebarNav />
+              <ContentSidebarNav />
               <CustomizationSidebarNav />
               <ReportsSidebarNav />
             </SidebarMenu>
