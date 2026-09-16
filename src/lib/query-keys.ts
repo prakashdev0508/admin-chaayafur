@@ -51,6 +51,9 @@ export const queryKeys = {
       ["customers", "orders", id, params] as const,
     auditLogs: (id: number, params?: Record<string, unknown>) =>
       ["customers", "audit-logs", id, params] as const,
+    followUps: (id: number) => ["customers", "follow-ups", id] as const,
+    dayFollowUps: (date?: string) =>
+      ["customers", "day-follow-ups", date ?? "today"] as const,
   },
   auditLogs: {
     list: (params: Record<string, unknown>) =>

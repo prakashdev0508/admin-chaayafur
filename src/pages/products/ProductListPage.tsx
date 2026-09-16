@@ -51,6 +51,7 @@ const TAG_VALUES = new Set<ProductMerchandisingTag | "all">([
   "isFeaturedProduct",
   "isMostPopular",
   "isNewArrival",
+  "isRecommended",
 ]);
 
 function filtersFromSearchParams(searchParams: URLSearchParams): ProductFilters {

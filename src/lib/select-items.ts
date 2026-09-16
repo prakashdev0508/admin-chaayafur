@@ -133,6 +133,7 @@ export const PRODUCT_TAG_FILTER_ITEMS: SelectOption[] = [
   { value: "isBestSeller", label: "Best seller" },
   { value: "isMostPopular", label: "Most popular" },
   { value: "isNewArrival", label: "New arrival" },
+  { value: "isRecommended", label: "Recommended" },
 ];
 
 export const SORT_ORDER_ITEMS: SelectOption[] = [

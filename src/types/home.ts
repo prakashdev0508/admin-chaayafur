@@ -33,6 +33,7 @@ export type HomePayload = {
   bestSellers: ProductListItem[];
   mostPopular: ProductListItem[];
   newArrivals: ProductListItem[];
+  recommended: ProductListItem[];
 };
 
 export type CreateBannerPayload = {

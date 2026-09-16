@@ -34,6 +34,10 @@ const CMS_SECTIONS: {
     tag: "isMostPopular",
     description: "Shown in Most popular on the shop homepage.",
   },
+  {
+    tag: "isRecommended",
+    description: "Shown in Recommended on the shop homepage.",
+  },
 ];
 
 export function WebsiteHomePage() {

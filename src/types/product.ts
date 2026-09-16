@@ -26,7 +26,8 @@ export type ProductMerchandisingTag =
   | "isBestSeller"
   | "isFeaturedProduct"
   | "isMostPopular"
-  | "isNewArrival";
+  | "isNewArrival"
+  | "isRecommended";
 
 export type ProductFabricAssignment = {
   fabricId: number;
@@ -75,6 +76,7 @@ export type Product = {
   isFeaturedProduct: boolean;
   isMostPopular: boolean;
   isNewArrival: boolean;
+  isRecommended: boolean;
   productFeatures: string[];
   customization?: ProductCustomizationOption[];
   woods?: ProductWood[];
@@ -106,6 +108,7 @@ export type ProductListItem = {
   isFeaturedProduct: boolean;
   isMostPopular: boolean;
   isNewArrival: boolean;
+  isRecommended: boolean;
   productFeatures: string[];
   customization?: ProductCustomizationOption[];
   woods?: ProductWood[];
@@ -156,6 +159,7 @@ export type CreateProductPayload = {
   isFeaturedProduct?: boolean;
   isMostPopular?: boolean;
   isNewArrival?: boolean;
+  isRecommended?: boolean;
   productFeatures?: string[];
   customization?: ProductCustomizationOption[];
   woods?: ProductWoodAssignment[];
@@ -171,6 +175,7 @@ export type UpdateProductCmsTagsPayload = {
   isFeaturedProduct?: boolean;
   isMostPopular?: boolean;
   isNewArrival?: boolean;
+  isRecommended?: boolean;
 };
 
 /** Row in `staged_product_images` after a ZIP staging job. */
@@ -217,6 +222,7 @@ export type ProductFormValues = {
   isFeaturedProduct: boolean;
   isMostPopular: boolean;
   isNewArrival: boolean;
+  isRecommended: boolean;
   productFeatures: string[];
   customization: ProductCustomizationFormEntry[];
   images: ProductImageInput[];
