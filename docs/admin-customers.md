@@ -14,6 +14,7 @@ Staff endpoints to list, view, edit, and manage customer addresses with field-le
 - Every customer/address update writes **audit log** entries (who changed which field)
 - **Block** sets `isActive: false` — blocked customers cannot verify OTP / login
 - No hard delete — order history is preserved
+- **Lead follow-ups** — staff can add multiple remarks with a `nextFollowUpDate`, list a customer's full history (including completed), and fetch incomplete follow-ups scheduled for a calendar day
 
 ### Who can access?
 
@@ -21,8 +22,12 @@ Staff endpoints to list, view, edit, and manage customer addresses with field-le
 |----------|------------|:-----------:|:-----:|:-------------:|
 | `POST /customers` | `update-customers` | Yes | Yes | No |
 | `GET /customers` | `view-customers` | Yes | Yes | Yes |
+| `GET /customers/follow-ups` | `view-customers` | Yes | Yes | Yes |
 | `GET /customers/:id` | `view-customers` | Yes | Yes | Yes |
 | `GET /customers/:id/orders` | `view-customers` + `view-orders` | Yes | Yes | Yes |
+| `GET /customers/:id/follow-ups` | `view-customers` | Yes | Yes | Yes |
+| `POST /customers/:id/follow-ups` | `update-customers` | Yes | Yes | No |
+| `PATCH /customers/:id/follow-ups/:followUpId` | `update-customers` | Yes | Yes | No |
 | `GET /customers/:id/audit-logs` | `view-customers` | Yes | Yes | Yes |
 | `PATCH /customers/:id` | `update-customers` | Yes | Yes | No |
 | `POST /customers/:id/addresses` | `update-customers` | Yes | Yes | No |
@@ -45,8 +50,12 @@ Authorization: Bearer <staffAccessToken>
 |--------|----------|--------|
 | `POST` | `/api/v1/customers` | `201` |
 | `GET` | `/api/v1/customers` | `200` |
+| `GET` | `/api/v1/customers/follow-ups` | `200` |
 | `GET` | `/api/v1/customers/:id` | `200` |
 | `GET` | `/api/v1/customers/:id/orders` | `200` |
+| `GET` | `/api/v1/customers/:id/follow-ups` | `200` |
+| `POST` | `/api/v1/customers/:id/follow-ups` | `201` |
+| `PATCH` | `/api/v1/customers/:id/follow-ups/:followUpId` | `200` |
 | `GET` | `/api/v1/customers/:id/audit-logs` | `200` |
 | `PATCH` | `/api/v1/customers/:id` | `200` |
 | `POST` | `/api/v1/customers/:id/addresses` | `201` |
@@ -57,9 +66,15 @@ Authorization: Bearer <staffAccessToken>
 
 ---
 
+## GET /api/v1/customers
+
+Paginated customer list. Each item includes `addressCount`, `orderCount`, and `followUpCount` (total follow-ups, completed + incomplete).
+
+---
+
 ## GET /api/v1/customers/:id
 
-Customer detail including addresses, **current cart** (if any), and **recent orders** (last 10).
+Customer detail including addresses, **follow-ups**, **current cart** (if any), and **recent orders** (last 10).
 
 ### Success response
 
@@ -74,6 +89,16 @@ Customer detail including addresses, **current cart** (if any), and **recent ord
     "orderCount": 2,
     "reviewCount": 0,
     "addresses": [],
+    "followUps": [
+      {
+        "id": 1,
+        "remark": "Called customer; interested in dining set",
+        "nextFollowUpDate": "2026-09-20T00:00:00.000Z",
+        "isFollowedUp": false,
+        "createdByStaffId": 2,
+        "createdAt": "2026-09-15T10:00:00.000Z"
+      }
+    ],
     "cart": {
       "id": 3,
       "customerId": 1,
@@ -162,6 +187,78 @@ Requires `view-customers` and `view-orders`.
 Paginated audit history for the customer account and their addresses.
 
 See [admin-audit-logs.md](./admin-audit-logs.md).
+
+---
+
+## Customer follow-ups (lead CRM)
+
+Staff can attach multiple follow-up remarks with a scheduled next date. Each `POST` appends a new history row. The day-agenda API (`GET /customers/follow-ups`) hides completed follow-ups (`isFollowedUp: true`); customer detail and per-customer history include **all** follow-ups.
+
+### POST /api/v1/customers/:id/follow-ups
+
+| | |
+|---|---|
+| **Permission** | `update-customers` |
+| **Status** | `201` |
+
+```json
+{
+  "remark": "Called customer; interested in dining set",
+  "nextFollowUpDate": "2026-09-20"
+}
+```
+
+New follow-ups start with `isFollowedUp: false`.
+
+### PATCH /api/v1/customers/:id/follow-ups/:followUpId
+
+Mark a follow-up completed (or reopen it).
+
+| | |
+|---|---|
+| **Permission** | `update-customers` |
+| **Status** | `200` |
+
+```json
+{
+  "isFollowedUp": true
+}
+```
+
+### GET /api/v1/customers/:id/follow-ups
+
+| | |
+|---|---|
+| **Permission** | `view-customers` |
+| **Status** | `200` |
+
+Returns `{ "items": [ ... ] }` newest first — **all** follow-ups (completed and incomplete). Each item includes `customer: { id, phone }` and `isFollowedUp`.
+
+### GET /api/v1/customers/follow-ups
+
+Day agenda of incomplete follow-ups whose `nextFollowUpDate` falls on the given calendar day (UTC). Completed ones (`isFollowedUp: true`) are excluded.
+
+| Query | Default | Description |
+|-------|---------|-------------|
+| `date` | today (UTC `YYYY-MM-DD`) | Calendar day to list |
+
+```json
+{
+  "date": "2026-09-20",
+  "items": [
+    {
+      "id": 1,
+      "customerId": 1,
+      "remark": "Called customer; interested in dining set",
+      "nextFollowUpDate": "2026-09-20T00:00:00.000Z",
+      "isFollowedUp": false,
+      "createdByStaffId": 2,
+      "createdAt": "2026-09-15T10:00:00.000Z",
+      "customer": { "id": 1, "phone": "9876543210" }
+    }
+  ]
+}
+```
 
 ---
 

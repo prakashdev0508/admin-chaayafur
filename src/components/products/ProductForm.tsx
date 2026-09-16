@@ -47,6 +47,7 @@ export const emptyProductFormValues: ProductFormValues = {
   isFeaturedProduct: false,
   isMostPopular: false,
   isNewArrival: false,
+  isRecommended: false,
   productFeatures: [],
   customization: [],
   images: [],
@@ -57,6 +58,7 @@ const MERCH_TAGS = [
   { key: "isBestSeller" as const, label: "Best seller" },
   { key: "isMostPopular" as const, label: "Most popular" },
   { key: "isNewArrival" as const, label: "New arrival" },
+  { key: "isRecommended" as const, label: "Recommended" },
 ];
 
 type ProductFormProps = {

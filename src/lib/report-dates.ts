@@ -6,6 +6,27 @@ export function toReportDateString(date: Date) {
   return `${y}-${m}-${d}`;
 }
 
+/** Calendar date YYYY-MM-DD in Asia/Kolkata (IST). */
+export function toIstDateString(date: Date = new Date()) {
+  return date.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+}
+
+/**
+ * Format an ISO timestamp / date-only string as a calendar day in IST.
+ * Prefer this for date-only fields stored as UTC midnight.
+ */
+export function formatIstDate(
+  value: string,
+  options: Intl.DateTimeFormatOptions = { dateStyle: "medium" },
+) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value.slice(0, 10);
+  return date.toLocaleDateString("en-IN", {
+    timeZone: "Asia/Kolkata",
+    ...options,
+  });
+}
+
 export function getDefaultReportDateRange(days = 30) {
   const to = new Date();
   const from = new Date();

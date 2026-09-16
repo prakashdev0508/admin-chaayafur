@@ -83,6 +83,8 @@ type BannerFormDialogProps = {
   onOpenChange: (open: boolean) => void;
   initial?: AdminBanner | null;
   defaultType?: BannerType;
+  /** Used for new banners so creates append after existing items. */
+  defaultSortOrder?: number;
   onSubmit: (
     payload: CreateBannerPayload | UpdateBannerPayload,
   ) => Promise<unknown>;
@@ -94,13 +96,16 @@ export function BannerFormDialog({
   onOpenChange,
   initial,
   defaultType = "MAIN",
+  defaultSortOrder = 0,
   onSubmit,
   loading,
 }: BannerFormDialogProps) {
   const [type, setType] = useState<BannerType>(initial?.type ?? defaultType);
   const [title, setTitle] = useState(initial?.title ?? "");
   const [redirectUrl, setRedirectUrl] = useState(initial?.redirectUrl ?? "");
-  const [sortOrder, setSortOrder] = useState(String(initial?.sortOrder ?? 0));
+  const [sortOrder, setSortOrder] = useState(
+    String(initial?.sortOrder ?? defaultSortOrder),
+  );
   const [isActive, setIsActive] = useState(initial?.isActive ?? true);
   const [image, setImage] = useState<BannerImageInput | null>(null);
   const [originalImageUrl, setOriginalImageUrl] = useState<string | null>(null);
@@ -117,7 +122,7 @@ export function BannerFormDialog({
     setType(initial?.type ?? defaultType);
     setTitle(initial?.title ?? "");
     setRedirectUrl(initial?.redirectUrl ?? "/shop/products");
-    setSortOrder(String(initial?.sortOrder ?? 0));
+    setSortOrder(String(initial?.sortOrder ?? defaultSortOrder));
     setIsActive(initial?.isActive ?? true);
     setOriginalImageUrl(initial?.imageUrl ?? null);
     setImage(
@@ -141,7 +146,7 @@ export function BannerFormDialog({
           }
         : null,
     );
-  }, [open, initial, defaultType]);
+  }, [open, initial, defaultType, defaultSortOrder]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

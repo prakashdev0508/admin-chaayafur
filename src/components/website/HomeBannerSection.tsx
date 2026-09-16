@@ -21,6 +21,11 @@ import {
 import { StatusBadge } from "@/components/ui/status-badge";
 import { ApiError } from "@/lib/api";
 import { queryKeys } from "@/lib/query-keys";
+import {
+  bySortOrderThenId,
+  changedSortOrders,
+  reindexAfterSwap,
+} from "@/lib/sort-order";
 import { cn } from "@/lib/utils";
 import {
   createBanner,
@@ -35,6 +40,7 @@ import type {
   CreateBannerPayload,
   UpdateBannerPayload,
 } from "@/types/home";
+import type { PaginatedResponse } from "@/types/api";
 
 type HomeBannerSectionProps = {
   type: BannerType;
@@ -77,10 +83,14 @@ export function HomeBannerSection({
   });
 
   const banners = useMemo(
-    () =>
-      [...(data?.items ?? [])].sort((a, b) => a.sortOrder - b.sortOrder || a.id - b.id),
+    () => [...(data?.items ?? [])].sort(bySortOrderThenId),
     [data?.items],
   );
+
+  const nextSortOrder = useMemo(() => {
+    if (banners.length === 0) return 0;
+    return Math.max(...banners.map((banner) => banner.sortOrder)) + 1;
+  }, [banners]);
 
   const saveMutation = useMutation({
     mutationFn: async ({
@@ -93,7 +103,11 @@ export function HomeBannerSection({
       if (id != null) {
         return updateBanner(id, payload);
       }
-      return createBanner(payload as CreateBannerPayload);
+      const createPayload = payload as CreateBannerPayload;
+      return createBanner({
+        ...createPayload,
+        sortOrder: createPayload.sortOrder ?? nextSortOrder,
+      });
     },
     onSuccess: async (_result, variables) => {
       toast.success(variables.id != null ? "Banner updated" : "Banner created");
@@ -125,25 +139,54 @@ export function HomeBannerSection({
 
   const reorderMutation = useMutation({
     mutationFn: async ({
-      current,
-      neighbor,
+      currentId,
+      neighborId,
+      items,
     }: {
-      current: AdminBanner;
-      neighbor: AdminBanner;
+      currentId: number;
+      neighborId: number;
+      items: AdminBanner[];
     }) => {
-      await Promise.all([
-        updateBanner(current.id, { sortOrder: neighbor.sortOrder }),
-        updateBanner(neighbor.id, { sortOrder: current.sortOrder }),
-      ]);
+      // Reindex 0..n-1 after swap so ties on sortOrder (common default 0) still move.
+      const updates = changedSortOrders(items, currentId, neighborId);
+      if (updates.length === 0) return;
+      await Promise.all(
+        updates.map((row) =>
+          updateBanner(row.id, { sortOrder: row.sortOrder }),
+        ),
+      );
       await invalidateHomeQueries(queryClient);
     },
-    onMutate: ({ current, neighbor }) => {
-      setReorderingIds([current.id, neighbor.id]);
+    onMutate: ({ currentId, neighborId, items }) => {
+      setReorderingIds([currentId, neighborId]);
+      const orderById = new Map(
+        reindexAfterSwap(items, currentId, neighborId).map((row) => [
+          row.id,
+          row.sortOrder,
+        ]),
+      );
+      queryClient.setQueryData<PaginatedResponse<AdminBanner>>(
+        queryKeys.admin.banners.list(listParams),
+        (old) => {
+          if (!old) return old;
+          return {
+            ...old,
+            items: old.items.map((banner) => {
+              const sortOrder = orderById.get(banner.id);
+              return sortOrder == null ? banner : { ...banner, sortOrder };
+            }),
+          };
+        },
+      );
+    },
+    onSuccess: () => {
+      toast.success("Banner order updated");
     },
     onError: (err) => {
       toast.error(
         err instanceof ApiError ? err.message : "Failed to reorder banners",
       );
+      void invalidateHomeQueries(queryClient);
     },
     onSettled: () => {
       setReorderingIds(null);
@@ -297,8 +340,9 @@ export function HomeBannerSection({
                                   aria-label="Move earlier"
                                   onClick={() =>
                                     reorderMutation.mutate({
-                                      current: banner,
-                                      neighbor: banners[index - 1],
+                                      currentId: banner.id,
+                                      neighborId: banners[index - 1].id,
+                                      items: banners,
                                     })
                                   }
                                 >
@@ -320,8 +364,9 @@ export function HomeBannerSection({
                                   aria-label="Move later"
                                   onClick={() =>
                                     reorderMutation.mutate({
-                                      current: banner,
-                                      neighbor: banners[index + 1],
+                                      currentId: banner.id,
+                                      neighborId: banners[index + 1].id,
+                                      items: banners,
                                     })
                                   }
                                 >
@@ -432,6 +477,7 @@ export function HomeBannerSection({
         onOpenChange={handleDialogOpenChange}
         initial={editing}
         defaultType={type}
+        defaultSortOrder={nextSortOrder}
         loading={saveMutation.isPending || loadingEdit}
         onSubmit={async (payload) => {
           await saveMutation.mutateAsync({

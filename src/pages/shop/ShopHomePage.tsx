@@ -16,7 +16,11 @@ import type { ProductListItem, ProductMerchandisingTag } from "@/types/product";
 const PRODUCT_SECTIONS: {
   key: keyof Pick<
     HomePayload,
-    "featuredProducts" | "bestSellers" | "newArrivals" | "mostPopular"
+    | "featuredProducts"
+    | "bestSellers"
+    | "newArrivals"
+    | "mostPopular"
+    | "recommended"
   >;
   tag: ProductMerchandisingTag;
   title: string;
@@ -45,6 +49,12 @@ const PRODUCT_SECTIONS: {
     tag: "isMostPopular",
     title: "Most popular",
     description: "Trending across the store",
+  },
+  {
+    key: "recommended",
+    tag: "isRecommended",
+    title: "Recommended",
+    description: "Picks we think you'll love",
   },
 ];
 

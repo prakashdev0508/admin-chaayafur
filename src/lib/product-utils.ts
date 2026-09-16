@@ -42,6 +42,7 @@ export const productTagLabels: Record<ProductMerchandisingTag, string> = {
   isBestSeller: "Best seller",
   isMostPopular: "Most popular",
   isNewArrival: "New arrival",
+  isRecommended: "Recommended",
 };
 
 export const productTagVariants: Record<ProductMerchandisingTag, StatusVariant> = {
@@ -49,12 +50,17 @@ export const productTagVariants: Record<ProductMerchandisingTag, StatusVariant> 
   isBestSeller: "warning",
   isMostPopular: "default",
   isNewArrival: "success",
+  isRecommended: "neutral",
 };
 
 export function getActiveProductTags(
   product: Pick<
     ProductListItem,
-    "isBestSeller" | "isFeaturedProduct" | "isMostPopular" | "isNewArrival"
+    | "isBestSeller"
+    | "isFeaturedProduct"
+    | "isMostPopular"
+    | "isNewArrival"
+    | "isRecommended"
   >,
 ): ProductMerchandisingTag[] {
   const tags: ProductMerchandisingTag[] = [];
@@ -62,6 +68,7 @@ export function getActiveProductTags(
   if (product.isBestSeller) tags.push("isBestSeller");
   if (product.isMostPopular) tags.push("isMostPopular");
   if (product.isNewArrival) tags.push("isNewArrival");
+  if (product.isRecommended) tags.push("isRecommended");
   return tags;
 }
 
@@ -129,6 +136,7 @@ export function productToFormValues(product: Product): ProductFormValues {
     isFeaturedProduct: product.isFeaturedProduct ?? false,
     isMostPopular: product.isMostPopular ?? false,
     isNewArrival: product.isNewArrival ?? false,
+    isRecommended: product.isRecommended ?? false,
     productFeatures: product.productFeatures,
     customization: customizationToForm(product.customization),
     images:
@@ -214,6 +222,7 @@ export function formValuesToCreatePayload(
     isFeaturedProduct: values.isFeaturedProduct,
     isMostPopular: values.isMostPopular,
     isNewArrival: values.isNewArrival,
+    isRecommended: values.isRecommended,
     productFeatures: values.productFeatures,
     customization: formCustomizationToPayload(values.customization),
     woods: [],

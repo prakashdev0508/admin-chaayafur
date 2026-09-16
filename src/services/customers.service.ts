@@ -8,6 +8,12 @@ import type {
   UpdateCustomerPayload,
   ListCustomersParams,
   ListCustomerOrdersParams,
+  CustomerFollowUp,
+  CreateCustomerFollowUpPayload,
+  UpdateCustomerFollowUpPayload,
+  CustomerFollowUpsListResponse,
+  DayFollowUpsResponse,
+  ListDayFollowUpsParams,
 } from "@/types/customer";
 import type {
   CreateAddressPayload,
@@ -85,4 +91,40 @@ export function unblockCustomer(customerId: number) {
   return apiRequest<Customer>(`/customers/${customerId}/unblock`, {
     method: "POST",
   });
+}
+
+export function listCustomerFollowUps(customerId: number) {
+  return apiRequest<CustomerFollowUpsListResponse>(
+    `/customers/${customerId}/follow-ups`,
+  );
+}
+
+export function createCustomerFollowUp(
+  customerId: number,
+  payload: CreateCustomerFollowUpPayload,
+) {
+  return apiRequest<CustomerFollowUp>(`/customers/${customerId}/follow-ups`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateCustomerFollowUp(
+  customerId: number,
+  followUpId: number,
+  payload: UpdateCustomerFollowUpPayload,
+) {
+  return apiRequest<CustomerFollowUp>(
+    `/customers/${customerId}/follow-ups/${followUpId}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+export function listDayFollowUps(params: ListDayFollowUpsParams = {}) {
+  return apiRequest<DayFollowUpsResponse>(
+    `/customers/follow-ups${buildQueryString(params)}`,
+  );
 }
