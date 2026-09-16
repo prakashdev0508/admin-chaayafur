@@ -9,7 +9,7 @@ Public aggregated home payload (banners + CMS-tagged products) and admin APIs to
 ## Overview
 
 - **`GET /home`** — single cached storefront endpoint
-- Returns **main banners**, **sub-banners**, and up to **8 products** for each CMS tag (`featuredProducts`, `bestSellers`, `mostPopular`, `newArrivals`)
+- Returns **main banners**, **sub-banners**, and up to **8 products** for each CMS tag (`featuredProducts`, `bestSellers`, `mostPopular`, `newArrivals`, `recommended`)
 - **Banners** — upload via [uploads.md](./uploads.md), then create/update with `imageUrl` + optional `imageStorageKey`, optional `mobileImageUrl` + `mobileImageStorageKey`, and a `redirectUrl`
 - **CMS tags** — assign on a product with `PATCH /admin/cms/products/:id/tags` (or full `PATCH /products/:id`)
 - Hide with `isActive: false`, or permanently remove with `DELETE /admin/home/banners/:id` (works for both `MAIN` and `SUB`)
@@ -66,7 +66,8 @@ Public aggregated home payload (banners + CMS-tagged products) and admin APIs to
     "featuredProducts": [],
     "bestSellers": [],
     "mostPopular": [],
-    "newArrivals": []
+    "newArrivals": [],
+    "recommended": []
   }
 }
 ```
@@ -171,7 +172,8 @@ Assign merchandising flags without a full product update. At least one field is 
   "isFeaturedProduct": true,
   "isBestSeller": false,
   "isMostPopular": true,
-  "isNewArrival": false
+  "isNewArrival": false,
+  "isRecommended": true
 }
 ```
 
@@ -181,6 +183,7 @@ Assign merchandising flags without a full product update. At least one field is 
 | `isFeaturedProduct` | boolean |
 | `isMostPopular` | boolean |
 | `isNewArrival` | boolean |
+| `isRecommended` | boolean |
 
 ### cURL
 
@@ -188,7 +191,7 @@ Assign merchandising flags without a full product update. At least one field is 
 curl -X PATCH http://localhost:5000/api/v1/admin/cms/products/7/tags \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"isFeaturedProduct": true, "isNewArrival": true}'
+  -d '{"isFeaturedProduct": true, "isNewArrival": true, "isRecommended": true}'
 ```
 
 Updating tags (or any product create/update) bumps the **products** and **home** cache versions so `GET /home` refreshes. Banner create/update/delete bumps the home cache only.

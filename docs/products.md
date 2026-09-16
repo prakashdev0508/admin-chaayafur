@@ -12,8 +12,8 @@ Create, update, and list furniture products.
 - **Product images** — upload via [uploads.md](./uploads.md) (Cloudflare R2), then attach URLs in product create/update (max **11** per product)
 - **`productFeatures`** — optional array of feature strings (e.g. `"Solid oak wood"`, `"1-year warranty"`) for product detail bullets; max **10** items, 200 chars each
 - **Bulk Excel upload** — stage images via ZIP (`{productSlug}__{sortOrder}.{ext}`), download a sample template with dropdowns, then enqueue an Excel job that matches staged images by slug (see [Bulk upload](#bulk-upload) and [upload-jobs.md](./upload-jobs.md))
-- **Catalog Excel export** — `GET /admin/products/export` downloads a full products workbook (core fields, taxonomy, woods/polishes/fabrics, customization JSON, images). Requires `view-products` (see [Export products](#get-apiv1adminproductsexport))
-- **CMS tags** — optional booleans `isBestSeller`, `isFeaturedProduct`, `isMostPopular`, `isNewArrival` for storefront sections; filter with `GET /products?tag=isFeaturedProduct`, or assign via `PATCH /admin/cms/products/:id/tags` (see [home.md](./home.md))
+- **Catalog Excel export** — `GET /admin/products/export` downloads a products workbook (core fields, category/sub-category names & slugs, customization JSON). Requires `view-products` (see [Export products](#get-apiv1adminproductsexport))
+- **CMS tags** — optional booleans `isBestSeller`, `isFeaturedProduct`, `isMostPopular`, `isNewArrival`, `isRecommended` for storefront sections; filter with `GET /products?tag=isFeaturedProduct`, or assign via `PATCH /admin/cms/products/:id/tags` (see [home.md](./home.md)). Public `GET /products` lists **recommended** products first by default (`prioritizeRecommended=true`); pass `prioritizeRecommended=false` for admin-style ordering.
 - Aggregated home sections: [home.md](./home.md) (`GET /home`)
 - Default list shows only **active** products (`isActive=true`)
 - **`price`** is the selling price (after discount) — used for cart, checkout, and filters
@@ -218,6 +218,7 @@ Authorization: Bearer <accessToken>
   "isFeaturedProduct": true,
   "isMostPopular": false,
   "isNewArrival": true,
+  "isRecommended": false,
   "productFeatures": [
     "Solid oak wood",
     "Seats 6 people",
@@ -266,6 +267,7 @@ Authorization: Bearer <accessToken>
 | `isFeaturedProduct` | boolean | No | Default `false` — CMS merchandising tag |
 | `isMostPopular` | boolean | No | Default `false` — CMS merchandising tag |
 | `isNewArrival` | boolean | No | Default `false` — CMS merchandising tag |
+| `isRecommended` | boolean | No | Default `false` — CMS merchandising tag |
 | `productFeatures` | string[] | No | Max 10 items; each string max 200 chars. Default `[]` |
 | `woods` | array | No | `{ woodId, isActive?, priceAdjustment? }[]` — assign woods for this product. Pass `[]` to clear. `priceAdjustment` defaults to `0`. See [woods.md](./woods.md) |
 | `polishes` | array | No | `{ woodPolishId, isActive?, priceAdjustment? }[]` — assign polishes for this product. Each polish must belong to an assigned wood. Pass `[]` to clear. Defaults to `0` when omitted |
@@ -291,6 +293,7 @@ Authorization: Bearer <accessToken>
     "isFeaturedProduct": true,
     "isMostPopular": false,
     "isNewArrival": true,
+  "isRecommended": false,
     "productFeatures": [
       "Solid oak wood",
       "Seats 6 people",
@@ -423,6 +426,7 @@ Header names are case-insensitive. Backend appends **`imagesAttached`** and **`s
 | `isFeaturedProduct` | No | `true` / `false` |
 | `isMostPopular` | No | `true` / `false` |
 | `isNewArrival` | No | `true` / `false` |
+| `isRecommended` | No | `true` / `false` |
 | `productFeatures` | No | pipe-separated, max 10: `Solid oak\|Seats 6\|1-year warranty` |
 | `wood1` … `wood3` | No | **dropdown** of woods; each paired with a price column |
 | `wood1Price` … `wood3Price` | No | number ≥ 0; the `priceAdjustment` for the wood in the same slot (blank = `0`) |
@@ -593,6 +597,7 @@ Partial update. All body fields are optional.
 | `isFeaturedProduct` | boolean | CMS tag |
 | `isMostPopular` | boolean | CMS tag |
 | `isNewArrival` | boolean | CMS tag |
+| `isRecommended` | boolean | CMS tag |
 | `productFeatures` | string[] | Replace entire list. Pass `[]` to clear all features |
 | `customization` | array | Replace free-form options (`isActive` defaults to `true`). Pass `[]` to clear. Omit to leave unchanged |
 | `woods` | array | Replace wood assignments. `{ woodId, isActive?, priceAdjustment? }[]`. Pass `[]` to clear |
@@ -633,13 +638,11 @@ curl -X PATCH http://localhost:5000/api/v1/products/1 \
 | **Auth** | Bearer token + `view-products` |
 | **Status** | `200` (Excel download) / `413` if over `REPORT_EXPORT_MAX_ROWS` (default 50 000) |
 
-Downloads `products-export.xlsx` with one row per product and full catalog fields:
+Downloads `products-export.xlsx` with one row per product:
 
 - Core: id, name, slug, description, price, MRP, stock, active, CMS flags, HSN, warranty, features, timestamps
-- Taxonomy: category / sub-category IDs, names, slugs (pipe-separated)
-- Woods / polishes / fabrics: `id:name:…:priceAdj:active` (pipe-separated assignments)
+- Taxonomy: category / sub-category names and slugs (pipe-separated)
 - `customization` as JSON
-- Images as `sortOrder:url:altText` (pipe-separated)
 
 ### Query (all optional)
 
@@ -746,6 +749,7 @@ Same shape as the create/update response: `description`, full `images` array, `p
     "isFeaturedProduct": true,
     "isMostPopular": false,
     "isNewArrival": true,
+  "isRecommended": false,
     "productFeatures": [
       "Solid oak wood",
       "Seats 6 people",
@@ -865,7 +869,8 @@ GET /api/v1/products/filters
       { "value": "isBestSeller", "label": "Best Seller", "productCount": 3 },
       { "value": "isFeaturedProduct", "label": "Featured", "productCount": 8 },
       { "value": "isMostPopular", "label": "Most Popular", "productCount": 4 },
-      { "value": "isNewArrival", "label": "New Arrival", "productCount": 6 }
+      { "value": "isNewArrival", "label": "New Arrival", "productCount": 6 },
+      { "value": "isRecommended", "label": "Recommended", "productCount": 4 }
     ],
     "sortOptions": [
       { "value": "createdAt", "label": "Newest", "order": "desc" },
@@ -907,7 +912,8 @@ Paginated product catalogue for the storefront. Defaults to **active** products 
 
 When **both** a category and subcategory filter are sent (typical storefront tree URL), matching is done through the subcategory’s parent category — a separate `ProductCategory` row is not required. Category-only filters still use `ProductCategory`.
 | `isActive` | boolean | `true` | Use `false` for hidden products |
-| `tag` | string | — | CMS tag filter: `isBestSeller` \| `isFeaturedProduct` \| `isMostPopular` \| `isNewArrival` |
+| `tag` | string | — | CMS tag filter: `isBestSeller` \| `isFeaturedProduct` \| `isMostPopular` \| `isNewArrival` \| `isRecommended` |
+| `prioritizeRecommended` | boolean | `true` | When `true`, recommended products sort first, then `sortBy`/`sortOrder`. Pass `false` for admin lists. |
 | `page` | number | `1` | Page number |
 | `limit` | number | `10` | Items per page (max 100) |
 | `sortBy` | string | `createdAt` | `name` \| `price` \| `createdAt` |
@@ -936,8 +942,9 @@ GET /api/v1/products?minPrice=1000&maxPrice=50000&sortBy=price&sortOrder=asc
 | `productFeatures` | Array of feature strings (empty array if none) |
 | `customization` | Free-form `{ groupName, value, price, image, isActive, redirectSlug }[]` (list returns active only; empty array if none) |
 | `woods` / `polishes` / `fabrics` | Assigned customizations with `priceAdjustment` (list returns available only) |
-| `isBestSeller` / `isFeaturedProduct` / `isMostPopular` / `isNewArrival` | CMS merchandising flags |
+| `isBestSeller` / `isFeaturedProduct` / `isMostPopular` / `isNewArrival` / `isRecommended` | CMS merchandising flags |
 | `primaryImage` | Lowest `sortOrder` image, or `null` |
+| `secondaryImage` | Second-lowest `sortOrder` image, or `null` if fewer than 2 images |
 
 ### cURL
 

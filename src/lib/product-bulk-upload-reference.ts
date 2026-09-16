@@ -60,6 +60,11 @@ export const PRODUCT_BULK_COLUMN_HELP: ProductBulkColumnHelp[] = [
     hint: "true / false",
   },
   {
+    column: "isRecommended",
+    required: false,
+    hint: "true / false",
+  },
+  {
     column: "productFeatures",
     required: false,
     hint: "Pipe-separated, max 10: Feature A|Feature B",

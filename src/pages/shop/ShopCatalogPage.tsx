@@ -16,6 +16,7 @@ const VALID_TAGS = new Set<ProductMerchandisingTag>([
   "isFeaturedProduct",
   "isMostPopular",
   "isNewArrival",
+  "isRecommended",
 ]);
 
 export function ShopCatalogPage() {

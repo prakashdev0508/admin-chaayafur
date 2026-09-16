@@ -27,6 +27,42 @@ export type Customer = {
   /** Embedded server cart from GET /customers/:id; null if never created */
   cart: import("@/types/cart").AdminCartDetail | null;
   recentOrders: CustomerOrderSummary[];
+  /** Embedded follow-ups from GET /customers/:id when present */
+  followUps?: CustomerFollowUp[];
+};
+
+export type CustomerFollowUp = {
+  id: number;
+  customerId?: number;
+  remark: string;
+  nextFollowUpDate: string;
+  isFollowedUp: boolean;
+  createdByStaffId: number;
+  createdAt: string;
+  customer?: { id: number; phone: string };
+};
+
+export type CreateCustomerFollowUpPayload = {
+  remark: string;
+  /** Calendar date YYYY-MM-DD */
+  nextFollowUpDate: string;
+};
+
+export type UpdateCustomerFollowUpPayload = {
+  isFollowedUp: boolean;
+};
+
+export type CustomerFollowUpsListResponse = {
+  items: CustomerFollowUp[];
+};
+
+export type DayFollowUpsResponse = {
+  date: string;
+  items: CustomerFollowUp[];
+};
+
+export type ListDayFollowUpsParams = {
+  date?: string;
 };
 
 export type CustomerListItem = {
@@ -35,7 +71,8 @@ export type CustomerListItem = {
   isActive: boolean;
   lastLogin: string | null;
   orderCount: number;
-  reviewCount: number;
+  /** Total follow-ups (completed + incomplete) */
+  followUpCount: number;
 };
 
 export type ListCustomersParams = {

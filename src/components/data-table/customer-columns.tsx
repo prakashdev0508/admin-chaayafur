@@ -1,5 +1,5 @@
 import { type ColumnDef } from "@tanstack/react-table";
-import { Eye } from "lucide-react";
+import { ArrowUpRight, NotebookPen, ShoppingBag } from "lucide-react";
 import { Link } from "react-router-dom";
 import { buttonVariants } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -9,14 +9,28 @@ import type { CustomerListItem } from "@/types/customer";
 
 export const customerColumns: ColumnDef<CustomerListItem>[] = [
   {
-    accessorKey: "phone",
-    header: "Phone",
+    accessorKey: "id",
+    header: "ID",
     cell: ({ row }) => (
       <Link
         to={`/customers/${row.original.id}`}
-        className="font-medium hover:underline"
+        className="font-medium tabular-nums hover:underline"
+        onClick={(event) => event.stopPropagation()}
       >
-        {formatPhone(row.getValue("phone"))}
+        #{row.original.id}
+      </Link>
+    ),
+  },
+  {
+    accessorKey: "phone",
+    header: "Customer",
+    cell: ({ row }) => (
+      <Link
+        to={`/customers/${row.original.id}`}
+        className="font-medium tracking-tight hover:underline"
+        onClick={(event) => event.stopPropagation()}
+      >
+        {formatPhone(row.original.phone)}
       </Link>
     ),
   },
@@ -32,28 +46,57 @@ export const customerColumns: ColumnDef<CustomerListItem>[] = [
   {
     accessorKey: "orderCount",
     header: "Orders",
+    cell: ({ row }) => (
+      <span className="inline-flex items-center gap-1.5 tabular-nums text-muted-foreground">
+        <ShoppingBag className="size-3.5 opacity-60" />
+        {row.original.orderCount}
+      </span>
+    ),
   },
   {
-    accessorKey: "reviewCount",
-    header: "Reviews",
+    accessorKey: "followUpCount",
+    header: "Follow-ups",
+    cell: ({ row }) => (
+      <Link
+        to={`/customers/${row.original.id}?tab=follow-ups`}
+        className="inline-flex items-center gap-1.5 tabular-nums text-muted-foreground hover:text-foreground"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <NotebookPen className="size-3.5 opacity-60" />
+        {row.original.followUpCount}
+      </Link>
+    ),
   },
   {
     accessorKey: "lastLogin",
     header: "Last login",
     cell: ({ row }) => {
-      const val = row.getValue("lastLogin") as string | null;
-      return val ? formatDate(val) : "—";
+      const val = row.original.lastLogin;
+      if (!val) {
+        return <span className="text-muted-foreground">Never</span>;
+      }
+      return (
+        <span className="text-muted-foreground">
+          {formatDate(val, { dateStyle: "medium", timeStyle: "short" })}
+        </span>
+      );
     },
   },
   {
     id: "actions",
+    header: () => <span className="sr-only">Actions</span>,
     cell: ({ row }) => (
       <Link
         to={`/customers/${row.original.id}`}
-        aria-label="View customer profile"
-        className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "size-8")}
+        aria-label="Open customer"
+        className={cn(
+          buttonVariants({ variant: "ghost", size: "sm" }),
+          "text-muted-foreground",
+        )}
+        onClick={(event) => event.stopPropagation()}
       >
-        <Eye className="size-4" />
+        Open
+        <ArrowUpRight className="size-3.5" />
       </Link>
     ),
   },
