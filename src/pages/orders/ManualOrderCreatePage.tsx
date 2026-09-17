@@ -20,6 +20,7 @@ import { Switch } from "@/components/ui/switch";
 
 import { queryKeys } from "@/lib/query-keys";
 import { gstinForCreate, isValidGstin } from "@/lib/address-utils";
+import { usePincodeLookup } from "@/hooks/usePincodeLookup";
 import { createAdminOrder } from "@/services/orders.service";
 import type { CreateAdminOrderPayload, OrderAddressSnapshot } from "@/types/order";
 import type { OrderLineInput } from "@/types/order";
@@ -81,6 +82,24 @@ export function ManualOrderCreatePage() {
   const [liftAccessAvailable, setLiftAccessAvailable] = useState(false);
 
   const [items, setItems] = useState<QuotationLineItem[]>([]);
+
+  const shippingPincodeLookup = usePincodeLookup(shippingZipCode, {
+    onResolved: (result) => {
+      setShippingCity(result.city);
+      setShippingState(result.state);
+    },
+  });
+
+  const billingPincodeLookup = usePincodeLookup(
+    billingSameAsShipping ? "" : billingZipCode,
+    {
+      onResolved: (result) => {
+        setBillingCity(result.city);
+        setBillingState(result.state);
+      },
+    },
+  );
+
   const canSubmitHint = useMemo(() => {
     if (items.length === 0) return "Add at least one item";
     if (!phone.trim()) return "Enter customer phone";
@@ -333,6 +352,42 @@ export function ManualOrderCreatePage() {
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
+                  <Label htmlFor="shippingZipCode">PIN code</Label>
+                  <Input
+                    id="shippingZipCode"
+                    inputMode="numeric"
+                    maxLength={6}
+                    pattern="\d{6}"
+                    title="6-digit Indian PIN code"
+                    value={shippingZipCode}
+                    onChange={(e) =>
+                      setShippingZipCode(
+                        e.target.value.replace(/\D/g, "").slice(0, 6),
+                      )
+                    }
+                    placeholder="500034"
+                  />
+                  {shippingPincodeLookup.isLoading && (
+                    <p className="text-xs text-muted-foreground">
+                      Looking up city and state…
+                    </p>
+                  )}
+                  {shippingPincodeLookup.error && (
+                    <p className="text-xs text-destructive">
+                      {shippingPincodeLookup.error}
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="shippingCountry">Country</Label>
+                  <Input
+                    id="shippingCountry"
+                    value={shippingCountry}
+                    onChange={(e) => setShippingCountry(e.target.value)}
+                    placeholder="IN"
+                  />
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="shippingCity">City</Label>
                   <Input
                     id="shippingCity"
@@ -348,29 +403,6 @@ export function ManualOrderCreatePage() {
                     value={shippingState}
                     onChange={(e) => setShippingState(e.target.value)}
                     placeholder="Telangana"
-                  />
-                </div>
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="shippingZipCode">PIN code</Label>
-                  <Input
-                    id="shippingZipCode"
-                    inputMode="numeric"
-                    value={shippingZipCode}
-                    onChange={(e) =>
-                      setShippingZipCode(e.target.value.replace(/\D/g, "").slice(0, 6))
-                    }
-                    placeholder="500034"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="shippingCountry">Country</Label>
-                  <Input
-                    id="shippingCountry"
-                    value={shippingCountry}
-                    onChange={(e) => setShippingCountry(e.target.value)}
-                    placeholder="IN"
                   />
                 </div>
                 <div className="space-y-2 sm:col-span-2">
@@ -429,6 +461,42 @@ export function ManualOrderCreatePage() {
                   </div>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
+                      <Label htmlFor="billingZipCode">PIN code</Label>
+                      <Input
+                        id="billingZipCode"
+                        inputMode="numeric"
+                        maxLength={6}
+                        pattern="\d{6}"
+                        title="6-digit Indian PIN code"
+                        value={billingZipCode}
+                        onChange={(e) =>
+                          setBillingZipCode(
+                            e.target.value.replace(/\D/g, "").slice(0, 6),
+                          )
+                        }
+                        placeholder="500034"
+                      />
+                      {billingPincodeLookup.isLoading && (
+                        <p className="text-xs text-muted-foreground">
+                          Looking up city and state…
+                        </p>
+                      )}
+                      {billingPincodeLookup.error && (
+                        <p className="text-xs text-destructive">
+                          {billingPincodeLookup.error}
+                        </p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="billingCountry">Country</Label>
+                      <Input
+                        id="billingCountry"
+                        value={billingCountry}
+                        onChange={(e) => setBillingCountry(e.target.value)}
+                        placeholder="IN"
+                      />
+                    </div>
+                    <div className="space-y-2">
                       <Label htmlFor="billingCity">City</Label>
                       <Input
                         id="billingCity"
@@ -444,29 +512,6 @@ export function ManualOrderCreatePage() {
                         value={billingState}
                         onChange={(e) => setBillingState(e.target.value)}
                         placeholder="Telangana"
-                      />
-                    </div>
-                  </div>
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="billingZipCode">PIN code</Label>
-                      <Input
-                        id="billingZipCode"
-                        inputMode="numeric"
-                        value={billingZipCode}
-                        onChange={(e) =>
-                          setBillingZipCode(e.target.value.replace(/\D/g, "").slice(0, 6))
-                        }
-                        placeholder="500034"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="billingCountry">Country</Label>
-                      <Input
-                        id="billingCountry"
-                        value={billingCountry}
-                        onChange={(e) => setBillingCountry(e.target.value)}
-                        placeholder="IN"
                       />
                     </div>
                   </div>
