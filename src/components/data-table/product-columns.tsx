@@ -33,20 +33,26 @@ export function createProductColumns({
       header: "Product",
       cell: ({ row }) => {
         const product = row.original;
+        const displayName =
+          product.name.length > 48
+            ? `${product.name.slice(0, 48).trimEnd()}...`
+            : product.name;
         return (
           <Link
             to={`/products/${product.id}`}
-            className="flex items-center gap-3 hover:opacity-80"
+            className="flex max-w-[280px] items-center gap-3 hover:opacity-80"
           >
             {product.primaryImage && (
               <img
                 src={product.primaryImage.url}
                 alt={product.primaryImage.altText}
-                className="size-10 rounded-md object-cover"
+                className="size-10 shrink-0 rounded-md object-cover"
               />
             )}
-            <div className="min-w-0">
-              <p className="font-medium">{product.name}</p>
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-medium" title={product.name}>
+                {displayName}
+              </p>
               {(() => {
                 const tags = getActiveProductTags(product);
                 if (tags.length === 0) return null;
