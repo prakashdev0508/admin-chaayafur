@@ -306,6 +306,15 @@ function InvoiceSection({
                 </span>
               </div>
             )}
+          {invoice.walletDiscountAmount &&
+            parseFloat(invoice.walletDiscountAmount) > 0 && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Wallet discount</span>
+                <span className="text-[#346538]">
+                  -{formatCurrency(invoice.walletDiscountAmount)}
+                </span>
+              </div>
+            )}
           {invoice.shippingAmount != null && (
             <div className="flex justify-between">
               <span className="text-muted-foreground">Shipping</span>

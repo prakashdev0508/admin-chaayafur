@@ -25,25 +25,25 @@ Customer OTP authentication and profile for the Chaaya Furnitures storefront.
 ### OTP flow
 
 ```
-POST /auth/customer/send-otp   →  OTP SMS via 2factor.in (also logged in non-production)
+POST /auth/customer/send-otp   →  OTP SMS via Fast2SMS (also logged in non-production)
 POST /auth/customer/verify-otp →  JWT returned (auto-register if new)
 ```
 
 | Setting | Env variable | Default |
 |---------|--------------|---------|
 | OTP length | `OTP_LENGTH` | `6` |
-| OTP expiry | `OTP_TTL_MS` | `300000` (5 min) |
+| OTP expiry | `OTP_TTL_MS` | `600000` (10 min) |
 | Max verify attempts | `OTP_MAX_ATTEMPTS` | `5` |
 | Resend cooldown | `OTP_RESEND_COOLDOWN_MS` | `60000` (1 min) |
-| SMS provider API key | `OPT_API_KEY` | — (required in production) |
-| SMS API base URL | `2FA_BASE_URL` | `https://2factor.in/API/V1` |
-| SMS template (optional) | `2FA_OTP_TEMPLATE` | — (DLT template name if required) |
+| SMS provider API key | `FAST2SMS_API_KEY` | — (required in production) |
+| OTP template ID | `FAST2SMS_OTP_ID` | — (required in production) |
+| Template variables (optional) | `FAST2SMS_VARIABLES_VALUES` | — (pipe-separated; use `{otp}` for the code) |
 
-OTP SMS is sent via [2factor.in](https://2factor.in/) when `OPT_API_KEY` is set. The app generates the code, stores it for verification, and delivers it with:
+OTP SMS is sent via [Fast2SMS](https://docs.fast2sms.com/reference/send-otp) when `FAST2SMS_API_KEY` and `FAST2SMS_OTP_ID` are set. The app generates the code, stores it for local verification, and delivers it with:
 
-`GET {2FA_BASE_URL}/{OPT_API_KEY}/SMS/91{phone}/{otp}[/{template}]`
+`POST https://www.fast2sms.com/dev/otp/send` — body includes `mobile`, `otp_id`, `otp`, `otp_length`, `otp_expiry` (and optional `variables_values`).
 
-In non-production, the OTP is also printed to the server console. Without `OPT_API_KEY`, development still logs the OTP; production returns `503`.
+In non-production, the OTP is also printed to the server console. Without the Fast2SMS env vars, development still logs the OTP; production returns `503`.
 
 ### JWT payload (customer)
 
@@ -139,6 +139,7 @@ curl -X POST http://localhost:5000/api/v1/auth/customer/send-otp \
 
 Verify OTP and login. Creates a new customer account automatically if the phone is not registered.
 
+When site settings have `loginBonusIsActive = true` and `loginBonusAmount > 0`, and the customer has not yet received a login bonus (`loginBonusReceived = false`), the configured amount is credited to their wallet as `LOGIN_BONUS` (see [wallet.md](./wallet.md)). Failures do not block login.
 | | |
 |---|---|
 | **Auth** | Public |
@@ -274,7 +275,7 @@ Own product and order reviews. See [reviews.md](./reviews.md).
 ## Typical storefront flow
 
 1. `POST /auth/customer/send-otp` → user receives OTP
-2. `POST /auth/customer/verify-otp` → store `accessToken`, `lastLogin` updated
+2. `POST /auth/customer/verify-otp` → store `accessToken`, `lastLogin` updated; login bonus may credit if enabled
 3. `POST /addresses` → save shipping/billing with name, email, phone (max 50)
 4. Checkout via `POST /orders` — see [orders.md](./orders.md)
 5. After delivery, submit reviews via [reviews.md](./reviews.md)

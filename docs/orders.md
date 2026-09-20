@@ -182,6 +182,7 @@ Create an order from frontend cart items. Creates a Razorpay Payment Link for th
   "billingAddressId": 2,
   "couponCode": "SAVE500",
   "referralCode": "CHAYAAB12CD",
+  "walletAmount": 500,
   "deliveryFloor": 3,
   "liftAccessAvailable": false
 }
@@ -201,6 +202,7 @@ Create an order from frontend cart items. Creates a Razorpay Payment Link for th
 | `billingSameAsShipping` | boolean | No | When `true`, forces billing = shipping (identical snapshots; `billingAddressId` FK stored as `null`). Ignores a different `billingAddressId`. When billing differs, omit this flag and pass the other address id. |
 | `couponCode` | string | No | Max 32 chars; validated server-side |
 | `referralCode` | string | No | Another customer's code; tracking only (no discount). See [referrals.md](./referrals.md) |
+| `walletAmount` | number | No | Wallet INR to redeem as **wallet discount**. Capped by available balance, site `walletRedemptionMaxAmount`, and merchandise after coupon. Requires cart after coupon ≥ `walletRedemptionMinOrderAmount`. See [wallet.md](./wallet.md). |
 | `deliveryFloor` | integer | Yes | `0` = ground floor (no charge); `1`–`100` = floor number |
 | `liftAccessAvailable` | boolean | Yes | `true` = lift can be used for the product → floor charge waived; `false` = charge `deliveryFloor × floorDeliveryChargePerFloor` |
 
@@ -210,11 +212,12 @@ Create an order from frontend cart items. Creates a Razorpay Payment Link for th
 2. All products must exist and be `isActive: true`
 3. If `woodId` / `polishId` / `fabricId` / `customization` is provided, it must be available for that product; omitting customizations is always allowed
 4. `subtotalAmount` = sum of `(base price + wood adj + polish adj + fabric adj + selected customization prices) × quantity`
-5. Optional coupon validated and discount applied
-6. Shipping address pincode checked for serviceability ([shipping.md](./shipping.md)); `shippingAmount` computed from site settings
-7. `floorDeliveryAmount` = `0` when `liftAccessAvailable` is true or floor is 0; otherwise `deliveryFloor × floorDeliveryChargePerFloor` (independent of free shipping)
-8. `totalAmount = subtotal - discount + shippingAmount + floorDeliveryAmount`
-9. Razorpay Payment Link created for full `totalAmount`
+5. Optional coupon validated and discount applied (`discountAmount` = coupon only)
+6. Optional `walletAmount` validated against available balance and site caps; persisted as `walletDiscountAmount` (hold while `PENDING`; ledger debit on payment success)
+7. Shipping address pincode checked for serviceability ([shipping.md](./shipping.md)); `shippingAmount` computed from site settings on amount after coupon **and** wallet discount
+8. `floorDeliveryAmount` = `0` when `liftAccessAvailable` is true or floor is 0; otherwise `deliveryFloor × floorDeliveryChargePerFloor` (independent of free shipping)
+9. `totalAmount = subtotal - discountAmount - walletDiscountAmount + shippingAmount + floorDeliveryAmount`
+10. Razorpay Payment Link created for reduced `totalAmount`
 
 ### Success response `201`
 
@@ -862,11 +865,12 @@ All of `POST /orders` and `GET /orders/:id` return this shape (wrapped in `{ suc
 | `status` | string | `PENDING` \| `CONFIRMED` \| `SHIPPED` \| `DELIVERED` \| `REFUND_INITIATED` \| `PARTIALLY_REFUNDED` \| `REFUNDED` \| `CANCELLED` |
 | `subtotalAmount` | string | Sum of line items before discount |
 | `discountAmount` | string | Coupon discount ( `0.00` if none) |
+| `walletDiscountAmount` | string | Wallet redemption discount (`0.00` if none) |
 | `shippingAmount` | string | Shipping fee applied at checkout |
 | `deliveryFloor` | integer | Floor for delivery (`0` = ground) |
 | `liftAccessAvailable` | boolean | `true` when lift can be used (floor charge waived) |
 | `floorDeliveryAmount` | string | Carry-up charge (`0` if lift available; else `deliveryFloor ×` site rate) |
-| `totalAmount` | string | `subtotalAmount - discountAmount + shippingAmount + floorDeliveryAmount` |
+| `totalAmount` | string | `subtotalAmount - discountAmount - walletDiscountAmount + shippingAmount + floorDeliveryAmount` |
 | `coupon` | object \| null | `{ id, code, type }` or `{ code }` only, or `null` |
 | `paymentMethod` | string | Always `RAZORPAY` |
 | `shippingAddress` | string | Formatted address snapshot at checkout |
@@ -1040,7 +1044,7 @@ Checkout with saved cart:
 }
 ```
 
-When `useCart` is `true`, `items` in the body are ignored. The cart is cleared after the order and payment link are created successfully. Coupon codes are applied only at checkout (not stored on the cart).
+When `useCart` is `true`, `items` in the body are ignored. The cart is cleared only after payment succeeds (order moves to `CONFIRMED`). Coupon codes are applied only at checkout (not stored on the cart).
 
 ### Minimal checkout sequence
 
