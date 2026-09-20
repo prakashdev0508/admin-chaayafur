@@ -62,6 +62,7 @@ Restart the API, approve again. Withdrawal goes `SUCCESS` and wallet is debited 
 | `GET /users/me/wallet/withdrawals` | Yes | No |
 | `GET /users/me/wallet/withdrawals/:id` | Yes | No |
 | `GET /admin/wallets/:customerId` | No | `view-wallets` |
+| `GET /admin/wallets/:customerId/transactions` | No | `view-wallets` |
 | `POST /admin/wallets/:customerId/login-bonus` | No | `update-wallets` |
 | `GET /admin/wallet-withdrawals` | No | `view-wallets` |
 | `GET /admin/wallet-withdrawals/:id` | No | `view-wallets` |
@@ -81,6 +82,7 @@ Restart the API, approve again. Withdrawal goes `SUCCESS` and wallet is debited 
 | `GET` | `/api/v1/users/me/wallet/withdrawals` | Customer JWT | `200` |
 | `GET` | `/api/v1/users/me/wallet/withdrawals/:id` | Customer JWT | `200` |
 | `GET` | `/api/v1/admin/wallets/:customerId` | Staff (`view-wallets`) | `200` |
+| `GET` | `/api/v1/admin/wallets/:customerId/transactions` | Staff (`view-wallets`) | `200` |
 | `POST` | `/api/v1/admin/wallets/:customerId/login-bonus` | Staff (`update-wallets`) | `200` |
 | `GET` | `/api/v1/admin/wallet-withdrawals` | Staff (`view-wallets`) | `200` |
 | `GET` | `/api/v1/admin/wallet-withdrawals/:id` | Staff (`view-wallets`) | `200` |
@@ -198,6 +200,22 @@ Includes `method` and destination fields. List endpoints mask `bankAccountNumber
 ### GET /api/v1/admin/wallets/:customerId
 
 Returns wallet balances and customer payout prefs, including `loginBonusReceived` / `loginBonusReceivedAt`. If the customer has no wallet row yet, balances are `0.00` and `id` is `null`.
+
+### GET /api/v1/admin/wallets/:customerId/transactions
+
+Paginated wallet ledger for a customer (same item shape as `GET /users/me/wallet/transactions`). Query: `page`, `limit`.
+
+| Status | When |
+|--------|------|
+| `200` | Ledger page (empty `items` if the customer has no wallet yet) |
+| `404` | Customer not found |
+
+```bash
+curl "http://localhost:5000/api/v1/admin/wallets/1/transactions?page=1&limit=20" \
+  -H "Authorization: Bearer $STAFF_TOKEN"
+```
+
+Example item reasons: `REFERRAL_COMMISSION`, `LOGIN_BONUS`, `WALLET_DISCOUNT`, `WALLET_DISCOUNT_REFUND`, `WITHDRAWAL`.
 
 ### POST /api/v1/admin/wallets/:customerId/login-bonus
 
