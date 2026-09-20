@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { AdminCartItemsPanel } from "@/components/carts/AdminCartItemsPanel";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -50,7 +50,6 @@ import { Label } from "@/components/ui/label";
 import { formatCurrency, formatDate, formatPhone } from "@/lib/format";
 import { queryKeys } from "@/lib/query-keys";
 import { ApiError } from "@/lib/api";
-import { cn } from "@/lib/utils";
 import {
   blockCustomer,
   createCustomerAddress,
@@ -65,7 +64,9 @@ import { listCustomerAuditLogs } from "@/services/audit-logs.service";
 import {
   getAdminWallet,
   grantAdminLoginBonus,
+  listAdminWalletTransactions,
 } from "@/services/wallets.service";
+import { formatWalletTransactionReason } from "@/lib/wallet-status";
 import { usePermission } from "@/hooks/usePermission";
 import type {
   CreateAddressPayload,
@@ -170,6 +171,24 @@ export function CustomerDetailPage() {
       activeTab === "wallet",
   });
 
+  const [txPage, setTxPage] = useState(0);
+  const txPageSize = 20;
+  const walletTransactionsQuery = useQuery({
+    queryKey: queryKeys.wallets.transactions(customerId, {
+      page: txPage + 1,
+      limit: txPageSize,
+    }),
+    queryFn: () =>
+      listAdminWalletTransactions(customerId, {
+        page: txPage + 1,
+        limit: txPageSize,
+      }),
+    enabled:
+      Number.isFinite(customerId) &&
+      canViewWallet &&
+      activeTab === "wallet",
+  });
+
   const invalidate = () => {
     void queryClient.invalidateQueries({
       queryKey: queryKeys.customers.detail(customerId),
@@ -267,6 +286,9 @@ export function CustomerDetailPage() {
       await Promise.all([
         queryClient.invalidateQueries({
           queryKey: queryKeys.wallets.detail(customerId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["wallets", "transactions", customerId],
         }),
         queryClient.invalidateQueries({
           queryKey: queryKeys.customers.detail(customerId),
@@ -671,32 +693,22 @@ export function CustomerDetailPage() {
                     Referral wallet
                   </CardTitle>
                   <CardDescription className="mt-1">
-                    Referral commissions and one-time login bonus.
+                    Balances, login bonus, and full wallet ledger.
                   </CardDescription>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <Link
-                    to={`/wallet-withdrawals?customerId=${customerId}`}
-                    className={cn(
-                      buttonVariants({ variant: "outline", size: "sm" }),
-                    )}
-                  >
-                    View withdrawals
-                  </Link>
-                  {canUpdateWallet &&
-                    !(
-                      walletQuery.data?.loginBonusReceived ??
-                      customer.loginBonusReceived
-                    ) && (
-                      <Button
-                        size="sm"
-                        onClick={() => setConfirmGrantBonus(true)}
-                        disabled={grantBonusMutation.isPending}
-                      >
-                        Grant login bonus
-                      </Button>
-                    )}
-                </div>
+                {canUpdateWallet &&
+                  !(
+                    walletQuery.data?.loginBonusReceived ??
+                    customer.loginBonusReceived
+                  ) && (
+                    <Button
+                      size="sm"
+                      onClick={() => setConfirmGrantBonus(true)}
+                      disabled={grantBonusMutation.isPending}
+                    >
+                      Grant login bonus
+                    </Button>
+                  )}
               </CardHeader>
               <CardContent className="space-y-6 pt-5">
                 {walletQuery.isLoading ? (
@@ -760,6 +772,94 @@ export function CustomerDetailPage() {
                     No wallet data for this customer.
                   </p>
                 )}
+
+                <div className="space-y-3 border-t pt-5">
+                  <div>
+                    <p className="text-sm font-medium">Ledger</p>
+                    <p className="text-xs text-muted-foreground">
+                      All wallet credits and debits for this customer.
+                    </p>
+                  </div>
+                  {walletTransactionsQuery.isLoading ? (
+                    <div className="flex items-center justify-center py-6">
+                      <Loader2 className="size-5 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : walletTransactionsQuery.isError ? (
+                    <p className="text-sm text-destructive">
+                      {walletTransactionsQuery.error instanceof Error
+                        ? walletTransactionsQuery.error.message
+                        : "Failed to load transactions"}
+                    </p>
+                  ) : (walletTransactionsQuery.data?.items.length ?? 0) ===
+                    0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      No transactions yet.
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {walletTransactionsQuery.data!.items.map((tx) => (
+                        <div
+                          key={tx.id}
+                          className="flex flex-wrap items-center justify-between gap-3 rounded-lg border px-3 py-2.5"
+                        >
+                          <div>
+                            <p className="text-sm font-medium">
+                              {tx.type === "CREDIT" ? "+" : "−"}
+                              {formatCurrency(tx.amount)}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatWalletTransactionReason(tx.reason)} ·{" "}
+                              {formatDate(tx.createdAt)}
+                              {tx.availableAt
+                                ? ` · available ${formatDate(tx.availableAt)}`
+                                : ""}
+                            </p>
+                          </div>
+                          <StatusBadge
+                            variant={
+                              tx.type === "CREDIT" ? "success" : "neutral"
+                            }
+                          >
+                            {tx.type}
+                          </StatusBadge>
+                        </div>
+                      ))}
+                      {(walletTransactionsQuery.data?.meta.totalPages ?? 1) >
+                        1 && (
+                        <div className="flex items-center justify-between pt-2">
+                          <p className="text-xs text-muted-foreground">
+                            Page {txPage + 1} of{" "}
+                            {walletTransactionsQuery.data?.meta.totalPages}
+                          </p>
+                          <div className="flex gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              disabled={txPage === 0}
+                              onClick={() => setTxPage((p) => Math.max(0, p - 1))}
+                            >
+                              Previous
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              disabled={
+                                txPage + 1 >=
+                                (walletTransactionsQuery.data?.meta
+                                  .totalPages ?? 1)
+                              }
+                              onClick={() => setTxPage((p) => p + 1)}
+                            >
+                              Next
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
           </TabsContent>

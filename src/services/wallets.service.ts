@@ -3,14 +3,25 @@ import { apiRequest } from "@/lib/api";
 import type { PaginatedResponse } from "@/types/api";
 import type {
   AdminWalletBalances,
+  ListWalletTransactionsParams,
   ListWalletWithdrawalsParams,
   RejectWalletWithdrawalPayload,
+  WalletTransaction,
   WalletWithdrawalDetail,
   WalletWithdrawalListItem,
 } from "@/types/wallet";
 
 export function getAdminWallet(customerId: number) {
   return apiRequest<AdminWalletBalances>(`/admin/wallets/${customerId}`);
+}
+
+export function listAdminWalletTransactions(
+  customerId: number,
+  params: ListWalletTransactionsParams = {},
+) {
+  return apiRequest<PaginatedResponse<WalletTransaction>>(
+    `/admin/wallets/${customerId}/transactions${buildQueryString(params)}`,
+  );
 }
 
 export function grantAdminLoginBonus(customerId: number) {
