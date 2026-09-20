@@ -13,6 +13,13 @@ export function getAdminWallet(customerId: number) {
   return apiRequest<AdminWalletBalances>(`/admin/wallets/${customerId}`);
 }
 
+export function grantAdminLoginBonus(customerId: number) {
+  return apiRequest<AdminWalletBalances>(
+    `/admin/wallets/${customerId}/login-bonus`,
+    { method: "POST" },
+  );
+}
+
 export function listWalletWithdrawals(
   params: ListWalletWithdrawalsParams = {},
 ) {

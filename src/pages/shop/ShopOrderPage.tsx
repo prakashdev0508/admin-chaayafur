@@ -474,6 +474,13 @@ export function ShopOrderPage() {
                 <span>-{formatCurrency(order.discountAmount)}</span>
               </div>
             )}
+            {order.walletDiscountAmount &&
+              parseFloat(order.walletDiscountAmount) > 0 && (
+                <div className="flex justify-between text-[#5C7A4A]">
+                  <span>Wallet discount</span>
+                  <span>-{formatCurrency(order.walletDiscountAmount)}</span>
+                </div>
+              )}
             {order.shippingAmount != null && (
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Shipping</span>

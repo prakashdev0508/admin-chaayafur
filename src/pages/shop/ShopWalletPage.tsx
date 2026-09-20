@@ -11,6 +11,7 @@ import { ApiError } from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { queryKeys } from "@/lib/query-keys";
 import {
+  formatWalletTransactionReason,
   walletWithdrawalMethodLabels,
   walletWithdrawalStatusLabels,
   walletWithdrawalStatusVariants,
@@ -230,6 +231,19 @@ export function ShopWalletPage() {
                 {formatCurrency(wallet.pendingBalance)}
               </p>
             </div>
+            {(wallet.redemptionMaxAmount != null ||
+              wallet.redemptionMinOrderAmount != null) && (
+              <p className="col-span-full text-sm text-muted-foreground">
+                Checkout redemption
+                {wallet.redemptionMaxAmount != null
+                  ? `: up to ${formatCurrency(wallet.redemptionMaxAmount)} per order`
+                  : ""}
+                {wallet.redemptionMinOrderAmount != null
+                  ? ` · min order ${formatCurrency(wallet.redemptionMinOrderAmount)} after coupon`
+                  : ""}
+                .
+              </p>
+            )}
           </>
         ) : null}
       </section>
@@ -422,7 +436,7 @@ export function ShopWalletPage() {
                     {formatCurrency(tx.amount)}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    {tx.reason?.replaceAll("_", " ") || tx.type} ·{" "}
+                    {formatWalletTransactionReason(tx.reason)} ·{" "}
                     {formatDate(tx.createdAt)}
                   </p>
                 </div>

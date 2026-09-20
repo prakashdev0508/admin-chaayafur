@@ -1087,6 +1087,17 @@ export function OrderDetailPage() {
                       </span>
                     </div>
                   )}
+                {order.walletDiscountAmount &&
+                  parseFloat(order.walletDiscountAmount) > 0 && (
+                    <div className="flex justify-between gap-4 text-sm sm:text-base">
+                      <span className="text-muted-foreground">
+                        Wallet discount
+                      </span>
+                      <span className="tabular-nums text-[#346538]">
+                        -{formatCurrency(order.walletDiscountAmount)}
+                      </span>
+                    </div>
+                  )}
                 {order.shippingAmount != null && (
                   <div className="flex justify-between gap-4 text-sm sm:text-base">
                     <span className="text-muted-foreground">Shipping</span>

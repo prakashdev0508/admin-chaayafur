@@ -11,24 +11,37 @@ export type WalletBalances = {
   balance: string;
   availableBalance: string;
   pendingBalance: string;
+  /** Present on customer GET /users/me/wallet */
+  redemptionMaxAmount?: string;
+  redemptionMinOrderAmount?: string;
 };
 
 /** @deprecated Prefer WalletBalances; kept for admin customer wallet view */
 export type AdminWalletBalances = WalletBalances & {
+  id?: number | null;
   customerId?: number;
   customer?: {
     id: number;
     phone: string;
   } | null;
+  loginBonusReceived?: boolean;
+  loginBonusReceivedAt?: string | null;
 };
 
 export type WalletTransactionType = "CREDIT" | "DEBIT";
+
+export type WalletTransactionReason =
+  | "REFERRAL_COMMISSION"
+  | "LOGIN_BONUS"
+  | "WALLET_DISCOUNT"
+  | "WALLET_DISCOUNT_REFUND"
+  | "WITHDRAWAL";
 
 export type WalletTransaction = {
   id: number;
   type: WalletTransactionType;
   amount: string;
-  reason: string | null;
+  reason: WalletTransactionReason | string | null;
   availableAt: string | null;
   createdAt: string;
 };
@@ -100,7 +113,6 @@ export type ListWalletWithdrawalsParams = {
   page?: number;
   limit?: number;
   status?: WalletWithdrawalStatus;
-  customerId?: number;
 };
 
 export type RejectWalletWithdrawalPayload = {
