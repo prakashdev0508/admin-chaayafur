@@ -179,6 +179,11 @@ export function PurchaseOrderPreview({
               CIN No. : {draft.companyLegal.cin.trim()}
             </p>
           ) : null}
+          {draft.poNumber.trim() ? (
+            <p style={{ margin: "2px 0 0" }}>
+              PO No. : {draft.poNumber.trim()}
+            </p>
+          ) : null}
         </div>
 
         <div style={{ flex: 1, textAlign: "center", minWidth: 0 }}>
@@ -260,10 +265,9 @@ export function PurchaseOrderPreview({
               {(
                 [
                   ["Sr.", "3%"],
-                  ["Description", "16%"],
+                  ["Description", "20%"],
                   ["HSN/SAC", "7%"],
                   ["Work Date", "7%"],
-                  ["UOM", "4%"],
                   ["Qty", "4%"],
                   ["Basic", "7%"],
                   ["Disc %", "5%"],
@@ -282,7 +286,7 @@ export function PurchaseOrderPreview({
                     paddingBottom: 7,
                     paddingLeft: index === 0 ? 4 : 2,
                     paddingRight: index === all.length - 1 ? 4 : 2,
-                    textAlign: index <= 4 ? "left" : "right",
+                    textAlign: index <= 3 ? "left" : "right",
                     fontSize: 7,
                     fontWeight: 500,
                     letterSpacing: "0.04em",
@@ -300,7 +304,7 @@ export function PurchaseOrderPreview({
             {draft.items.length === 0 ? (
               <tr>
                 <td
-                  colSpan={13}
+                  colSpan={12}
                   style={{
                     padding: "24px 8px",
                     textAlign: "center",
@@ -341,7 +345,6 @@ export function PurchaseOrderPreview({
                         ? formatPoDate(item.workCompDate)
                         : "—"}
                     </td>
-                    <td style={{ padding: "6px 2px" }}>{item.uom || "—"}</td>
                     <td style={{ ...money, padding: "6px 2px" }}>
                       {item.quantity}
                     </td>

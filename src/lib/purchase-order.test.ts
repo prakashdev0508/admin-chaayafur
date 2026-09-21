@@ -19,7 +19,6 @@ function sampleLine(overrides: Partial<PurchaseOrderLine> = {}): PurchaseOrderLi
     description: "Signage Board repair",
     hsn: "",
     workCompDate: "",
-    uom: "NOS",
     quantity: 1,
     basicAmount: 49000,
     discPercent: 0,

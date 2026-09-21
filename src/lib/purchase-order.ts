@@ -11,7 +11,6 @@ import type {
 export const PO_COMPANY_NAME = "Chaaya Furnitures";
 export const PO_DEFAULT_CGST_PERCENT = 9;
 export const PO_DEFAULT_SGST_PERCENT = 9;
-export const PO_DEFAULT_UOM = "NOS";
 
 const ONES = [
   "",
@@ -166,7 +165,6 @@ export function orderItemToPoLine(item: OrderItem): PurchaseOrderLine {
     description: orderItemLabel(item),
     hsn: "",
     workCompDate: "",
-    uom: PO_DEFAULT_UOM,
     quantity: item.quantity,
     basicAmount: parseMoney(item.price),
     discPercent: 0,
