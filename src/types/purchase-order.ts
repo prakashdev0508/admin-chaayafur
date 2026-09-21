@@ -31,7 +31,6 @@ export type PurchaseOrderLine = {
   description: string;
   hsn: string;
   workCompDate: string;
-  uom: string;
   quantity: number;
   basicAmount: number;
   discPercent: number;
