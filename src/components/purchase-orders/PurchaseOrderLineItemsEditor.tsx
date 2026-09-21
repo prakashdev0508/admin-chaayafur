@@ -47,7 +47,6 @@ export function PurchaseOrderLineItemsEditor({
             <TableHead className="min-w-[180px]">Description</TableHead>
             <TableHead className="w-24">HSN/SAC</TableHead>
             <TableHead className="w-32">Work date</TableHead>
-            <TableHead className="w-16">UOM</TableHead>
             <TableHead className="w-16">Qty</TableHead>
             <TableHead className="w-28">Basic</TableHead>
             <TableHead className="w-20">Disc %</TableHead>
@@ -87,12 +86,6 @@ export function PurchaseOrderLineItemsEditor({
                   onChange={(e) =>
                     patchItem(item.id, { workCompDate: e.target.value })
                   }
-                />
-              </TableCell>
-              <TableCell>
-                <Input
-                  value={item.uom}
-                  onChange={(e) => patchItem(item.id, { uom: e.target.value })}
                 />
               </TableCell>
               <TableCell>
