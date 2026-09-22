@@ -41,6 +41,7 @@ export type StaffListItem = {
   roleSlug?: string;
   roleName?: string;
   isActive: boolean;
+  lastLogin: string | null;
   createdBy: number | null;
   creator: StaffCreator | null;
   createdAt: string;

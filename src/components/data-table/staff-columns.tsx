@@ -54,8 +54,16 @@ export const staffColumns: ColumnDef<StaffListItem>[] = [
     ),
   },
   {
-    accessorKey: "createdAt",
-    header: "Created",
-    cell: ({ row }) => formatDate(row.getValue("createdAt")),
+    accessorKey: "lastLogin",
+    header: "Last login",
+    cell: ({ row }) => {
+      const val = row.original.lastLogin;
+      if (!val) {
+        return <span className="text-muted-foreground">Never</span>;
+      }
+      return (
+        <span className="text-muted-foreground">{formatDate(val)}</span>
+      );
+    },
   },
 ];
