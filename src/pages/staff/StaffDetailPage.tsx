@@ -314,6 +314,10 @@ export function StaffDetailPage() {
                   {formatStaffName(profile.creator)}
                 </span>
               </p>
+              <p>
+                Last login{" "}
+                {profile.lastLogin ? formatDate(profile.lastLogin) : "never"}
+              </p>
               <p>Joined {formatDate(profile.createdAt)}</p>
               <p>Updated {formatDate(profile.updatedAt)}</p>
             </div>

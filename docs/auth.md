@@ -20,10 +20,24 @@ Staff authentication and authorization for the Chaaya Furnitures admin backend.
 | Setting | Env variable | Default |
 |---------|--------------|---------|
 | Secret | `JWT_SECRET` | required |
-| Expiry | `JWT_EXPIRES_IN` | `7d` |
+| Customer expiry | `JWT_EXPIRES_IN` | `7d` |
+| Staff/admin expiry | `JWT_STAFF_EXPIRES_IN` | `8h` |
+| Invalidate all tokens | `JWT_INVALID_BEFORE` | unset — set to unix seconds (`date +%s`) and restart to force everyone to re-login |
 | Admin frontend URL | `FRONTEND_URL` | used for password reset links |
 | Reset token TTL | `PASSWORD_RESET_TTL_MS` | `3600000` (1 hour) |
 | Reset resend cooldown | `PASSWORD_RESET_RESEND_COOLDOWN_MS` | `60000` |
+
+### Rate limiting
+
+Per-IP HTTP rate limits (`@nestjs/throttler`). Storefront browsing uses a high global ceiling; auth endpoints are tighter.
+
+| Tier | Env | Default |
+|------|-----|---------|
+| Global | `RATE_LIMIT_LIMIT` / `RATE_LIMIT_TTL_MS` | `600` / `60000` |
+| Auth (login, OTP, password reset) | `RATE_LIMIT_AUTH_LIMIT` / `RATE_LIMIT_AUTH_TTL_MS` | `10` / `60000` |
+| Forms (contact, careers) | `RATE_LIMIT_FORMS_LIMIT` / `RATE_LIMIT_FORMS_TTL_MS` | `5` / `60000` |
+
+Set `RATE_LIMIT_ENABLED=false` to disable. Health, docs, and Razorpay webhooks are skipped. Exceeded limits return **429** with `Retry-After`.
 
 ### JWT payload
 
@@ -132,16 +146,21 @@ Staff login. Returns JWT access token.
   "success": true,
   "data": {
     "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "expiresIn": 28800,
+    "expiresAt": "2026-09-22T19:24:00.000Z",
     "user": {
       "id": 1,
       "email": "admin@chaaya.com",
       "role": "SUPER_ADMIN",
       "firstName": "Super",
-      "lastName": "Admin"
+      "lastName": "Admin",
+      "lastLogin": "2026-09-22T11:40:00.000Z"
     }
   }
 }
 ```
+
+`expiresIn` is seconds until expiry (`JWT_STAFF_EXPIRES_IN`, default 8 hours). After that the API returns `401` and the admin client should send the user back to login.
 
 ### Errors
 
@@ -359,6 +378,7 @@ Each item in `items`:
 | `lastName` | string \| null | Last name |
 | `role` | string | Staff role |
 | `isActive` | boolean | Account status |
+| `lastLogin` | string \| null | ISO timestamp of last successful login |
 | `createdBy` | integer \| null | ID of staff user who created this account |
 | `creator` | object \| null | Creator details (`id`, `email`, `firstName`, `lastName`) |
 | `createdAt` | string | ISO timestamp |
@@ -380,6 +400,7 @@ Each item in `items`:
         "lastName": "Doe",
         "role": "ORDER_MANAGER",
         "isActive": true,
+        "lastLogin": "2026-09-22T11:40:00.000Z",
         "createdBy": 1,
         "creator": {
           "id": 1,
@@ -533,7 +554,7 @@ Current staff profile plus activity stats. Available to any staff role.
 | `refundsCompleted` | Refund rows this staff completed (clicked Complete) |
 | `refundsProcessedAmount` | Sum of amounts for `PROCESSED` refunds they completed |
 
-Also returns profile fields: `id`, `email`, `firstName`, `lastName`, `role`, `isActive`, `createdBy`, `creator`, timestamps.
+Also returns profile fields: `id`, `email`, `firstName`, `lastName`, `role`, `isActive`, `lastLogin`, `createdBy`, `creator`, timestamps.
 
 ```bash
 curl http://localhost:5000/api/v1/auth/staff/me \
@@ -684,6 +705,9 @@ Admin password reset (no current password). **SUPER_ADMIN only.** Cannot reset y
 | `view-reviews` | List product/order reviews (staff) |
 | `moderate-reviews` | Show/hide reviews |
 | `view-dashboard` | View admin dashboard |
+| `view-quotations` | View quotations |
+| `create-quotations` | Create quotations |
+| `update-quotations` | Update quotations, add remarks, send quotation emails |
 
 Full list: `GET /api/v1/auth/permissions` (catalog) or `GET /api/v1/auth/roles-permissions` (per-role map). Permission keys are defined in `src/common/data/roles.ts`.
 
