@@ -74,7 +74,7 @@ Paginated customer list. Each item includes `addressCount`, `orderCount`, and `f
 
 ## GET /api/v1/customers/:id
 
-Customer detail including addresses, **follow-ups**, **current cart** (if any), and **recent orders** (last 10).
+Customer detail including addresses, **follow-ups**, **current cart** (if any), and **recent orders** (last 10). `name` is taken from the default address (or first address); `null` if the customer has no addresses.
 
 ### Success response
 
@@ -84,8 +84,11 @@ Customer detail including addresses, **follow-ups**, **current cart** (if any), 
   "data": {
     "id": 1,
     "phone": "9876543210",
+    "name": "Priya Sharma",
     "isActive": true,
     "lastLogin": "2026-07-10T11:00:00.000Z",
+    "loginBonusReceived": false,
+    "loginBonusReceivedAt": null,
     "orderCount": 2,
     "reviewCount": 0,
     "addresses": [],

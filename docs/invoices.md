@@ -34,7 +34,7 @@ Staff can also **manually** generate/refresh either type via `POST /orders/:id/i
 ### PDF rendering
 
 - Both templates are rendered via Chromium (`puppeteer-core` + `@sparticuz/chromium` on serverless), uploaded to R2 (`invoices/{year}/{month}/…`), and linked via `pdfUrl`
-- Logo, phone, email, showroom address, GSTIN, and PAN come from **site settings** (PAN falls back to `INVOICE_PAN` if unset); legal company name, website, HSN, GST rate, and terms come from **invoice env config** (see `.env.example`)
+- Logo, phone, email, showroom address, GSTIN, and PAN come from **site settings** (PAN falls back to `INVOICE_PAN` if unset); legal company name, website, GST rate, and terms come from **invoice env config** (see `.env.example`)
 - Made in India logo is loaded from `public/madeinindia.png`
 - Static décor assets live under `src/modules/invoices/templates/assets/` (`bill-decor.png`, `ship-decor.png`, `quality-badge.png`) and are injected as data URIs at PDF render time
 - Invoice text uses bundled **Noto Sans** (`templates/assets/fonts/`) via `@font-face` data URIs; PDF generation waits for `document.fonts.ready` before capture
@@ -49,12 +49,14 @@ Staff can also **manually** generate/refresh either type via `POST /orders/:id/i
 | Title | PERFORMA INVOICE | TAX INVOICE |
 | Line-item columns | Item Description, EDD, HSN Code, Tax %, Qty, Net Value, Total | S. No., Description, HSN, Qty, Unit, Rate, Taxable Value, GST rate/amount, Total |
 | EDD column | Order `createdAt` (formatted) | — |
-| Tax summary | **Total Tax** only (no CGST/SGST split) | Total Taxable Value + CGST + SGST |
+| Tax summary | **Total Tax** only (no CGST/SGST split) | Total Taxable Value + **CGST + SGST** (Telangana) or **IGST** (other states) |
 | Signature | Computer-generated text | Computer-generated text |
 
 ### Pricing / tax math
 
-- Product prices are treated as **GST-inclusive** by default (`INVOICE_GST_RATE`, default `18`) so taxable value / CGST / SGST are reverse-calculated for the PDF
+- Product prices are treated as **GST-inclusive** by default (`INVOICE_GST_RATE`, default `18`) so taxable value and GST are reverse-calculated for the PDF
+- **Place of supply** comes from the shipping (delivery) address state, falling back to billing, then `INVOICE_PLACE_OF_SUPPLY` (default `Telangana (36)`)
+- **CGST + SGST** when place of supply is Telangana (state code `36`); **IGST** for any other state
 - The invoice JSON snapshot `taxAmount` field remains `0` (tax is computed at render time)
 - Shipping and floor-delivery charges appear as extra line items when non-zero; discounts reduce taxable/GST before the grand total
 - Invoice data is a **snapshot** at generation time (billing address, line items, prices). Bill-to GSTIN is taken from the billing address snapshot when a GSTIN was stored on that address.
@@ -107,6 +109,7 @@ Returns **both** invoice types for an order. Either (or both) may be `null` if n
       "billingAddress": "456 Business Park, Mumbai, Maharashtra, 400002, IN",
       "subtotal": "5000.00",
       "discountAmount": "500.00",
+      "walletDiscountAmount": "0.00",
       "shippingAmount": "499.00",
       "deliveryFloor": 3,
       "liftAccessAvailable": false,
@@ -135,7 +138,7 @@ After delivery, `tax` is populated with `invoiceType: "TAX"` and `invoiceNumber`
 |-------|-------------|
 | `name` | Product name with selected customizations in parentheses when present |
 | `unitPrice` | Captured order line unit price (base + adjustments) |
-| `hsnCode` | Product HSN when set; template falls back to `INVOICE_HSN` |
+| `hsnCode` | Product HSN when set; otherwise `-` on the PDF |
 | `woodName` / `polishName` / `fabricName` | Selected option names (or `null`) |
 | `woodPriceAdjustment` / `polishPriceAdjustment` / `fabricPriceAdjustment` | Snapshotted product-level adjustments |
 

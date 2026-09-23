@@ -240,6 +240,8 @@ export const queryKeys = {
   },
   wallets: {
     detail: (customerId: number) => ["wallets", "detail", customerId] as const,
+    transactions: (customerId: number, params: Record<string, unknown>) =>
+      ["wallets", "transactions", customerId, params] as const,
   },
   walletWithdrawals: {
     all: ["wallet-withdrawals"] as const,

@@ -13,6 +13,7 @@ import {
   ShieldBan,
   ShieldCheck,
   ShoppingBag,
+  Wallet,
 } from "lucide-react";
 import { AdminCartItemsPanel } from "@/components/carts/AdminCartItemsPanel";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -48,6 +49,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatCurrency, formatDate, formatPhone } from "@/lib/format";
 import { queryKeys } from "@/lib/query-keys";
+import { ApiError } from "@/lib/api";
 import {
   blockCustomer,
   createCustomerAddress,
@@ -59,7 +61,12 @@ import {
 } from "@/services/customers.service";
 import { seedAdminCart } from "@/services/admin-carts.service";
 import { listCustomerAuditLogs } from "@/services/audit-logs.service";
-// import { getAdminWallet } from "@/services/wallets.service";
+import {
+  getAdminWallet,
+  grantAdminLoginBonus,
+  listAdminWalletTransactions,
+} from "@/services/wallets.service";
+import { formatWalletTransactionReason } from "@/lib/wallet-status";
 import { usePermission } from "@/hooks/usePermission";
 import type {
   CreateAddressPayload,
@@ -80,6 +87,7 @@ const CUSTOMER_TABS = [
   "addresses",
   "orders",
   "follow-ups",
+  "wallet",
   "activity",
 ] as const;
 
@@ -98,14 +106,15 @@ export function CustomerDetailPage() {
   const queryClient = useQueryClient();
   const { hasPermission } = usePermission();
   const canEdit = hasPermission(PERMISSIONS.UPDATE_CUSTOMERS);
-  // Wallet tab temporarily disabled
-  // const canViewWallet = hasPermission(PERMISSIONS.VIEW_WALLETS);
+  const canViewWallet = hasPermission(PERMISSIONS.VIEW_WALLETS);
+  const canUpdateWallet = hasPermission(PERMISSIONS.UPDATE_WALLETS);
 
   const [showAddressForm, setShowAddressForm] = useState(false);
   const [editingAddress, setEditingAddress] = useState<CustomerAddress | null>(
     null,
   );
   const [confirmBlock, setConfirmBlock] = useState(false);
+  const [confirmGrantBonus, setConfirmGrantBonus] = useState(false);
   const [deleteAddressId, setDeleteAddressId] = useState<number | null>(null);
   const [seedOpen, setSeedOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
@@ -117,10 +126,15 @@ export function CustomerDetailPage() {
     useState<CustomizationSelection>({});
 
   const tabParam = searchParams.get("tab");
-  const activeTab: CustomerTab = isCustomerTab(tabParam) ? tabParam : "cart";
+  const activeTab: CustomerTab =
+    isCustomerTab(tabParam) &&
+    (tabParam !== "wallet" || canViewWallet)
+      ? tabParam
+      : "cart";
 
   const setActiveTab = (value: string) => {
     if (!isCustomerTab(value)) return;
+    if (value === "wallet" && !canViewWallet) return;
     const next = new URLSearchParams(searchParams);
     if (value === "cart") {
       next.delete("tab");
@@ -148,12 +162,32 @@ export function CustomerDetailPage() {
     enabled: Number.isFinite(customerId),
   });
 
-  // Wallet API temporarily disabled
-  // const walletQuery = useQuery({
-  //   queryKey: queryKeys.wallets.detail(customerId),
-  //   queryFn: () => getAdminWallet(customerId),
-  //   enabled: Number.isFinite(customerId) && canViewWallet,
-  // });
+  const walletQuery = useQuery({
+    queryKey: queryKeys.wallets.detail(customerId),
+    queryFn: () => getAdminWallet(customerId),
+    enabled:
+      Number.isFinite(customerId) &&
+      canViewWallet &&
+      activeTab === "wallet",
+  });
+
+  const [txPage, setTxPage] = useState(0);
+  const txPageSize = 20;
+  const walletTransactionsQuery = useQuery({
+    queryKey: queryKeys.wallets.transactions(customerId, {
+      page: txPage + 1,
+      limit: txPageSize,
+    }),
+    queryFn: () =>
+      listAdminWalletTransactions(customerId, {
+        page: txPage + 1,
+        limit: txPageSize,
+      }),
+    enabled:
+      Number.isFinite(customerId) &&
+      canViewWallet &&
+      activeTab === "wallet",
+  });
 
   const invalidate = () => {
     void queryClient.invalidateQueries({
@@ -240,6 +274,43 @@ export function CustomerDetailPage() {
     onError: (error) => {
       toast.error(
         error instanceof Error ? error.message : "Failed to create cart",
+      );
+    },
+  });
+
+  const grantBonusMutation = useMutation({
+    mutationFn: () => grantAdminLoginBonus(customerId),
+    onSuccess: async () => {
+      toast.success("Login bonus granted");
+      setConfirmGrantBonus(false);
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.wallets.detail(customerId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["wallets", "transactions", customerId],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.customers.detail(customerId),
+        }),
+      ]);
+    },
+    onError: (error) => {
+      if (error instanceof ApiError) {
+        if (error.statusCode === 409) {
+          toast.error("Login bonus already received");
+          return;
+        }
+        if (error.statusCode === 400) {
+          toast.error(
+            error.message ||
+              "Login bonus amount is not configured in settings",
+          );
+          return;
+        }
+      }
+      toast.error(
+        error instanceof Error ? error.message : "Failed to grant login bonus",
       );
     },
   });
@@ -351,6 +422,11 @@ export function CustomerDetailPage() {
             >
               {customer.isActive ? "Active" : "Blocked"}
             </StatusBadge>
+            {customer.loginBonusReceived && (
+              <StatusBadge variant="success" className="shrink-0">
+                Login bonus received
+              </StatusBadge>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-px bg-border sm:grid-cols-4">
             {stats.map((stat) => (
@@ -401,13 +477,12 @@ export function CustomerDetailPage() {
             <NotebookPen className="size-4 shrink-0" />
             <span className="max-sm:sr-only">Follow-ups</span>
           </TabsTrigger>
-          {/* Wallet tab temporarily disabled
           {canViewWallet && (
             <TabsTrigger value="wallet" className={tabTriggerClass}>
-              Wallet
+              <Wallet className="size-4 shrink-0" />
+              <span className="max-sm:sr-only">Wallet</span>
             </TabsTrigger>
           )}
-          */}
           <TabsTrigger value="activity" className={tabTriggerClass}>
             <ScrollText className="size-4 shrink-0" />
             <span className="max-sm:sr-only">Activity</span>
@@ -608,27 +683,34 @@ export function CustomerDetailPage() {
           />
         </TabsContent>
 
-        {/* Wallet section temporarily disabled
         {canViewWallet && (
           <TabsContent value="wallet" className="mt-0">
             <Card className="overflow-hidden shadow-xs">
               <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3 border-b bg-muted/20 pb-4">
                 <div>
-                  <CardTitle>Referral wallet</CardTitle>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Wallet className="size-4 text-muted-foreground" />
+                    Referral wallet
+                  </CardTitle>
                   <CardDescription className="mt-1">
-                    Credits from delivered referral orders.
+                    Balances, login bonus, and full wallet ledger.
                   </CardDescription>
                 </div>
-                <Link
-                  to={`/wallet-withdrawals?customerId=${customerId}`}
-                  className={cn(
-                    buttonVariants({ variant: "outline", size: "sm" }),
+                {canUpdateWallet &&
+                  !(
+                    walletQuery.data?.loginBonusReceived ??
+                    customer.loginBonusReceived
+                  ) && (
+                    <Button
+                      size="sm"
+                      onClick={() => setConfirmGrantBonus(true)}
+                      disabled={grantBonusMutation.isPending}
+                    >
+                      Grant login bonus
+                    </Button>
                   )}
-                >
-                  View withdrawals
-                </Link>
               </CardHeader>
-              <CardContent className="pt-5">
+              <CardContent className="space-y-6 pt-5">
                 {walletQuery.isLoading ? (
                   <div className="flex items-center justify-center py-8">
                     <Loader2 className="size-5 animate-spin text-muted-foreground" />
@@ -640,38 +722,148 @@ export function CustomerDetailPage() {
                       : "Failed to load wallet"}
                   </p>
                 ) : walletQuery.data ? (
-                  <div className="grid gap-4 sm:grid-cols-3">
-                    <div>
-                      <p className="text-xs text-muted-foreground">Balance</p>
-                      <p className="mt-1 text-lg font-medium">
-                        {formatCurrency(walletQuery.data.balance)}
-                      </p>
+                  <>
+                    <div className="grid gap-4 sm:grid-cols-3">
+                      <div>
+                        <p className="text-xs text-muted-foreground">Balance</p>
+                        <p className="mt-1 text-lg font-medium">
+                          {formatCurrency(walletQuery.data.balance)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">
+                          Available
+                        </p>
+                        <p className="mt-1 text-lg font-medium">
+                          {formatCurrency(walletQuery.data.availableBalance)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Pending</p>
+                        <p className="mt-1 text-lg font-medium">
+                          {formatCurrency(walletQuery.data.pendingBalance)}
+                        </p>
+                      </div>
                     </div>
-                    <div>
+                    <div className="rounded-lg border bg-muted/10 px-4 py-3">
                       <p className="text-xs text-muted-foreground">
-                        Available
+                        Login bonus
                       </p>
-                      <p className="mt-1 text-lg font-medium">
-                        {formatCurrency(walletQuery.data.availableBalance)}
-                      </p>
+                      {(walletQuery.data.loginBonusReceived ??
+                      customer.loginBonusReceived) ? (
+                        <p className="mt-1 text-sm font-medium">
+                          Received
+                          {(walletQuery.data.loginBonusReceivedAt ??
+                            customer.loginBonusReceivedAt) &&
+                            ` · ${formatDate(
+                              walletQuery.data.loginBonusReceivedAt ??
+                                customer.loginBonusReceivedAt!,
+                            )}`}
+                        </p>
+                      ) : (
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          Not received yet
+                        </p>
+                      )}
                     </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Pending</p>
-                      <p className="mt-1 text-lg font-medium">
-                        {formatCurrency(walletQuery.data.pendingBalance)}
-                      </p>
-                    </div>
-                  </div>
+                  </>
                 ) : (
                   <p className="text-sm text-muted-foreground">
                     No wallet data for this customer.
                   </p>
                 )}
+
+                <div className="space-y-3 border-t pt-5">
+                  <div>
+                    <p className="text-sm font-medium">Ledger</p>
+                    <p className="text-xs text-muted-foreground">
+                      All wallet credits and debits for this customer.
+                    </p>
+                  </div>
+                  {walletTransactionsQuery.isLoading ? (
+                    <div className="flex items-center justify-center py-6">
+                      <Loader2 className="size-5 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : walletTransactionsQuery.isError ? (
+                    <p className="text-sm text-destructive">
+                      {walletTransactionsQuery.error instanceof Error
+                        ? walletTransactionsQuery.error.message
+                        : "Failed to load transactions"}
+                    </p>
+                  ) : (walletTransactionsQuery.data?.items.length ?? 0) ===
+                    0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      No transactions yet.
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {walletTransactionsQuery.data!.items.map((tx) => (
+                        <div
+                          key={tx.id}
+                          className="flex flex-wrap items-center justify-between gap-3 rounded-lg border px-3 py-2.5"
+                        >
+                          <div>
+                            <p className="text-sm font-medium">
+                              {tx.type === "CREDIT" ? "+" : "−"}
+                              {formatCurrency(tx.amount)}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatWalletTransactionReason(tx.reason)} ·{" "}
+                              {formatDate(tx.createdAt)}
+                              {tx.availableAt
+                                ? ` · available ${formatDate(tx.availableAt)}`
+                                : ""}
+                            </p>
+                          </div>
+                          <StatusBadge
+                            variant={
+                              tx.type === "CREDIT" ? "success" : "neutral"
+                            }
+                          >
+                            {tx.type}
+                          </StatusBadge>
+                        </div>
+                      ))}
+                      {(walletTransactionsQuery.data?.meta.totalPages ?? 1) >
+                        1 && (
+                        <div className="flex items-center justify-between pt-2">
+                          <p className="text-xs text-muted-foreground">
+                            Page {txPage + 1} of{" "}
+                            {walletTransactionsQuery.data?.meta.totalPages}
+                          </p>
+                          <div className="flex gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              disabled={txPage === 0}
+                              onClick={() => setTxPage((p) => Math.max(0, p - 1))}
+                            >
+                              Previous
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              disabled={
+                                txPage + 1 >=
+                                (walletTransactionsQuery.data?.meta
+                                  .totalPages ?? 1)
+                              }
+                              onClick={() => setTxPage((p) => p + 1)}
+                            >
+                              Next
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
         )}
-        */}
 
         <TabsContent value="activity" className="mt-0">
           <Card className="overflow-hidden shadow-xs">
@@ -809,6 +1001,16 @@ export function CustomerDetailPage() {
             ? deleteAddressMutation.mutateAsync(deleteAddressId)
             : Promise.resolve()
         }
+      />
+
+      <ConfirmDialog
+        open={confirmGrantBonus}
+        onOpenChange={setConfirmGrantBonus}
+        title="Grant login bonus?"
+        description="Credits the current site-settings login bonus amount once. Works even if the login bonus toggle is off. Fails if the amount is still ₹0 or already claimed."
+        confirmLabel="Grant bonus"
+        loading={grantBonusMutation.isPending}
+        onConfirm={() => grantBonusMutation.mutateAsync()}
       />
     </div>
   );
