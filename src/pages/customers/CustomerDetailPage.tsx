@@ -31,6 +31,7 @@ import { customerOrderColumns } from "@/components/data-table/customer-order-col
 import { AddressForm } from "@/components/customers/AddressForm";
 import { AddressCard } from "@/components/customers/AddressCard";
 import { CustomerFollowUpsTab } from "@/components/customers/CustomerFollowUpsTab";
+import { CustomerOrderMobileCards } from "@/components/customers/CustomerOrderMobileCards";
 import { AuditLogTable } from "@/components/shared/AuditLogTable";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -585,11 +586,22 @@ export function CustomerDetailPage() {
                     className="py-8"
                   />
                 ) : (
-                  <DataTable
-                    columns={customerOrderColumns}
-                    data={ordersQuery.data?.items ?? customer.recentOrders}
-                    pageSize={10}
-                  />
+                  <>
+                    <CustomerOrderMobileCards
+                      orders={
+                        ordersQuery.data?.items ?? customer.recentOrders
+                      }
+                    />
+                    <div className="hidden md:block">
+                      <DataTable
+                        columns={customerOrderColumns}
+                        data={
+                          ordersQuery.data?.items ?? customer.recentOrders
+                        }
+                        pageSize={10}
+                      />
+                    </div>
+                  </>
                 )
               ) : (
                 <p className="text-sm text-muted-foreground">

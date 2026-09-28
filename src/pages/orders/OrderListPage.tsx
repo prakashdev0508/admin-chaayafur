@@ -249,7 +249,7 @@ export function OrderListPage() {
         title="Orders"
         description="Track and fulfill customer orders from your store."
         action={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="outline"
               size="icon"
@@ -279,7 +279,8 @@ export function OrderListPage() {
                 render={
                   <Link to="/orders/manual/new">
                     <Plus className="size-4" />
-                    New manual order
+                    <span className="max-sm:sr-only">New manual order</span>
+                    <span className="sm:hidden">Manual</span>
                   </Link>
                 }
               />
@@ -295,13 +296,14 @@ export function OrderListPage() {
       />
 
       {error && (
-        <div className="flex items-center justify-between rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3">
+        <div className="flex flex-col gap-3 rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-destructive">
             {error instanceof Error ? error.message : "Failed to load orders"}
           </p>
           <Button
             variant="outline"
             size="sm"
+            className="self-start sm:self-auto"
             onClick={() => refetch()}
           >
             Retry

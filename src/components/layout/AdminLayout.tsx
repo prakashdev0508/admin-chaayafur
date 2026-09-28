@@ -5,6 +5,7 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AdminSearchOverlay } from "@/components/layout/AdminSearchOverlay";
 import { AppSidebar } from "@/components/layout/AppSidebar";
+import { SiteHeader } from "@/components/layout/SiteHeader";
 
 export function AdminLayout() {
   const [searchOpen, setSearchOpen] = useState(false);
@@ -14,6 +15,7 @@ export function AdminLayout() {
       <SidebarProvider>
         <AppSidebar onOpenSearch={() => setSearchOpen(true)} />
         <SidebarInset>
+          <SiteHeader onOpenSearch={() => setSearchOpen(true)} />
           <div className="flex flex-1 flex-col gap-4 p-4 md:p-6">
             <Outlet />
           </div>
