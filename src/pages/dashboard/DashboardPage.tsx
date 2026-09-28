@@ -24,6 +24,7 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { formatCurrency } from "@/lib/format";
 import { getDefaultReportDateRange } from "@/lib/report-dates";
 import { queryKeys } from "@/lib/query-keys";
@@ -53,12 +54,18 @@ function formatTrendLabel(period: string, granularity: ReportGranularity) {
   return date.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
 }
 
+function truncateLabel(name: string, maxLen: number) {
+  if (name.length <= maxLen) return name;
+  return `${name.slice(0, Math.max(1, maxLen - 1))}…`;
+}
+
 const dashboardParams = {
   ...getDefaultReportDateRange(30),
   granularity: "daily" as ReportGranularity,
 };
 
 export function DashboardPage() {
+  const isMobile = useIsMobile();
   const params = useMemo(() => dashboardParams, []);
 
   const { data, isLoading, error } = useQuery({
@@ -154,7 +161,7 @@ export function DashboardPage() {
   ];
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex min-w-0 flex-col gap-4">
       <PageHeader
         title="Dashboard"
         description="KPIs and charts from countable orders (completed payment, not pending/cancelled)."
@@ -162,10 +169,12 @@ export function DashboardPage() {
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {kpiCards.map((stat) => (
-          <Card key={stat.label}>
+          <Card key={stat.label} className="min-w-0">
             <CardHeader className="pb-2">
               <CardDescription>{stat.label}</CardDescription>
-              <CardTitle className="text-xl font-semibold">{stat.value}</CardTitle>
+              <CardTitle className="truncate text-xl font-semibold">
+                {stat.value}
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-xs text-muted-foreground">{stat.description}</p>
@@ -174,20 +183,27 @@ export function DashboardPage() {
         ))}
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
+      <div className="grid min-w-0 gap-4 lg:grid-cols-2">
+        <Card className="min-w-0 overflow-hidden">
           <CardHeader>
             <CardTitle>Revenue trend</CardTitle>
             <CardDescription>Gross revenue by period</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="min-w-0">
             <ChartContainer
               config={revenueChartConfig}
               className="aspect-auto h-[260px] w-full"
             >
               <AreaChart data={revenueChartData}>
                 <CartesianGrid vertical={false} />
-                <XAxis dataKey="label" tickLine={false} axisLine={false} />
+                <XAxis
+                  dataKey="label"
+                  tickLine={false}
+                  axisLine={false}
+                  interval="preserveStartEnd"
+                  minTickGap={isMobile ? 28 : 16}
+                  tick={{ fontSize: isMobile ? 10 : 12 }}
+                />
                 <ChartTooltip
                   content={
                     <ChartTooltipContent
@@ -207,19 +223,26 @@ export function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="min-w-0 overflow-hidden">
           <CardHeader>
             <CardTitle>Orders trend</CardTitle>
             <CardDescription>Countable orders by period</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="min-w-0">
             <ChartContainer
               config={ordersChartConfig}
               className="aspect-auto h-[260px] w-full"
             >
               <AreaChart data={ordersChartData}>
                 <CartesianGrid vertical={false} />
-                <XAxis dataKey="label" tickLine={false} axisLine={false} />
+                <XAxis
+                  dataKey="label"
+                  tickLine={false}
+                  axisLine={false}
+                  interval="preserveStartEnd"
+                  minTickGap={isMobile ? 28 : 16}
+                  tick={{ fontSize: isMobile ? 10 : 12 }}
+                />
                 <ChartTooltip content={<ChartTooltipContent />} />
                 <Area
                   type="monotone"
@@ -234,10 +257,11 @@ export function DashboardPage() {
         </Card>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid min-w-0 gap-4 lg:grid-cols-2">
         <RankedBarChart
           title="Top products"
           description="Units sold in range"
+          isMobile={isMobile}
           rows={charts.topProducts.map((row) => ({
             name: row.name,
             value: row.value,
@@ -247,6 +271,7 @@ export function DashboardPage() {
         <RankedBarChart
           title="Sales by category"
           description="Revenue in range"
+          isMobile={isMobile}
           valueFormatter={(v) => formatCurrency(v)}
           rows={charts.salesByCategory.map((row) => ({
             name: row.name,
@@ -256,6 +281,7 @@ export function DashboardPage() {
         <RankedBarChart
           title="Sales by city"
           description="Revenue in range"
+          isMobile={isMobile}
           valueFormatter={(v) => formatCurrency(v)}
           rows={charts.salesByCity.map((row) => ({
             name: row.name,
@@ -265,6 +291,7 @@ export function DashboardPage() {
         <RankedBarChart
           title="Order status"
           description="Orders created in range"
+          isMobile={isMobile}
           rows={charts.orderStatusDistribution.map((row) => ({
             name: row.name,
             value: row.value,
@@ -273,6 +300,7 @@ export function DashboardPage() {
         <RankedBarChart
           title="Payment methods"
           description="Orders in range"
+          isMobile={isMobile}
           rows={charts.paymentMethodDistribution.map((row) => ({
             name: row.name,
             value: row.value,
@@ -287,22 +315,28 @@ function RankedBarChart({
   title,
   description,
   rows,
+  isMobile,
   valueFormatter = (v) => String(v),
 }: {
   title: string;
   description: string;
   rows: { name: string; value: number; hint?: string }[];
+  isMobile: boolean;
   valueFormatter?: (value: number) => string;
 }) {
-  const chartData = rows.slice(0, 8);
+  const maxLabelLen = isMobile ? 10 : 16;
+  const chartData = rows.slice(0, 8).map((row) => ({
+    ...row,
+    shortName: truncateLabel(row.name, maxLabelLen),
+  }));
 
   return (
-    <Card>
+    <Card className="min-w-0 overflow-hidden">
       <CardHeader>
         <CardTitle>{title}</CardTitle>
         <CardDescription>{description}</CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="min-w-0">
         {chartData.length === 0 ? (
           <p className="text-sm text-muted-foreground">No data for this range.</p>
         ) : (
@@ -310,20 +344,30 @@ function RankedBarChart({
             config={barChartConfig}
             className="aspect-auto h-[240px] w-full"
           >
-            <BarChart data={chartData} layout="vertical" margin={{ left: 8 }}>
+            <BarChart
+              data={chartData}
+              layout="vertical"
+              margin={{ left: isMobile ? 0 : 8, right: 8 }}
+            >
               <CartesianGrid horizontal={false} />
               <YAxis
                 type="category"
-                dataKey="name"
-                width={100}
+                dataKey="shortName"
+                width={isMobile ? 72 : 100}
                 tickLine={false}
                 axisLine={false}
-                fontSize={12}
+                fontSize={isMobile ? 10 : 12}
               />
               <XAxis type="number" hide />
               <ChartTooltip
                 content={
                   <ChartTooltipContent
+                    labelFormatter={(_value, payload) => {
+                      const fullName = payload?.[0]?.payload?.name as
+                        | string
+                        | undefined;
+                      return fullName ?? _value;
+                    }}
                     formatter={(value, _name, item) => {
                       const hint = item.payload?.hint as string | undefined;
                       return hint ?? valueFormatter(Number(value));
