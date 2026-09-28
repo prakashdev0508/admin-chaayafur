@@ -371,42 +371,46 @@ export function OrderDetailPage() {
         title={order.orderNumber}
         description={`Placed on ${formatDate(order.createdAt)}`}
         action={
-          <div className="flex flex-wrap items-center justify-end gap-1.5">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-7"
-              render={
-                <Link to={`/orders/${order.id}/purchase-order`}>
-                  <ShoppingBag className="size-3.5" />
-                  Create PO
-                </Link>
-              }
-            />
-            <StatusBadge
-              variant={
-                paymentStatusVariants[order.payment.status] ?? "neutral"
-              }
-              className="h-7 px-2.5"
-            >
-              {paymentStatusLabels[order.payment.status] ??
-                order.payment.status}
-            </StatusBadge>
-            <OrderStatusSelect
-              status={order.status}
-              orderNumber={order.orderNumber}
-              unpaidManual={isManualPending}
-              onUpdate={(payload) => updateMutation.mutateAsync(payload)}
-            />
-            {latestRefund && refundStatusLabel && (
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:items-end">
+            <div className="flex flex-wrap items-center gap-1.5 max-sm:justify-start sm:justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7"
+                render={
+                  <Link to={`/orders/${order.id}/purchase-order`}>
+                    <ShoppingBag className="size-3.5" />
+                    Create PO
+                  </Link>
+                }
+              />
               <StatusBadge
-                variant={refundStatusVariant}
+                variant={
+                  paymentStatusVariants[order.payment.status] ?? "neutral"
+                }
                 className="h-7 px-2.5"
               >
-                {refundStatusLabel}
+                {paymentStatusLabels[order.payment.status] ??
+                  order.payment.status}
               </StatusBadge>
-            )}
+              {latestRefund && refundStatusLabel && (
+                <StatusBadge
+                  variant={refundStatusVariant}
+                  className="h-7 px-2.5"
+                >
+                  {refundStatusLabel}
+                </StatusBadge>
+              )}
+            </div>
+            <div className="max-sm:w-full [&_button]:max-sm:w-full">
+              <OrderStatusSelect
+                status={order.status}
+                orderNumber={order.orderNumber}
+                unpaidManual={isManualPending}
+                onUpdate={(payload) => updateMutation.mutateAsync(payload)}
+              />
+            </div>
           </div>
         }
       />

@@ -5,19 +5,17 @@ import {
   getOrderStatusLabel,
   getOrderStatusVariant,
 } from "@/lib/order-status";
-import type { OrderListItem } from "@/types/order";
+import type { CustomerOrderSummary } from "@/types/customer";
 
-type OrderListMobileCardsProps = {
-  orders: OrderListItem[];
+type CustomerOrderMobileCardsProps = {
+  orders: CustomerOrderSummary[];
 };
 
-export function OrderListMobileCards({ orders }: OrderListMobileCardsProps) {
+export function CustomerOrderMobileCards({
+  orders,
+}: CustomerOrderMobileCardsProps) {
   if (orders.length === 0) {
-    return (
-      <p className="rounded-xl border border-dashed px-4 py-10 text-center text-sm text-muted-foreground md:hidden">
-        No orders match these filters.
-      </p>
-    );
+    return null;
   }
 
   return (
@@ -31,25 +29,17 @@ export function OrderListMobileCards({ orders }: OrderListMobileCardsProps) {
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="font-semibold tracking-tight">{order.orderNumber}</p>
-              <p className="mt-0.5 truncate text-sm text-muted-foreground">
-                {order.customerPhone ?? `Customer #${order.customerId}`}
-              </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                {order.orderType === "MANUAL" ? "Manual" : "Checkout"}
+                {formatDate(order.createdAt)}
               </p>
             </div>
             <StatusBadge variant={getOrderStatusVariant(order.status)}>
               {getOrderStatusLabel(order.status)}
             </StatusBadge>
           </div>
-          <div className="mt-3 flex items-end justify-between gap-3">
-            <p className="text-base font-semibold tabular-nums">
-              {formatCurrency(order.totalAmount)}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {formatDate(order.createdAt)}
-            </p>
-          </div>
+          <p className="mt-3 text-base font-semibold tabular-nums">
+            {formatCurrency(order.totalAmount)}
+          </p>
         </Link>
       ))}
     </div>
