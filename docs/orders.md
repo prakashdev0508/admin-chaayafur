@@ -375,7 +375,7 @@ curl -X POST http://localhost:5000/api/v1/orders \
 
 Staff-created **MANUAL** order. Can mix catalog products and off-catalog custom lines. Creates a **shareable Razorpay payment link** with Razorpay’s maximum expiry (**6 months**) so it can be sent to anyone. Payment stays `MANUAL` / `PENDING` until the customer pays via the link (webhook) or staff record offline payment with mark-paid. Requires `create-orders`.
 
-Staff pass a **phone** (mandatory). If no customer exists for that number, one is created. Shipping and billing are **inline snapshots** on the order — they are **not** written to the customer address book (`addressId` / `billingAddressId` stay `null`). Invoices use those snapshots.
+Staff pass a **phone** (mandatory). If no customer exists for that number, one is created. Shipping and billing are **inline snapshots** on the order — they are **not** written to the customer address book (`addressId` / `billingAddressId` stay `null`). Invoices use those snapshots. The shipping pincode is still checked against the allowlist, but India Post city/state lookup is not applied.
 
 | | |
 |---|---|
@@ -444,13 +444,29 @@ Response is the same order detail shape as `GET /orders/:id`, with the new `paym
 
 ## POST /api/v1/admin/orders/:id/mark-paid
 
-Record offline payment for a **MANUAL** `PENDING` order. Sets payment `COMPLETED`, **cancels the open Razorpay payment link** (if any), confirms the order, generates Performa, and sends the order-placed email. Requires `update-orders` **or** `update-payments`.
+Record an offline payment for a **MANUAL** `PENDING` order. Supports **partial installments**.
+
+| Body field | Required | Description |
+|------------|----------|-------------|
+| `amount` | No | Installment amount (INR). Omit to pay the **remaining balance** in full (same as legacy one-shot mark-paid). |
+| `paymentMode` | **Yes** | Offline collection mode: `CASH` \| `UPI` \| `BANK_TRANSFER` \| `CHEQUE` \| `OTHER` |
+| `transactionId` | No | Offline reference (UPI / cheque / cash receipt) |
+| `notes` | No | Staff note |
+
+Behavior:
+
+- Each call creates a `manual_payment_installments` row.
+- While any balance remains: payment status → `PARTIALLY_PAID`, order stays `PENDING`, Performa is created/refreshed with installment list + paid/due.
+- When remaining due reaches `0`: payment → `COMPLETED`, order → `CONFIRMED`, Performa + order-placed email (same as before).
+- Cancels any open Razorpay payment link on the first offline installment. Regenerating a payment link is blocked after installments exist.
 
 ```json
-{ "transactionId": "UPI/123456789", "notes": "Cash collected at showroom" }
+{ "amount": 5000, "paymentMode": "UPI", "transactionId": "UPI/123456789", "notes": "Advance at showroom" }
 ```
 
-Unpaid MANUAL orders cannot be PATCHed to fulfillment statuses (`CONFIRMED`, `SHIPPED`, …). Cancel is still allowed.
+Order detail `payment` for MANUAL includes `paidAmount`, `dueAmount`, and `installments[]` (each with `paymentMode`).
+
+Unpaid / partially paid MANUAL orders cannot be PATCHed to fulfillment statuses (`CONFIRMED`, `SHIPPED`, …). Cancel is still allowed.
 
 Quotations can be turned into a MANUAL order with `POST /admin/quotations/:id/convert-to-order` — see [quotations.md](./quotations.md).
 

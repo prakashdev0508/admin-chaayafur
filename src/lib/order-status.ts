@@ -88,7 +88,8 @@ export function isUnpaidManualOrder(order: {
 }) {
   return (
     order.payment.paymentMethod === "MANUAL" &&
-    order.payment.status === "PENDING"
+    (order.payment.status === "PENDING" ||
+      order.payment.status === "PARTIALLY_PAID")
   );
 }
 

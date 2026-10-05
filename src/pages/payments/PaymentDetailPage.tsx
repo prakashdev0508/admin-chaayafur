@@ -15,6 +15,7 @@ import {
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Separator } from "@/components/ui/separator";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { PaymentInstallmentList } from "@/components/payments/PaymentInstallmentList";
 import { formatCurrency, formatDate } from "@/lib/format";
 import {
   paymentStatusLabels,
@@ -33,10 +34,14 @@ import { getOrderStatusLabel } from "@/lib/order-status";
 import { queryKeys } from "@/lib/query-keys";
 import { ApiError } from "@/lib/api";
 import { getPayment } from "@/services/payments.service";
-import { getOrderRefund, regenerateAdminOrderPaymentLink } from "@/services/orders.service";
+import {
+  getOrderRefund,
+  regenerateAdminOrderPaymentLink,
+} from "@/services/orders.service";
 import { usePermission } from "@/hooks/usePermission";
 import { PERMISSIONS } from "@/lib/roles";
 import { PaymentLinkShare } from "@/components/orders/PaymentLinkShare";
+import type { ManualPaymentInstallment } from "@/types/order";
 
 export function PaymentDetailPage() {
   const { id } = useParams();
@@ -89,7 +94,9 @@ export function PaymentDetailPage() {
     },
     onError: (err) => {
       toast.error(
-        err instanceof Error ? err.message : "Failed to regenerate payment link",
+        err instanceof Error
+          ? err.message
+          : "Failed to regenerate payment link",
       );
     },
   });
@@ -98,7 +105,10 @@ export function PaymentDetailPage() {
     return (
       <div className="flex flex-col gap-4">
         <PageHeader title="Invalid payment" />
-        <Button variant="outline" render={<Link to="/payments">Back to payments</Link>} />
+        <Button
+          variant="outline"
+          render={<Link to="/payments">Back to payments</Link>}
+        />
       </div>
     );
   }
@@ -122,7 +132,10 @@ export function PaymentDetailPage() {
     return (
       <div className="flex flex-col gap-4">
         <PageHeader title="Payment not found" description={message} />
-        <Button variant="outline" render={<Link to="/payments">Back to payments</Link>} />
+        <Button
+          variant="outline"
+          render={<Link to="/payments">Back to payments</Link>}
+        />
       </div>
     );
   }
@@ -131,7 +144,8 @@ export function PaymentDetailPage() {
   const orderId = order?.id ?? payment.orderId;
   const refundData = refundQuery.data;
   const refundMissing =
-    refundQuery.error instanceof ApiError && refundQuery.error.statusCode === 404;
+    refundQuery.error instanceof ApiError &&
+    refundQuery.error.statusCode === 404;
   const refundItems =
     refundData &&
     Array.isArray(refundData.items) &&
@@ -141,10 +155,19 @@ export function PaymentDetailPage() {
         ? [refundData]
         : [];
   const latestRefund = refundItems[0] ?? null;
+  const installments = (payment.installments ??
+    []) as ManualPaymentInstallment[];
+  const hasInstallments = installments.length > 0;
+  const showBalances =
+    payment.paidAmount != null ||
+    payment.dueAmount != null ||
+    hasInstallments ||
+    payment.paymentMethod === "MANUAL";
   const canRegenerateLink =
     Boolean(linkedOrderId) &&
     payment.paymentMethod === "MANUAL" &&
-    payment.status === "PENDING";
+    payment.status === "PENDING" &&
+    !hasInstallments;
 
   return (
     <div className="flex flex-col gap-4">
@@ -179,8 +202,10 @@ export function PaymentDetailPage() {
           <CardContent className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <p className="text-sm text-muted-foreground">Amount</p>
-                <p className="text-lg font-semibold">
+                <p className="text-sm text-muted-foreground">
+                  {showBalances ? "Order total" : "Amount"}
+                </p>
+                <p className="text-lg font-semibold tabular-nums">
                   {formatCurrency(payment.amount)}
                 </p>
               </div>
@@ -188,6 +213,22 @@ export function PaymentDetailPage() {
                 <p className="text-sm text-muted-foreground">Method</p>
                 <p className="font-medium">{payment.paymentMethod}</p>
               </div>
+              {showBalances ? (
+                <>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Paid</p>
+                    <p className="font-semibold tabular-nums">
+                      {formatCurrency(payment.paidAmount ?? "0")}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Due</p>
+                    <p className="font-semibold tabular-nums">
+                      {formatCurrency(payment.dueAmount ?? payment.amount)}
+                    </p>
+                  </div>
+                </>
+              ) : null}
               <div>
                 <p className="text-sm text-muted-foreground">Transaction ID</p>
                 <p className="font-mono text-sm">
@@ -199,6 +240,36 @@ export function PaymentDetailPage() {
                 <p className="font-medium">{payment.currency ?? "INR"}</p>
               </div>
             </div>
+
+            {(showBalances || payment.paymentMethod === "MANUAL") && (
+              <>
+                <Separator />
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-medium">Installments</p>
+                    {hasInstallments ? (
+                      <span className="text-xs text-muted-foreground">
+                        {installments.length} recorded
+                      </span>
+                    ) : null}
+                  </div>
+                  <PaymentInstallmentList installments={installments} />
+                  {payment.paymentMethod === "MANUAL" &&
+                  (payment.status === "PENDING" ||
+                    payment.status === "PARTIALLY_PAID") ? (
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      render={
+                        <Link to={`/orders/${orderId}`}>
+                          Record installment on order
+                        </Link>
+                      }
+                    />
+                  ) : null}
+                </div>
+              </>
+            )}
 
             <Separator />
 
@@ -244,7 +315,7 @@ export function PaymentDetailPage() {
                 url={payment.paymentLinkUrl}
                 description={
                   payment.paymentMethod === "MANUAL"
-                    ? "Shareable Razorpay link (up to 6 months). Anyone with the URL can pay. If it expires or is lost, regenerate it. Mark-paid cancels this link."
+                    ? "Shareable Razorpay link (up to 6 months). Recording an offline installment cancels this link."
                     : undefined
                 }
                 onRegenerate={
@@ -262,7 +333,9 @@ export function PaymentDetailPage() {
           <Card>
             <CardHeader>
               <CardTitle>Linked order</CardTitle>
-              <CardDescription>Order associated with this payment</CardDescription>
+              <CardDescription>
+                Order associated with this payment
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
@@ -305,9 +378,7 @@ export function PaymentDetailPage() {
               <Button
                 variant="outline"
                 className="w-full"
-                render={
-                  <Link to={`/orders/${orderId}`}>View order</Link>
-                }
+                render={<Link to={`/orders/${orderId}`}>View order</Link>}
               />
             </CardContent>
           </Card>

@@ -1,4 +1,5 @@
 import type { PaymentStatus } from "@/types/payment";
+import type { ManualPaymentMode } from "@/lib/manual-payment-mode";
 import type { OrderAddressRef } from "@/lib/order-utils";
 import type {
   ProductCustomizationOption,
@@ -107,6 +108,16 @@ export type OrderCustomizationRequest = {
   fabric?: OrderCatalogMaterial | null;
 };
 
+export type ManualPaymentInstallment = {
+  id: number;
+  amount: string;
+  paymentMode: string;
+  transactionId: string | null;
+  notes: string | null;
+  recordedByStaffId?: number | null;
+  createdAt: string;
+};
+
 export type OrderPayment = {
   id: number;
   amount: string;
@@ -124,6 +135,11 @@ export type OrderPayment = {
   notes: string | null;
   refundNotes?: string | null;
   refundedAt?: string | null;
+  /** Cumulative offline/link amount paid (MANUAL installments). */
+  paidAmount?: string | null;
+  /** Remaining balance (MANUAL installments). */
+  dueAmount?: string | null;
+  installments?: ManualPaymentInstallment[];
   createdAt: string;
   updatedAt: string;
   gatewayPayload?: unknown;
@@ -313,7 +329,11 @@ export type CreateAdminOrderPayload = {
 };
 
 export type MarkPaidOrderPayload = {
-  transactionId: string;
+  /** Installment amount in INR. Omit to pay remaining due in full. */
+  amount?: number;
+  /** Offline collection mode — required by the API. */
+  paymentMode: ManualPaymentMode;
+  transactionId?: string;
   notes?: string;
 };
 
