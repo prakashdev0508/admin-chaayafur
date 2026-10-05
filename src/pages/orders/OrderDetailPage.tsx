@@ -56,6 +56,14 @@ import { StarRating } from "@/components/reviews/StarRating";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { PaymentInstallmentList } from "@/components/payments/PaymentInstallmentList";
 import type {
   OrderRefund,
   InitiateRefundPayload,
@@ -63,6 +71,10 @@ import type {
 } from "@/types/refund";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { paymentStatusLabels, paymentStatusVariants } from "@/lib/payment-status";
+import {
+  MANUAL_PAYMENT_MODE_ITEMS,
+  type ManualPaymentMode,
+} from "@/lib/manual-payment-mode";
 import { isActiveRefund, refundStatusLabels, refundStatusVariants } from "@/lib/refund-status";
 import { isUnpaidManualOrder } from "@/lib/order-status";
 import { queryKeys } from "@/lib/query-keys";
@@ -109,6 +121,8 @@ export function OrderDetailPage() {
     null,
   );
   const [markPaidOpen, setMarkPaidOpen] = useState(false);
+  const [markPaidAmount, setMarkPaidAmount] = useState("");
+  const [markPaidMode, setMarkPaidMode] = useState<ManualPaymentMode | "">("");
   const [markPaidTransactionId, setMarkPaidTransactionId] = useState("");
   const [markPaidNotes, setMarkPaidNotes] = useState("");
   const [regenerateLinkOpen, setRegenerateLinkOpen] = useState(false);
@@ -184,11 +198,18 @@ export function OrderDetailPage() {
   const markPaidMutation = useMutation({
     mutationFn: (payload: MarkPaidOrderPayload) =>
       markPaidAdminOrder(orderId, payload),
-    onSuccess: () => {
+    onSuccess: (updated) => {
       setMarkPaidOpen(false);
+      setMarkPaidAmount("");
+      setMarkPaidMode("");
       setMarkPaidTransactionId("");
       setMarkPaidNotes("");
-      toast.success("Payment marked as paid");
+      const paymentStatus = updated.payment.status;
+      if (paymentStatus === "PARTIALLY_PAID") {
+        toast.success("Installment recorded. Balance still due.");
+      } else {
+        toast.success("Payment completed. Order confirmed.");
+      }
       invalidateOrderQueries();
     },
     onError: (error) => {
@@ -313,6 +334,21 @@ export function OrderDetailPage() {
   const canManageManualPayment =
     isManualPending && (canGenerateInvoice || canRefund);
   const canMarkPaid = canManageManualPayment;
+  const installments = order.payment.installments ?? [];
+  const hasInstallments = installments.length > 0;
+  const paidAmountRaw = order.payment.paidAmount;
+  const dueAmountRaw = order.payment.dueAmount;
+  const dueAmountValue = Number.parseFloat(
+    dueAmountRaw ??
+      (order.payment.status === "COMPLETED" ? "0" : order.payment.amount),
+  );
+  const showManualBalances =
+    order.payment.paymentMethod === "MANUAL" &&
+    (paidAmountRaw != null || dueAmountRaw != null || hasInstallments);
+  const canSharePaymentLink =
+    order.payment.status === "PENDING" &&
+    !hasInstallments &&
+    (Boolean(order.payment.paymentLinkUrl) || isManualPending);
 
   const invoiceNotFound =
     invoiceQuery.error instanceof ApiError && invoiceQuery.error.statusCode === 404;
@@ -704,14 +740,41 @@ export function OrderDetailPage() {
                 <CardTitle>Payment</CardTitle>
               </CardHeader>
               <CardContent className="flex flex-1 flex-col gap-4">
-                <div className="flex-1">
-                  <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                    Amount charged
-                  </p>
-                  <p className="mt-1 text-2xl font-semibold tracking-tight tabular-nums">
-                    {formatCurrency(order.payment.amount)}
-                  </p>
-                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                <div className="flex-1 space-y-3">
+                  <div>
+                    <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                      {showManualBalances ? "Order total" : "Amount charged"}
+                    </p>
+                    <p className="mt-1 text-2xl font-semibold tracking-tight tabular-nums">
+                      {formatCurrency(order.payment.amount)}
+                    </p>
+                  </div>
+                  {showManualBalances ? (
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                          Paid
+                        </p>
+                        <p className="mt-1 text-base font-semibold tabular-nums">
+                          {formatCurrency(paidAmountRaw ?? "0")}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                          Due
+                        </p>
+                        <p className="mt-1 text-base font-semibold tabular-nums">
+                          {formatCurrency(
+                            dueAmountRaw ??
+                              (Number.isFinite(dueAmountValue)
+                                ? String(dueAmountValue)
+                                : "0"),
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  ) : null}
+                  <div className="flex flex-wrap items-center gap-2">
                     <StatusBadge
                       variant={
                         paymentStatusVariants[order.payment.status] ??
@@ -727,21 +790,38 @@ export function OrderDetailPage() {
                       </StatusBadge>
                     )}
                   </div>
-                  <p className="mt-2 text-sm text-muted-foreground">
+                  <p className="text-sm text-muted-foreground">
                     {order.payment.paymentMethod}
                   </p>
+                  {showManualBalances || hasInstallments ? (
+                    <div className="space-y-2 border-t pt-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                          Installments
+                        </p>
+                        {hasInstallments ? (
+                          <span className="text-xs text-muted-foreground">
+                            {installments.length} recorded
+                          </span>
+                        ) : null}
+                      </div>
+                      <PaymentInstallmentList
+                        installments={installments}
+                        emptyMessage="No offline installments yet. Record cash, UPI, or bank payments below."
+                      />
+                    </div>
+                  ) : null}
                 </div>
-                {order.payment.status === "PENDING" &&
-                (order.payment.paymentLinkUrl || isManualPending) ? (
+                {canSharePaymentLink ? (
                   <PaymentLinkShare
                     url={order.payment.paymentLinkUrl}
                     description={
                       order.payment.paymentMethod === "MANUAL"
-                        ? "Share this Razorpay link with anyone. It stays valid for up to 6 months. If it expires or is lost, regenerate it. Marking the order paid cancels the link."
+                        ? "Share this Razorpay link with anyone. It stays valid for up to 6 months. Recording an offline installment cancels the link."
                         : "Customer checkout on Razorpay."
                     }
                     onRegenerate={
-                      isManualPending
+                      isManualPending && !hasInstallments
                         ? () => setRegenerateLinkOpen(true)
                         : undefined
                     }
@@ -765,7 +845,12 @@ export function OrderDetailPage() {
                     disabled={markPaidMutation.isPending}
                     onClick={() => setMarkPaidOpen(true)}
                   >
-                    {markPaidMutation.isPending ? "Marking..." : "Mark paid"}
+                    {markPaidMutation.isPending
+                      ? "Recording..."
+                      : hasInstallments ||
+                          order.payment.status === "PARTIALLY_PAID"
+                        ? "Record payment"
+                        : "Mark paid"}
                   </Button>
                 )}
               </CardContent>
@@ -777,67 +862,172 @@ export function OrderDetailPage() {
             onOpenChange={(open) => {
               setMarkPaidOpen(open);
               if (!open) {
+                setMarkPaidAmount("");
+                setMarkPaidMode("");
                 setMarkPaidTransactionId("");
                 setMarkPaidNotes("");
               }
             }}
           >
-            <DialogContent>
+            <DialogContent className="sm:max-w-md">
               <DialogHeader>
-                <DialogTitle>Mark manual payment as paid</DialogTitle>
+                <DialogTitle>Record installment</DialogTitle>
                 <DialogDescription>
-                  Records offline payment, confirms the order, and cancels the
-                  open Razorpay payment link so the customer cannot pay twice.
+                  Capture an offline payment toward this manual order. Leave
+                  amount blank to clear the remaining balance
+                  {Number.isFinite(dueAmountValue)
+                    ? ` of ${formatCurrency(dueAmountValue)}`
+                    : ""}
+                  .
                 </DialogDescription>
               </DialogHeader>
+
+              {Number.isFinite(dueAmountValue) ? (
+                <div className="grid grid-cols-2 gap-3 rounded-xl border bg-muted/30 p-3">
+                  <div>
+                    <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+                      Paid so far
+                    </p>
+                    <p className="mt-1 text-sm font-semibold tabular-nums">
+                      {formatCurrency(paidAmountRaw ?? "0")}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+                      Still due
+                    </p>
+                    <p className="mt-1 text-sm font-semibold tabular-nums">
+                      {formatCurrency(dueAmountValue)}
+                    </p>
+                  </div>
+                </div>
+              ) : null}
+
               <div className="space-y-3">
-                <div className="space-y-1">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium" htmlFor="markPaidAmount">
+                    Amount
+                  </label>
+                  <Input
+                    id="markPaidAmount"
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    inputMode="decimal"
+                    value={markPaidAmount}
+                    onChange={(e) => setMarkPaidAmount(e.target.value)}
+                    placeholder={
+                      Number.isFinite(dueAmountValue)
+                        ? `Leave blank for ${dueAmountValue.toFixed(2)}`
+                        : "Pay remaining balance"
+                    }
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Partial amounts keep the order pending until the balance is
+                    cleared.
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium" htmlFor="markPaidMode">
+                    Payment mode
+                  </label>
+                  <Select
+                    value={markPaidMode || undefined}
+                    onValueChange={(value) =>
+                      setMarkPaidMode(value as ManualPaymentMode)
+                    }
+                    items={MANUAL_PAYMENT_MODE_ITEMS}
+                  >
+                    <SelectTrigger id="markPaidMode" className="w-full">
+                      <SelectValue placeholder="How was this collected?" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {MANUAL_PAYMENT_MODE_ITEMS.map((item) => (
+                        <SelectItem key={item.value} value={item.value}>
+                          {item.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
                   <label className="text-sm font-medium" htmlFor="txId">
-                    Transaction ID
+                    Reference / transaction ID
                   </label>
                   <Input
                     id="txId"
                     value={markPaidTransactionId}
                     onChange={(e) => setMarkPaidTransactionId(e.target.value)}
-                    placeholder="e.g. OTP/UPI reference"
+                    placeholder="UPI ref, cheque no., receipt…"
                   />
                 </div>
-                <div className="space-y-1">
+
+                <div className="space-y-1.5">
                   <label className="text-sm font-medium" htmlFor="markPaidNotes">
-                    Notes (optional)
+                    Notes
                   </label>
                   <Textarea
                     id="markPaidNotes"
                     value={markPaidNotes}
                     onChange={(e) => setMarkPaidNotes(e.target.value)}
-                    placeholder="Add any admin notes..."
+                    placeholder="Optional staff note"
+                    rows={2}
                   />
                 </div>
               </div>
-              <DialogFooter className="mt-2">
+
+              <DialogFooter className="mt-2 gap-2 sm:gap-0">
                 <Button variant="outline" onClick={() => setMarkPaidOpen(false)}>
                   Cancel
                 </Button>
                 <Button
                   onClick={async () => {
-                    const transactionId = markPaidTransactionId.trim();
-                    if (!transactionId) {
-                      toast.error("Transaction ID is required");
+                    if (!markPaidMode) {
+                      toast.error("Select a payment mode");
                       return;
                     }
 
+                    const amountTrimmed = markPaidAmount.trim();
+                    let amount: number | undefined;
+                    if (amountTrimmed) {
+                      amount = Number.parseFloat(amountTrimmed);
+                      if (!Number.isFinite(amount) || amount <= 0) {
+                        toast.error("Enter a valid amount greater than 0");
+                        return;
+                      }
+                      if (
+                        Number.isFinite(dueAmountValue) &&
+                        amount > dueAmountValue + 0.001
+                      ) {
+                        toast.error(
+                          `Amount cannot exceed due (${formatCurrency(dueAmountValue)})`,
+                        );
+                        return;
+                      }
+                    }
+
+                    const transactionId = markPaidTransactionId.trim();
+                    const notes = markPaidNotes.trim();
+                    const payload: MarkPaidOrderPayload = {
+                      paymentMode: markPaidMode,
+                    };
+                    if (amount != null) payload.amount = amount;
+                    if (transactionId) payload.transactionId = transactionId;
+                    if (notes) payload.notes = notes;
+
                     try {
-                      await markPaidMutation.mutateAsync({
-                        transactionId,
-                        notes: markPaidNotes.trim() || undefined,
-                      });
+                      await markPaidMutation.mutateAsync(payload);
                     } catch {
                       // handled by onError
                     }
                   }}
                   disabled={markPaidMutation.isPending}
                 >
-                  {markPaidMutation.isPending ? "Marking..." : "Mark paid"}
+                  {markPaidMutation.isPending
+                    ? "Recording..."
+                    : "Record installment"}
                 </Button>
               </DialogFooter>
             </DialogContent>

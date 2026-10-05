@@ -154,7 +154,7 @@ export function OrderStatusSelect({
 
     if (unpaidManual && next !== "PENDING" && next !== "CANCELLED") {
       toast.error(
-        "Unpaid manual orders can only stay pending or be cancelled. Mark paid first, or share the payment link.",
+        "Unpaid or partially paid manual orders can only stay pending or be cancelled. Record payment (or clear the balance) first, or share the payment link before the first installment.",
       );
       return;
     }
