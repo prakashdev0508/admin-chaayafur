@@ -99,7 +99,7 @@ Paginated payment list. Customers receive only payments for their own orders. St
 
 | Param | Type | Default | Description |
 |-------|------|---------|-------------|
-| `status` | string | — | `PENDING` \| `COMPLETED` \| `FAILED` \| `REFUNDED` |
+| `status` | string | — | `PENDING` \| `PARTIALLY_PAID` \| `COMPLETED` \| `FAILED` \| `REFUNDED` |
 | `orderId` | integer | — | Filter by order ID |
 | `customerId` | integer | — | Staff only — filter by customer ID |
 | `orderNumber` | string | — | Partial match on order number (e.g. `ORD-20260714-0011`) |
@@ -142,13 +142,18 @@ GET /api/v1/payments?customerPhone=98765&createdFrom=2026-07-01&createdTo=2026-0
         "currency": "INR",
         "transactionId": "pay_xxxxxxxx",
         "notes": null,
+        "paidAmount": "0.00",
+        "dueAmount": "49999.98",
+        "installments": [],
         "createdAt": "2026-07-10T12:00:00.000Z",
         "updatedAt": "2026-07-10T12:05:00.000Z",
         "order": {
           "id": 7,
           "orderNumber": "ORD-20260710-0001",
           "customerId": 1,
-          "status": "CONFIRMED"
+          "status": "CONFIRMED",
+          "orderType": "CHECKOUT",
+          "totalAmount": "49999.98"
         }
       }
     ],
@@ -185,7 +190,7 @@ curl "http://localhost:5000/api/v1/payments?status=PENDING" \
 
 ## GET /api/v1/payments/:id
 
-Get payment details including linked order summary and payment link URL.
+Get payment details including linked order summary, payment link URL, and (for MANUAL offline payments) installment history.
 
 | | |
 |---|---|
@@ -201,25 +206,41 @@ Get payment details including linked order summary and payment link URL.
     "id": 1,
     "orderId": 1,
     "amount": "49999.98",
-    "status": "PENDING",
-    "paymentMethod": "RAZORPAY",
-    "paymentLinkUrl": "https://rzp.io/i/xxxx",
-    "razorpayPaymentLinkId": "plink_xxxxxxxx",
+    "status": "PARTIALLY_PAID",
+    "paymentMethod": "MANUAL",
+    "paymentLinkUrl": null,
+    "razorpayPaymentLinkId": null,
     "razorpayPaymentId": null,
     "transactionId": null,
     "notes": null,
+    "paidAmount": "20000.00",
+    "dueAmount": "29999.98",
+    "installments": [
+      {
+        "id": 1,
+        "amount": "20000.00",
+        "paymentMode": "UPI",
+        "transactionId": "UPI/123",
+        "notes": "Advance",
+        "recordedByStaffId": 2,
+        "createdAt": "2026-10-05T08:00:00.000Z"
+      }
+    ],
     "createdAt": "2026-07-10T12:00:00.000Z",
-    "updatedAt": "2026-07-10T12:00:00.000Z",
+    "updatedAt": "2026-10-05T08:00:00.000Z",
     "order": {
       "id": 1,
       "orderNumber": "ORD-20260710-0001",
       "customerId": 1,
-      "status": "PENDING"
+      "status": "PENDING",
+      "orderType": "MANUAL",
+      "totalAmount": "49999.98"
     }
   }
 }
 ```
 
+For CHECKOUT / unpaid MANUAL payments with no installments yet, `installments` is `[]`, `paidAmount` is `"0.00"`, and `dueAmount` matches the order total.
 ### Errors
 
 | Status | When |

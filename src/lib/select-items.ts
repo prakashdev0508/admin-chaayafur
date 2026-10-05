@@ -93,6 +93,7 @@ export const CAREER_STATUS_ITEMS: SelectOption[] = [
 export const PAYMENT_STATUS_FILTER_ITEMS: SelectOption[] = [
   { value: "all", label: "All statuses" },
   { value: "PENDING", label: "Pending" },
+  { value: "PARTIALLY_PAID", label: "Partially paid" },
   { value: "COMPLETED", label: "Completed" },
   { value: "FAILED", label: "Failed" },
   { value: "REFUNDED", label: "Refunded" },
