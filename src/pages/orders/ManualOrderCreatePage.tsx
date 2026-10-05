@@ -19,39 +19,13 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 
 import { queryKeys } from "@/lib/query-keys";
-import { gstinForCreate, isValidGstin } from "@/lib/address-utils";
+import { isValidGstin } from "@/lib/address-utils";
 import { usePincodeLookup } from "@/hooks/usePincodeLookup";
+import { buildOrderAddressSnapshot } from "@/lib/order-address-snapshot";
 import { createAdminOrder } from "@/services/orders.service";
-import type { CreateAdminOrderPayload, OrderAddressSnapshot } from "@/types/order";
+import type { CreateAdminOrderPayload } from "@/types/order";
 import type { OrderLineInput } from "@/types/order";
 import type { QuotationLineItem } from "@/types/quotation";
-
-function buildAddressSnapshot(params: {
-  name: string;
-  email: string;
-  phone: string;
-  line1: string;
-  line2: string;
-  city: string;
-  state: string;
-  zipCode: string;
-  country: string;
-  gstin: string;
-}): OrderAddressSnapshot {
-  const gstin = gstinForCreate(params.gstin);
-  return {
-    name: params.name.trim(),
-    email: params.email.trim() || undefined,
-    phone: params.phone.trim() || undefined,
-    line1: params.line1.trim(),
-    ...(params.line2.trim() ? { line2: params.line2.trim() } : {}),
-    city: params.city.trim(),
-    state: params.state.trim(),
-    zipCode: params.zipCode.trim(),
-    ...(params.country.trim() ? { country: params.country.trim() } : {}),
-    ...(gstin ? { gstin } : {}),
-  };
-}
 
 export function ManualOrderCreatePage() {
   const navigate = useNavigate();
@@ -184,7 +158,7 @@ export function ManualOrderCreatePage() {
       return;
     }
 
-    const shipping: OrderAddressSnapshot = buildAddressSnapshot({
+    const shipping = buildOrderAddressSnapshot({
       name: recipientName,
       email,
       phone: normalizedPhone,
@@ -197,10 +171,10 @@ export function ManualOrderCreatePage() {
       gstin: shippingGstin,
     });
 
-    const billing: OrderAddressSnapshot | undefined =
+    const billing =
       billingSameAsShipping
         ? undefined
-        : buildAddressSnapshot({
+        : buildOrderAddressSnapshot({
             name: recipientName,
             email,
             phone: normalizedPhone,

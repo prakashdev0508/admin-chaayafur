@@ -64,6 +64,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { PaymentInstallmentList } from "@/components/payments/PaymentInstallmentList";
+import { EditOrderAddressesDialog } from "@/components/orders/EditOrderAddressesDialog";
 import type {
   OrderRefund,
   InitiateRefundPayload,
@@ -76,7 +77,7 @@ import {
   type ManualPaymentMode,
 } from "@/lib/manual-payment-mode";
 import { isActiveRefund, refundStatusLabels, refundStatusVariants } from "@/lib/refund-status";
-import { isUnpaidManualOrder } from "@/lib/order-status";
+import { isOrderEditable, isUnpaidManualOrder } from "@/lib/order-status";
 import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
 import { ApiError } from "@/lib/api";
@@ -107,7 +108,8 @@ export function OrderDetailPage() {
   const { hasPermission } = usePermission();
   const canViewSupport = hasPermission(PERMISSIONS.VIEW_ORDER_SUPPORT);
   const canRefund = hasPermission(PERMISSIONS.UPDATE_PAYMENTS);
-  const canGenerateInvoice = hasPermission(PERMISSIONS.UPDATE_ORDERS);
+  const canUpdateOrder = hasPermission(PERMISSIONS.UPDATE_ORDERS);
+  const canGenerateInvoice = canUpdateOrder;
   const canViewRefund =
     hasPermission(PERMISSIONS.VIEW_PAYMENTS) ||
     hasPermission(PERMISSIONS.VIEW_ORDERS);
@@ -126,6 +128,7 @@ export function OrderDetailPage() {
   const [markPaidTransactionId, setMarkPaidTransactionId] = useState("");
   const [markPaidNotes, setMarkPaidNotes] = useState("");
   const [regenerateLinkOpen, setRegenerateLinkOpen] = useState(false);
+  const [editAddressesOpen, setEditAddressesOpen] = useState(false);
 
   const invalidateOrderQueries = () => {
     void queryClient.invalidateQueries({
@@ -400,6 +403,8 @@ export function OrderDetailPage() {
   const ticketCount =
     supportTicketsQuery.data?.meta.total ??
     supportTicketsQuery.data?.items.length;
+  const canEditAddresses =
+    canUpdateOrder && isOrderEditable(order.status);
 
   return (
     <div className="flex flex-col gap-4 sm:gap-6">
@@ -608,8 +613,19 @@ export function OrderDetailPage() {
 
           <div className="grid gap-4 md:grid-cols-2 md:items-stretch">
             <Card className="flex h-full flex-col">
-              <CardHeader className="pb-3">
+              <CardHeader className="flex flex-row items-start justify-between gap-3 pb-3">
                 <CardTitle>Customer & delivery</CardTitle>
+                {canEditAddresses ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="shrink-0"
+                    onClick={() => setEditAddressesOpen(true)}
+                  >
+                    Edit addresses
+                  </Button>
+                ) : null}
               </CardHeader>
               <CardContent className="flex flex-1 flex-col gap-5">
                 <div className="grid gap-4 sm:grid-cols-2">
@@ -1668,6 +1684,12 @@ export function OrderDetailPage() {
         }}
         refund={completeResultRefund}
         orderNumber={order.orderNumber}
+      />
+
+      <EditOrderAddressesDialog
+        order={order}
+        open={editAddressesOpen}
+        onOpenChange={setEditAddressesOpen}
       />
     </div>
   );

@@ -253,8 +253,12 @@ export type UpdateOrderPayload = {
   status?: OrderStatus;
   /** Required when status is CANCELLED (min 3 chars). */
   cancellationReason?: string;
+  /** CHECKOUT orders — must belong to the order customer. */
   shippingAddressId?: number;
   billingAddressId?: number;
+  /** MANUAL orders — replaces inline snapshots (not the address book). */
+  shipping?: OrderAddressSnapshot;
+  billing?: OrderAddressSnapshot;
   deliveryFloor?: number;
   liftAccessAvailable?: boolean;
   items?: OrderLineInput[];
