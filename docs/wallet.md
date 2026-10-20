@@ -14,6 +14,9 @@ Customer referral wallet balances, ledger, and withdrawals via **UPI or bank (IM
 - One-time login bonus is configured in [site-settings.md](./site-settings.md) (`loginBonusIsActive`, `loginBonusAmount`; default amount **0**, inactive until admin sets both)
 - On OTP verify, if the feature is on, amount &gt; 0, and `customer.loginBonusReceived` is false → credit and set the flag
 - Staff can grant a missed bonus once via `POST /admin/wallets/:customerId/login-bonus` (uses current amount; ignores the active toggle; still one-time)
+- Staff can mark the bonus as used **without** crediting via `POST /admin/wallets/:customerId/login-bonus/mark-used` (sets `loginBonusReceived`; blocks auto/admin grant)
+- After a successful grant (auto or admin), a Fast2SMS **DLT** SMS is sent when `FAST2SMS_API_KEY` and `LOGIN_BONUS_SMS_MESSAGE_ID` are set (sender `FAST2SMS_SENDER_ID`, default `FTIPLM`). Variables: `bonus|bonus|minOrder` as integers from site settings. SMS failure never rolls back the credit.
+- Test SMS only (no wallet change): `npm run send:login-bonus-sms -- 7079485607`
 - **Checkout wallet redemption:** customer may send `walletAmount` on `POST /orders`. Caps: available balance, `walletRedemptionMaxAmount` (default ₹1000), merchandise after coupon, and min order `walletRedemptionMinOrderAmount` (default ₹10000). Stored as order/invoice `walletDiscountAmount`. Amount is **reserved** while the order is `PENDING` (counts against available balance). Ledger `DEBIT` with `reason = WALLET_DISCOUNT` runs on payment-success webhook; hold releases on payment failure. Full refund credits `WALLET_DISCOUNT_REFUND`.
 - Credits set `availableAt = creditedAt + WALLET_CREDIT_HOLD_DAYS` (default **7 days**) for referral commissions; login bonus / wallet-discount refund use `availableAt = now`
 - `availableBalance` = matured credits − debits − open withdrawals − **PENDING order wallet holds**. Login bonuses set `availableAt = now` so they are immediately withdrawable.
@@ -28,6 +31,9 @@ Customer referral wallet balances, ledger, and withdrawals via **UPI or bank (IM
 | `WALLET_CREDIT_HOLD_DAYS` | Days before a credit is withdrawable (default `7`) |
 | `RAZORPAYX_ACCOUNT_NUMBER` | RazorpayX source account / Customer Identifier for payouts |
 | `RAZORPAYX_PAYOUTS_MOCK` | Set `true` locally to simulate successful payouts without RazorpayX |
+| `FAST2SMS_API_KEY` | Shared with OTP; required for login-bonus SMS |
+| `FAST2SMS_SENDER_ID` | DLT sender header (default `FTIPLM`) |
+| `LOGIN_BONUS_SMS_MESSAGE_ID` | Fast2SMS DLT Message ID for login-bonus template |
 
 ### Testing payouts
 
@@ -64,6 +70,7 @@ Restart the API, approve again. Withdrawal goes `SUCCESS` and wallet is debited 
 | `GET /admin/wallets/:customerId` | No | `view-wallets` |
 | `GET /admin/wallets/:customerId/transactions` | No | `view-wallets` |
 | `POST /admin/wallets/:customerId/login-bonus` | No | `update-wallets` |
+| `POST /admin/wallets/:customerId/login-bonus/mark-used` | No | `update-wallets` |
 | `GET /admin/wallet-withdrawals` | No | `view-wallets` |
 | `GET /admin/wallet-withdrawals/:id` | No | `view-wallets` |
 | `POST /admin/wallet-withdrawals/:id/approve` | No | `update-wallets` |
@@ -84,6 +91,7 @@ Restart the API, approve again. Withdrawal goes `SUCCESS` and wallet is debited 
 | `GET` | `/api/v1/admin/wallets/:customerId` | Staff (`view-wallets`) | `200` |
 | `GET` | `/api/v1/admin/wallets/:customerId/transactions` | Staff (`view-wallets`) | `200` |
 | `POST` | `/api/v1/admin/wallets/:customerId/login-bonus` | Staff (`update-wallets`) | `200` |
+| `POST` | `/api/v1/admin/wallets/:customerId/login-bonus/mark-used` | Staff (`update-wallets`) | `200` |
 | `GET` | `/api/v1/admin/wallet-withdrawals` | Staff (`view-wallets`) | `200` |
 | `GET` | `/api/v1/admin/wallet-withdrawals/:id` | Staff (`view-wallets`) | `200` |
 | `POST` | `/api/v1/admin/wallet-withdrawals/:id/approve` | Staff (`update-wallets`) | `200` |
@@ -219,7 +227,7 @@ Example item reasons: `REFERRAL_COMMISSION`, `LOGIN_BONUS`, `WALLET_DISCOUNT`, `
 
 ### POST /api/v1/admin/wallets/:customerId/login-bonus
 
-Grants the **current** site-settings `loginBonusAmount` once to a customer who has not received it. Works even when `loginBonusIsActive` is false (recovery). Fails if amount is `0` or already claimed.
+Grants the **current** site-settings `loginBonusAmount` once to a customer who has not received it. Works even when `loginBonusIsActive` is false (recovery). Fails if amount is `0` or already claimed. On success, sends the login-bonus DLT SMS when configured (same as auto-grant).
 
 | Status | When |
 |--------|------|
@@ -231,6 +239,34 @@ Grants the **current** site-settings `loginBonusAmount` once to a customer who h
 ```bash
 curl -X POST "http://localhost:5000/api/v1/admin/wallets/1/login-bonus" \
   -H "Authorization: Bearer $STAFF_TOKEN"
+```
+
+### POST /api/v1/admin/wallets/:customerId/login-bonus/mark-used
+
+Marks the one-time login bonus as **used** without creating a wallet credit or sending SMS. Sets `loginBonusReceived = true` so auto-grant on OTP and `POST .../login-bonus` will no longer apply.
+
+| Status | When |
+|--------|------|
+| `200` | Flag set |
+| `404` | Customer not found |
+| `409` | Already received / already marked used |
+
+```bash
+curl -X POST "http://localhost:5000/api/v1/admin/wallets/1/login-bonus/mark-used" \
+  -H "Authorization: Bearer $STAFF_TOKEN"
+```
+
+### Success response
+
+```json
+{
+  "success": true,
+  "data": {
+    "customerId": 1,
+    "loginBonusReceived": true,
+    "loginBonusReceivedAt": "2026-10-12T17:20:00.000Z"
+  }
+}
 ```
 
 ### POST .../approve

@@ -4,8 +4,24 @@ import type { PaginatedResponse } from "@/types/api";
 import type {
   CareerApplication,
   CareerApplicationStatus,
+  CreateJobPostingPayload,
+  JobPosting,
   ListCareerApplicationsParams,
+  ListJobPostingsParams,
+  UpdateJobPostingPayload,
 } from "@/types/career";
+
+export function listPublicJobPostings(params: ListJobPostingsParams = {}) {
+  return apiRequest<PaginatedResponse<JobPosting>>(
+    `/careers/jobs${buildQueryString(params)}`,
+    {},
+    false,
+  );
+}
+
+export function getPublicJobPosting(id: number) {
+  return apiRequest<JobPosting>(`/careers/jobs/${id}`, {}, false);
+}
 
 export function submitCareerApplication(formData: FormData) {
   return apiFormRequest<CareerApplication>("/careers", formData, false);
@@ -30,6 +46,30 @@ export function updateCareerApplicationStatus(
   return apiRequest<CareerApplication>(`/admin/careers/${id}`, {
     method: "PATCH",
     body: JSON.stringify({ status }),
+  });
+}
+
+export function listJobPostings(params: ListJobPostingsParams = {}) {
+  return apiRequest<PaginatedResponse<JobPosting>>(
+    `/admin/careers/jobs${buildQueryString(params)}`,
+  );
+}
+
+export function getJobPosting(id: number) {
+  return apiRequest<JobPosting>(`/admin/careers/jobs/${id}`);
+}
+
+export function createJobPosting(payload: CreateJobPostingPayload) {
+  return apiRequest<JobPosting>("/admin/careers/jobs", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateJobPosting(id: number, payload: UpdateJobPostingPayload) {
+  return apiRequest<JobPosting>(`/admin/careers/jobs/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
   });
 }
 
