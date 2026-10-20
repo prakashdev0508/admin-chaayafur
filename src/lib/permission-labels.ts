@@ -47,6 +47,7 @@ export const PERMISSION_LABELS: Record<string, string> = {
   [PERMISSIONS.MODERATE_REVIEWS]: "Moderate reviews",
   [PERMISSIONS.VIEW_DASHBOARD]: "View dashboard",
   [PERMISSIONS.VIEW_CAREERS]: "View careers",
+  [PERMISSIONS.CREATE_CAREERS]: "Create careers",
   [PERMISSIONS.UPDATE_CAREERS]: "Update careers",
 };
 
@@ -148,7 +149,11 @@ const GROUP_DEFS: { title: string; keys: Permission[] }[] = [
   },
   {
     title: "Careers",
-    keys: [PERMISSIONS.VIEW_CAREERS, PERMISSIONS.UPDATE_CAREERS],
+    keys: [
+      PERMISSIONS.VIEW_CAREERS,
+      PERMISSIONS.CREATE_CAREERS,
+      PERMISSIONS.UPDATE_CAREERS,
+    ],
   },
   {
     title: "Settings",

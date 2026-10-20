@@ -61,8 +61,10 @@ import { SettingsPage } from "@/pages/settings/SettingsPage";
 import { ReviewListPage } from "@/pages/reviews/ReviewListPage";
 import { ContactInquiryListPage } from "@/pages/contact/ContactInquiryListPage";
 import { ContactInquiryDetailPage } from "@/pages/contact/ContactInquiryDetailPage";
-import { CareerApplicationListPage } from "@/pages/careers/CareerApplicationListPage";
 import { CareerApplicationDetailPage } from "@/pages/careers/CareerApplicationDetailPage";
+import { JobPostingListPage } from "@/pages/careers/JobPostingListPage";
+import { AddJobPostingPage } from "@/pages/careers/AddJobPostingPage";
+import { JobPostingDetailPage } from "@/pages/careers/JobPostingDetailPage";
 import { CustomizationRequestListPage } from "@/pages/customization-requests/CustomizationRequestListPage";
 import { CustomizationRequestDetailPage } from "@/pages/customization-requests/CustomizationRequestDetailPage";
 import { ShopHomePage } from "@/pages/shop/ShopHomePage";
@@ -388,14 +390,22 @@ const App = () => {
           </Route>
           <Route
             element={
+              <PermissionRoute permission={PERMISSIONS.CREATE_CAREERS} />
+            }
+          >
+            <Route path="careers/new" element={<AddJobPostingPage />} />
+          </Route>
+          <Route
+            element={
               <PermissionRoute permission={PERMISSIONS.VIEW_CAREERS} />
             }
           >
-            <Route path="careers" element={<CareerApplicationListPage />} />
+            <Route path="careers" element={<JobPostingListPage />} />
             <Route
-              path="careers/:id"
+              path="careers/:jobId/applications/:id"
               element={<CareerApplicationDetailPage />}
             />
+            <Route path="careers/:id" element={<JobPostingDetailPage />} />
           </Route>
         </Route>
       </Route>

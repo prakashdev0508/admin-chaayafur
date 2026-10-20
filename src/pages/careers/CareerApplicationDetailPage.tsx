@@ -135,22 +135,25 @@ export function CareerApplicationDetailPage() {
   }
 
   const application = applicationQuery.data;
+  const postingPath = `/careers/${application.jobPostingId}`;
 
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
         title={`Application #${application.id}`}
-        description={application.designation}
+        description={
+          application.jobPosting?.title ?? `Job #${application.jobPostingId}`
+        }
         action={
           <div className="flex flex-wrap items-center gap-2">
             <StatusBadge variant={careerStatusVariants[application.status]}>
               {careerStatusLabels[application.status]}
             </StatusBadge>
             <Link
-              to="/careers"
+              to={postingPath}
               className={cn(buttonVariants({ variant: "outline" }))}
             >
-              Back to inbox
+              Back to role
             </Link>
           </div>
         }
@@ -188,8 +191,14 @@ export function CareerApplicationDetailPage() {
               </a>
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">Designation</p>
-              <p className="mt-1 font-medium">{application.designation}</p>
+              <p className="text-xs text-muted-foreground">Job posting</p>
+              <Link
+                to={postingPath}
+                className="mt-1 inline-block font-medium hover:underline"
+              >
+                {application.jobPosting?.title ??
+                  `Job #${application.jobPostingId}`}
+              </Link>
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Experience</p>

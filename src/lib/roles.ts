@@ -53,6 +53,7 @@ export const PERMISSIONS = {
   UPDATE_WALLETS: "update-wallets",
   VIEW_REFERRALS: "view-referrals",
   VIEW_CAREERS: "view-careers",
+  CREATE_CAREERS: "create-careers",
   UPDATE_CAREERS: "update-careers",
 } as const;
 

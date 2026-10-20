@@ -66,6 +66,7 @@ const ROUTE_PERMISSIONS: Record<string, Permission | null> = {
   "/reviews": PERMISSIONS.VIEW_REVIEWS,
   "/contact": PERMISSIONS.VIEW_SETTINGS,
   "/careers": PERMISSIONS.VIEW_CAREERS,
+  "/careers/new": PERMISSIONS.CREATE_CAREERS,
   "/audit-logs": PERMISSIONS.VIEW_ORDERS,
   "/staff": PERMISSIONS.VIEW_STAFF,
   "/roles": null,
