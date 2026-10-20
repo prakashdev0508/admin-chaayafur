@@ -270,6 +270,12 @@ export function AccountPage() {
                     Saved {formatCurrency(order.discountAmount)}
                   </p>
                 )}
+                {order.walletDiscountAmount &&
+                  parseFloat(order.walletDiscountAmount) > 0 && (
+                    <p className="text-xs text-[#5C7A4A]">
+                      Wallet {formatCurrency(order.walletDiscountAmount)}
+                    </p>
+                  )}
               </div>
             </Link>
           ))}

@@ -26,6 +26,7 @@ import { createShopOrder } from "@/services/shop-orders.service";
 import { verifyPayment } from "@/services/shop-payments.service";
 import { listCustomerAddresses } from "@/services/shop-addresses.service";
 import { getShippingQuote } from "@/services/shipping.service";
+import { getMyWallet } from "@/services/shop-wallet.service";
 import type { ValidateCouponResponse } from "@/services/shop-coupons.service";
 import { toast } from "sonner";
 import { cartLineKey, cartLineRefFromItem } from "@/types/cart";
@@ -48,6 +49,8 @@ export function CheckoutPage() {
   );
   const [deliveryFloor, setDeliveryFloor] = useState("0");
   const [liftAccessAvailable, setLiftAccessAvailable] = useState(false);
+  const [useWallet, setUseWallet] = useState(false);
+  const [walletAmountInput, setWalletAmountInput] = useState("");
   const [placingOrder, setPlacingOrder] = useState(false);
 
   useEffect(() => {
@@ -62,12 +65,68 @@ export function CheckoutPage() {
     enabled: isAuthenticated,
   });
 
+  const walletQuery = useQuery({
+    queryKey: queryKeys.shop.wallet,
+    queryFn: getMyWallet,
+    enabled: isAuthenticated,
+  });
+
   const selectedAddress = useMemo(
     () => addressesQuery.data?.find((address) => address.id === selectedAddressId),
     [addressesQuery.data, selectedAddressId],
   );
 
-  const quoteSubtotal = coupon ? parseFloat(coupon.totalAmount) : subtotal;
+  const merchandiseAfterCoupon = coupon
+    ? parseFloat(coupon.totalAmount)
+    : subtotal;
+
+  const wallet = walletQuery.data;
+  const availableBalance = wallet ? parseFloat(wallet.availableBalance) : 0;
+  const redemptionMax = wallet
+    ? parseFloat(wallet.redemptionMaxAmount ?? "0")
+    : 0;
+  const redemptionMinOrder = wallet
+    ? parseFloat(wallet.redemptionMinOrderAmount ?? "0")
+    : 0;
+
+  const maxRedeemable = useMemo(() => {
+    if (
+      !wallet ||
+      redemptionMax <= 0 ||
+      merchandiseAfterCoupon < redemptionMinOrder
+    ) {
+      return 0;
+    }
+    return Math.min(
+      availableBalance,
+      redemptionMax,
+      merchandiseAfterCoupon,
+    );
+  }, [
+    wallet,
+    availableBalance,
+    redemptionMax,
+    redemptionMinOrder,
+    merchandiseAfterCoupon,
+  ]);
+
+  const canRedeemWallet = maxRedeemable > 0;
+
+  useEffect(() => {
+    if (!canRedeemWallet && useWallet) {
+      setUseWallet(false);
+      setWalletAmountInput("");
+    }
+  }, [canRedeemWallet, useWallet]);
+
+  const walletAmount = useMemo(() => {
+    if (!useWallet || !canRedeemWallet) return 0;
+    const parsed = parseFloat(walletAmountInput);
+    if (!Number.isFinite(parsed) || parsed <= 0) return 0;
+    return Math.min(parsed, maxRedeemable);
+  }, [useWallet, canRedeemWallet, walletAmountInput, maxRedeemable]);
+
+  const quoteSubtotal = Math.max(0, merchandiseAfterCoupon - walletAmount);
   const pincode = selectedAddress?.zipCode;
   const parsedDeliveryFloor = (() => {
     const n = parseInt(deliveryFloor, 10);
@@ -99,7 +158,8 @@ export function CheckoutPage() {
   const floorDeliveryAmount = shippingQuote?.serviceable
     ? parseFloat(shippingQuote.floorDeliveryAmount)
     : 0;
-  const estimatedTotal = quoteSubtotal + shippingAmount + floorDeliveryAmount;
+  const estimatedTotal =
+    merchandiseAfterCoupon - walletAmount + shippingAmount + floorDeliveryAmount;
   const hasUnavailable = useMemo(
     () => items.some((item) => item.isAvailable === false),
     [items],
@@ -118,6 +178,17 @@ export function CheckoutPage() {
   const placeOrderMutation = useMutation({
     mutationFn: createShopOrder,
   });
+
+  function handleUseWalletChange(checked: boolean) {
+    setUseWallet(checked);
+    if (checked) {
+      setWalletAmountInput(
+        maxRedeemable > 0 ? String(Math.round(maxRedeemable * 100) / 100) : "",
+      );
+    } else {
+      setWalletAmountInput("");
+    }
+  }
 
   async function handlePlaceOrder() {
     if (!selectedAddressId) {
@@ -141,6 +212,11 @@ export function CheckoutPage() {
       return;
     }
 
+    if (useWallet && walletAmount <= 0) {
+      toast.error("Enter a wallet amount to redeem, or turn off wallet");
+      return;
+    }
+
     setPlacingOrder(true);
     try {
       const order = await placeOrderMutation.mutateAsync({
@@ -153,12 +229,14 @@ export function CheckoutPage() {
           : { billingAddressId: selectedBillingAddressId! }),
         ...(coupon ? { couponCode: coupon.code } : {}),
         ...(referralCode ? { referralCode } : {}),
+        ...(walletAmount > 0 ? { walletAmount } : {}),
       });
 
       clearStoredReferralCode();
       setReferralCode(null);
       clearCart();
       void queryClient.invalidateQueries({ queryKey: queryKeys.shop.cart });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.shop.wallet });
 
       const paymentMode = await startOrderPayment({
         order,
@@ -283,6 +361,54 @@ export function CheckoutPage() {
           )}
           {isAuthenticated && (
             <div className="space-y-4 rounded-xl border border-[#E8DFD3] bg-white p-5">
+              <div className="flex items-center justify-between gap-3">
+                <div className="space-y-0.5">
+                  <Label htmlFor="use-wallet">Use wallet balance</Label>
+                  <p className="text-xs text-muted-foreground">
+                    {walletQuery.isLoading
+                      ? "Loading wallet…"
+                      : canRedeemWallet
+                        ? `Available ${formatCurrency(availableBalance)}. Up to ${formatCurrency(maxRedeemable)} on this order.`
+                        : wallet
+                          ? redemptionMax <= 0
+                            ? "Wallet redemption is disabled."
+                            : merchandiseAfterCoupon < redemptionMinOrder
+                              ? `Order after coupon must be at least ${formatCurrency(redemptionMinOrder)}.`
+                              : availableBalance <= 0
+                                ? "No available wallet balance to redeem."
+                                : "Wallet cannot be applied to this order."
+                          : "Could not load wallet."}
+                  </p>
+                </div>
+                <Switch
+                  id="use-wallet"
+                  checked={useWallet}
+                  onCheckedChange={handleUseWalletChange}
+                  disabled={!canRedeemWallet}
+                />
+              </div>
+              {useWallet && canRedeemWallet && (
+                <div className="space-y-2">
+                  <Label htmlFor="wallet-amount">Wallet amount (INR)</Label>
+                  <Input
+                    id="wallet-amount"
+                    type="number"
+                    min={0}
+                    max={maxRedeemable}
+                    step="0.01"
+                    value={walletAmountInput}
+                    onChange={(e) => setWalletAmountInput(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Max {formatCurrency(maxRedeemable)} (site cap{" "}
+                    {formatCurrency(redemptionMax)}).
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+          {isAuthenticated && (
+            <div className="space-y-4 rounded-xl border border-[#E8DFD3] bg-white p-5">
               <div className="space-y-2">
                 <Label htmlFor="delivery-floor">Delivery floor</Label>
                 <Input
@@ -347,6 +473,12 @@ export function CheckoutPage() {
                 <span>-{formatCurrency(coupon.discountAmount)}</span>
               </div>
             )}
+            {walletAmount > 0 && (
+              <div className="mt-2 flex justify-between text-sm text-[#5C7A4A]">
+                <span>Wallet discount</span>
+                <span>-{formatCurrency(walletAmount)}</span>
+              </div>
+            )}
             {selectedAddressId && (
               <div className="mt-2 flex justify-between text-sm">
                 <span className="text-muted-foreground">Shipping</span>
@@ -391,7 +523,9 @@ export function CheckoutPage() {
               <span>
                 {selectedAddressId && shippingQuote?.serviceable
                   ? formatCurrency(estimatedTotal)
-                  : formatCurrency(coupon?.totalAmount ?? subtotal)}
+                  : formatCurrency(
+                      Math.max(0, merchandiseAfterCoupon - walletAmount),
+                    )}
               </span>
             </div>
             {!selectedAddressId && (

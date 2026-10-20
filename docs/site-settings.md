@@ -14,7 +14,8 @@ Storefront branding, contact info, announcement bar, GSTIN / PAN / CIN, and ship
 - Upload logo/favicon via [uploads.md](./uploads.md), then save returned `url` + `key` on settings
 - Announcement bar fields live on the same singleton (`announcementText`, `announcementLinkUrl`, `announcementIsActive`)
 - Shipping fee fields (`flatShippingFee`, `freeShippingMinAmount`, `floorDeliveryChargePerFloor`) are edited here; pincode allowlists are in [shipping.md](./shipping.md)
-- **`gstin`**, **`pan`**, and **`cin`** are optional company tax IDs on the same singleton; included on both public and admin payloads (used on purchase orders / invoices)
+- Login bonus fields (`loginBonusIsActive`, `loginBonusAmount`) are admin-only (not on public `GET /site-settings`). Default amount is **0** and inactive until an admin sets a positive amount and enables the feature. See [wallet.md](./wallet.md).
+- Wallet redemption caps (`walletRedemptionMaxAmount`, `walletRedemptionMinOrderAmount`) are admin-only. Customers see the current caps on `GET /users/me/wallet`.
 
 ### Who can access?
 
@@ -121,12 +122,19 @@ Returns the full row including `logoStorageKey`, `faviconStorageKey`, and flat a
   "announcementIsActive": true,
   "flatShippingFee": 499,
   "freeShippingMinAmount": 10000,
-  "floorDeliveryChargePerFloor": 300
+  "floorDeliveryChargePerFloor": 300,
+  "loginBonusIsActive": true,
+  "loginBonusAmount": 1000,
+  "walletRedemptionMaxAmount": 1000,
+  "walletRedemptionMinOrderAmount": 10000
 }
 ```
 
 Set `freeShippingMinAmount` to `null` to disable the free-shipping threshold. `floorDeliveryChargePerFloor` is the per-floor carry-up rate when lift access is not available (ground floor = ₹0; Nth floor = N × rate; waived when checkout `liftAccessAvailable` is true). Replacing logo/favicon with a new storage key deletes the previous R2 object when one was stored.
 
+`loginBonusIsActive` + `loginBonusAmount` control the one-time OTP login wallet credit. Amount defaults to `0` — set a positive amount and enable the flag before any credits are sent. Turn `loginBonusIsActive` off to pause without clearing the amount.
+
+`walletRedemptionMaxAmount` (default `1000`) is the max wallet INR redeemable per checkout order; set to `0` to disable redemption. `walletRedemptionMinOrderAmount` (default `10000`) is the minimum merchandise total after coupon required before wallet can be used. See [wallet.md](./wallet.md) and [orders.md](./orders.md).
 ### cURL
 
 ```bash

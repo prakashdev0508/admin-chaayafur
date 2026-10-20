@@ -47,6 +47,17 @@ export function FeesAnnouncementSection({
   const [announcementIsActive, setAnnouncementIsActive] = useState(
     settings.announcementIsActive,
   );
+  const [loginBonusIsActive, setLoginBonusIsActive] = useState(
+    settings.loginBonusIsActive ?? false,
+  );
+  const [loginBonusAmount, setLoginBonusAmount] = useState(
+    settings.loginBonusAmount ?? "0",
+  );
+  const [walletRedemptionMaxAmount, setWalletRedemptionMaxAmount] = useState(
+    settings.walletRedemptionMaxAmount ?? "1000",
+  );
+  const [walletRedemptionMinOrderAmount, setWalletRedemptionMinOrderAmount] =
+    useState(settings.walletRedemptionMinOrderAmount ?? "10000");
 
   useEffect(() => {
     setFlatShippingFee(settings.flatShippingFee ?? "");
@@ -58,6 +69,12 @@ export function FeesAnnouncementSection({
     setAnnouncementText(settings.announcementText ?? "");
     setAnnouncementLinkUrl(settings.announcementLinkUrl ?? "");
     setAnnouncementIsActive(settings.announcementIsActive);
+    setLoginBonusIsActive(settings.loginBonusIsActive ?? false);
+    setLoginBonusAmount(settings.loginBonusAmount ?? "0");
+    setWalletRedemptionMaxAmount(settings.walletRedemptionMaxAmount ?? "1000");
+    setWalletRedemptionMinOrderAmount(
+      settings.walletRedemptionMinOrderAmount ?? "10000",
+    );
   }, [settings]);
 
   const saveMutation = useMutation({
@@ -98,6 +115,24 @@ export function FeesAnnouncementSection({
       return;
     }
 
+    const bonusAmount = Number(loginBonusAmount);
+    if (!Number.isFinite(bonusAmount) || bonusAmount < 0) {
+      toast.error("Enter a valid login bonus amount");
+      return;
+    }
+
+    const redemptionMax = Number(walletRedemptionMaxAmount);
+    if (!Number.isFinite(redemptionMax) || redemptionMax < 0) {
+      toast.error("Enter a valid wallet redemption max amount");
+      return;
+    }
+
+    const redemptionMinOrder = Number(walletRedemptionMinOrderAmount);
+    if (!Number.isFinite(redemptionMinOrder) || redemptionMinOrder < 0) {
+      toast.error("Enter a valid wallet redemption min order amount");
+      return;
+    }
+
     saveMutation.mutate({
       flatShippingFee: fee,
       freeShippingMinAmount: freeMin,
@@ -105,6 +140,10 @@ export function FeesAnnouncementSection({
       announcementText: announcementText.trim() || null,
       announcementLinkUrl: announcementLinkUrl.trim() || null,
       announcementIsActive,
+      loginBonusIsActive,
+      loginBonusAmount: bonusAmount,
+      walletRedemptionMaxAmount: redemptionMax,
+      walletRedemptionMinOrderAmount: redemptionMinOrder,
     });
   }
 
@@ -216,6 +255,80 @@ export function FeesAnnouncementSection({
               disabled={!canUpdate}
               placeholder="/products?tag=isNewArrival"
             />
+          </div>
+        </div>
+
+        <div className="space-y-4 rounded-lg border p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-medium">Login bonus</p>
+              <p className="text-xs text-muted-foreground">
+                One-time wallet credit on customer OTP login. Inactive or amount
+                ₹0 means no credits are sent.
+              </p>
+            </div>
+            <Switch
+              checked={loginBonusIsActive}
+              onCheckedChange={setLoginBonusIsActive}
+              disabled={!canUpdate}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="login-bonus-amount">Bonus amount (INR)</Label>
+            <Input
+              id="login-bonus-amount"
+              type="number"
+              min={0}
+              step="1"
+              value={loginBonusAmount}
+              onChange={(e) => setLoginBonusAmount(e.target.value)}
+              disabled={!canUpdate}
+              placeholder="e.g. 1000"
+            />
+          </div>
+        </div>
+
+        <div className="space-y-4 rounded-lg border p-4">
+          <div>
+            <p className="text-sm font-medium">Wallet redemption</p>
+            <p className="text-xs text-muted-foreground">
+              Caps for checkout wallet discounts. Max ₹0 disables redemption.
+              Customers see these on their wallet and at checkout.
+            </p>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="wallet-redemption-max">
+                Max redeemable per order (INR)
+              </Label>
+              <Input
+                id="wallet-redemption-max"
+                type="number"
+                min={0}
+                step="1"
+                value={walletRedemptionMaxAmount}
+                onChange={(e) => setWalletRedemptionMaxAmount(e.target.value)}
+                disabled={!canUpdate}
+                placeholder="e.g. 1000"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="wallet-redemption-min-order">
+                Min order after coupon (INR)
+              </Label>
+              <Input
+                id="wallet-redemption-min-order"
+                type="number"
+                min={0}
+                step="1"
+                value={walletRedemptionMinOrderAmount}
+                onChange={(e) =>
+                  setWalletRedemptionMinOrderAmount(e.target.value)
+                }
+                disabled={!canUpdate}
+                placeholder="e.g. 10000"
+              />
+            </div>
           </div>
         </div>
 

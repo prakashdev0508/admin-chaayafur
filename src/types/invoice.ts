@@ -32,6 +32,7 @@ export type Invoice = {
   billingAddress: string;
   subtotal: string;
   discountAmount?: string;
+  walletDiscountAmount?: string;
   shippingAmount?: string;
   deliveryFloor?: number;
   liftAccessAvailable?: boolean;

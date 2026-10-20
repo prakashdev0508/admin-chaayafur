@@ -19,8 +19,11 @@ export type CustomerOrderSummary = {
 export type Customer = {
   id: number;
   phone: string;
+  name?: string | null;
   isActive: boolean;
   lastLogin: string | null;
+  loginBonusReceived?: boolean;
+  loginBonusReceivedAt?: string | null;
   orderCount: number;
   reviewCount: number;
   addresses: CustomerAddress[];

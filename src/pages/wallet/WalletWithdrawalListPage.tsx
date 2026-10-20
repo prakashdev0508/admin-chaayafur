@@ -17,7 +17,14 @@ import { queryKeys } from "@/lib/query-keys";
 import { PERMISSIONS } from "@/lib/roles";
 import { usePermission } from "@/hooks/usePermission";
 import { listWalletWithdrawals } from "@/services/wallets.service";
-import type { WalletWithdrawalStatus } from "@/types/wallet";
+import type {
+  ListWalletWithdrawalsParams,
+  WalletWithdrawalListItem,
+  WalletWithdrawalStatus,
+} from "@/types/wallet";
+
+/** Admin list DTO only allows page/limit/status — not customerId. */
+const CUSTOMER_FILTER_FETCH_LIMIT = 100;
 
 function filtersFromSearchParams(
   searchParams: URLSearchParams,
@@ -39,6 +46,13 @@ function filtersFromSearchParams(
   return { status, customerId };
 }
 
+function matchesCustomerId(
+  row: WalletWithdrawalListItem,
+  customerId: number,
+) {
+  return (row.customer?.id ?? row.customerId) === customerId;
+}
+
 export function WalletWithdrawalListPage() {
   const { hasPermission } = usePermission();
   const canView = hasPermission(PERMISSIONS.VIEW_WALLETS);
@@ -49,25 +63,55 @@ export function WalletWithdrawalListPage() {
     filtersFromSearchParams(searchParams),
   );
 
-  const params = useMemo(
-    () => ({
+  const customerFilterId = filters.customerId.trim()
+    ? Number(filters.customerId)
+    : null;
+  const hasCustomerFilter =
+    customerFilterId != null && Number.isFinite(customerFilterId);
+
+  const apiParams = useMemo((): ListWalletWithdrawalsParams => {
+    const status =
+      filters.status !== "all"
+        ? (filters.status as WalletWithdrawalStatus)
+        : undefined;
+    if (hasCustomerFilter) {
+      return {
+        page: 1,
+        limit: CUSTOMER_FILTER_FETCH_LIMIT,
+        ...(status ? { status } : {}),
+      };
+    }
+    return {
       page: page + 1,
       limit: pageSize,
-      ...(filters.status !== "all"
-        ? { status: filters.status as WalletWithdrawalStatus }
-        : {}),
-      ...(filters.customerId.trim()
-        ? { customerId: Number(filters.customerId) }
-        : {}),
-    }),
-    [page, pageSize, filters],
-  );
+      ...(status ? { status } : {}),
+    };
+  }, [page, pageSize, filters.status, hasCustomerFilter]);
 
   const { data, isLoading, isFetching, refetch, error } = useQuery({
-    queryKey: queryKeys.walletWithdrawals.list(params),
-    queryFn: () => listWalletWithdrawals(params),
+    queryKey: queryKeys.walletWithdrawals.list(apiParams),
+    queryFn: () => listWalletWithdrawals(apiParams),
     enabled: canView,
   });
+
+  const filteredItems = useMemo(() => {
+    const items = data?.items ?? [];
+    if (!hasCustomerFilter || customerFilterId == null) return items;
+    return items.filter((row) => matchesCustomerId(row, customerFilterId));
+  }, [data?.items, hasCustomerFilter, customerFilterId]);
+
+  const tableItems = useMemo(() => {
+    if (!hasCustomerFilter) return filteredItems;
+    const start = page * pageSize;
+    return filteredItems.slice(start, start + pageSize);
+  }, [filteredItems, hasCustomerFilter, page, pageSize]);
+
+  const pageCount = hasCustomerFilter
+    ? Math.max(1, Math.ceil(filteredItems.length / pageSize))
+    : (data?.meta.totalPages ?? 1);
+  const totalRows = hasCustomerFilter
+    ? filteredItems.length
+    : data?.meta.total;
 
   function applyFilters(next: WalletWithdrawalFilters) {
     setFilters(next);
@@ -130,6 +174,12 @@ export function WalletWithdrawalListPage() {
         </p>
       )}
 
+      {hasCustomerFilter && !isLoading && (
+        <p className="text-sm text-muted-foreground">
+          Filtered to customer #{customerFilterId} (from recent withdrawals).
+        </p>
+      )}
+
       {isLoading ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="size-6 animate-spin text-muted-foreground" />
@@ -137,12 +187,12 @@ export function WalletWithdrawalListPage() {
       ) : (
         <DataTable
           columns={walletWithdrawalColumns}
-          data={data?.items ?? []}
+          data={tableItems}
           manualPagination
           pageIndex={page}
           pageSize={pageSize}
-          pageCount={data?.meta.totalPages ?? 1}
-          totalRows={data?.meta.total}
+          pageCount={pageCount}
+          totalRows={totalRows}
           onPageChange={setPage}
           onPageSizeChange={(size) => {
             setPageSize(size);

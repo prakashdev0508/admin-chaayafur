@@ -55,7 +55,7 @@ export function WalletWithdrawalFilterSheet({
         <SheetHeader>
           <SheetTitle>Filter withdrawals</SheetTitle>
           <SheetDescription>
-            Narrow by status or customer ID.
+            Filter by status. Customer ID narrows the recent withdrawals list.
           </SheetDescription>
         </SheetHeader>
         <form

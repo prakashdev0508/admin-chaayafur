@@ -27,6 +27,10 @@ export type AdminSiteSettings = {
   flatShippingFee: string;
   freeShippingMinAmount: string | null;
   floorDeliveryChargePerFloor: string;
+  loginBonusIsActive: boolean;
+  loginBonusAmount: string;
+  walletRedemptionMaxAmount: string;
+  walletRedemptionMinOrderAmount: string;
   createdAt?: string;
   updatedAt?: string;
 };
@@ -75,4 +79,8 @@ export type UpdateSiteSettingsPayload = {
   flatShippingFee?: number;
   freeShippingMinAmount?: number | null;
   floorDeliveryChargePerFloor?: number;
+  loginBonusIsActive?: boolean;
+  loginBonusAmount?: number;
+  walletRedemptionMaxAmount?: number;
+  walletRedemptionMinOrderAmount?: number;
 };

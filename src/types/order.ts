@@ -191,6 +191,7 @@ export type Order = {
   cancellationReason?: string | null;
   subtotalAmount: string;
   discountAmount: string;
+  walletDiscountAmount?: string;
   shippingAmount?: string;
   deliveryFloor?: number;
   liftAccessAvailable?: boolean;
@@ -298,6 +299,7 @@ export type CreateOrderPayload = {
   billingSameAsShipping?: boolean;
   couponCode?: string;
   referralCode?: string;
+  walletAmount?: number;
   deliveryFloor: number;
   liftAccessAvailable: boolean;
 };
