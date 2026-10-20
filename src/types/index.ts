@@ -100,7 +100,12 @@ export type {
 export type {
   CareerApplicationStatus,
   CareerApplication,
+  JobPosting,
+  JobPostingSummary,
   ListCareerApplicationsParams,
+  ListJobPostingsParams,
+  CreateJobPostingPayload,
+  UpdateJobPostingPayload,
   UpdateCareerApplicationPayload,
 } from "@/types/career";
 
