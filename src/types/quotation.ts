@@ -8,6 +8,8 @@ export type QuotationLineItem = {
   imageStorageKey?: string | null;
   quantity: number;
   unitPrice: number;
+  /** Optional 4–8 digit HSN for CUSTOM manual-order lines. */
+  hsnCode?: string;
 };
 
 /** Cart-level discount on the quotation (matches API). */

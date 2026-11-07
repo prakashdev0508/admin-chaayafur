@@ -13,6 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { isValidHsnCode } from "@/lib/product-utils";
 import { formatQuoteRupees, grandTotal, lineTotal, parseUnitPrice } from "@/lib/quotation";
 import { queryKeys } from "@/lib/query-keys";
 import { listProducts } from "@/services/products.service";
@@ -45,6 +46,7 @@ export function QuotationLineItemsEditor({
   const [customName, setCustomName] = useState("");
   const [customQty, setCustomQty] = useState("1");
   const [customPrice, setCustomPrice] = useState("0");
+  const [customHsn, setCustomHsn] = useState("");
   const [customImageUploading, setCustomImageUploading] = useState(false);
   const [customImageUrl, setCustomImageUrl] = useState<string | null>(null);
   const [customImageStorageKey, setCustomImageStorageKey] = useState<
@@ -145,6 +147,7 @@ export function QuotationLineItemsEditor({
     setCustomName("");
     setCustomQty("1");
     setCustomPrice("0");
+    setCustomHsn("");
     setCustomImageUploading(false);
     setCustomImageUrl(null);
     setCustomImageStorageKey(null);
@@ -154,8 +157,13 @@ export function QuotationLineItemsEditor({
     const qty = Math.max(1, Number.parseInt(customQty, 10) || 1);
     const unitPrice = parseUnitPrice(customPrice);
     const name = customName.trim();
+    const hsnCode = customHsn.trim();
     if (!name) {
       toast.error("Enter custom item name");
+      return;
+    }
+    if (!isValidHsnCode(hsnCode)) {
+      toast.error("HSN code must be 4–8 digits");
       return;
     }
 
@@ -172,6 +180,7 @@ export function QuotationLineItemsEditor({
         imageStorageKey: customImageStorageKey,
         quantity: qty,
         unitPrice,
+        ...(hsnCode ? { hsnCode } : {}),
       },
     ]);
 
@@ -224,6 +233,17 @@ export function QuotationLineItemsEditor({
                 step="0.01"
                 value={customPrice}
                 onChange={(e) => setCustomPrice(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="custom-item-hsn">HSN (optional)</Label>
+              <Input
+                id="custom-item-hsn"
+                inputMode="numeric"
+                maxLength={8}
+                value={customHsn}
+                onChange={(e) => setCustomHsn(e.target.value)}
+                placeholder="4–8 digits"
               />
             </div>
             <div className="space-y-2">
@@ -332,6 +352,7 @@ export function QuotationLineItemsEditor({
           <TableHeader>
             <TableRow>
               <TableHead>Product</TableHead>
+              <TableHead className="w-28">HSN</TableHead>
               <TableHead className="w-24">Qty</TableHead>
               <TableHead className="w-32">Unit price</TableHead>
               <TableHead className="w-28 text-right">Amount</TableHead>
@@ -386,6 +407,24 @@ export function QuotationLineItemsEditor({
                   ) : null}
                 </TableCell>
                 <TableCell>
+                  {item.productId == null ? (
+                    <Input
+                      inputMode="numeric"
+                      maxLength={8}
+                      value={item.hsnCode ?? ""}
+                      onChange={(e) =>
+                        updateItem(item.id, {
+                          hsnCode: e.target.value.trim() || undefined,
+                        })
+                      }
+                      placeholder="—"
+                      aria-label={`HSN for ${item.productName}`}
+                    />
+                  ) : (
+                    <span className="text-muted-foreground">—</span>
+                  )}
+                </TableCell>
+                <TableCell>
                   <Input
                     type="number"
                     min={1}
@@ -432,7 +471,7 @@ export function QuotationLineItemsEditor({
           </TableBody>
           <TableFooter>
             <TableRow>
-              <TableCell colSpan={3} className="text-right">
+              <TableCell colSpan={4} className="text-right">
                 Total
               </TableCell>
               <TableCell className="text-right">

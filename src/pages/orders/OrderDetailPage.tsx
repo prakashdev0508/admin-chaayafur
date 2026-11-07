@@ -1093,6 +1093,11 @@ export function OrderDetailPage() {
                           {formatCurrency(lineTotal)}
                         </span>
                       </div>
+                      {item.hsnCode ? (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          HSN {item.hsnCode}
+                        </p>
+                      ) : null}
                       <p className="mt-1 text-sm text-muted-foreground">
                         Qty {item.quantity} × {formatCurrency(item.price)}
                       </p>
@@ -1190,6 +1195,11 @@ export function OrderDetailPage() {
                             ) : (
                               <span>{productLabel}</span>
                             )}
+                            {item.hsnCode ? (
+                              <p className="mt-1 text-xs text-muted-foreground">
+                                HSN {item.hsnCode}
+                              </p>
+                            ) : null}
                             {itemMaterials.length > 0 && (
                               <div className="mt-2 flex flex-wrap gap-1.5">
                                 {itemMaterials.map((material) => (
@@ -1294,17 +1304,6 @@ export function OrderDetailPage() {
                       <span className="text-muted-foreground">Discount</span>
                       <span className="tabular-nums text-[#346538]">
                         -{formatCurrency(order.discountAmount)}
-                      </span>
-                    </div>
-                  )}
-                {order.walletDiscountAmount &&
-                  parseFloat(order.walletDiscountAmount) > 0 && (
-                    <div className="flex justify-between gap-4 text-sm sm:text-base">
-                      <span className="text-muted-foreground">
-                        Wallet discount
-                      </span>
-                      <span className="tabular-nums text-[#346538]">
-                        -{formatCurrency(order.walletDiscountAmount)}
                       </span>
                     </div>
                   )}
