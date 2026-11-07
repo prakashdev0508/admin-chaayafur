@@ -163,7 +163,7 @@ export function orderItemToPoLine(item: OrderItem): PurchaseOrderLine {
     id: `oi-${item.id}`,
     orderItemId: item.id,
     description: orderItemLabel(item),
-    hsn: "",
+    hsn: item.hsnCode?.trim() ?? "",
     workCompDate: "",
     quantity: item.quantity,
     basicAmount: parseMoney(item.price),

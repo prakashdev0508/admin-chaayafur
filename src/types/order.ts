@@ -59,6 +59,8 @@ export type OrderItem = {
   price: string;
   /** Snapshot display name for this line (catalog or custom). */
   productName?: string;
+  /** Snapshotted GST HSN (4–8 digits); used on invoices. */
+  hsnCode?: string | null;
   woodId?: number | null;
   woodName?: string | null;
   woodColor?: string | null;
@@ -191,7 +193,6 @@ export type Order = {
   cancellationReason?: string | null;
   subtotalAmount: string;
   discountAmount: string;
-  walletDiscountAmount?: string;
   shippingAmount?: string;
   deliveryFloor?: number;
   liftAccessAvailable?: boolean;
@@ -285,6 +286,8 @@ export type OrderLineInput = {
       quantity: number;
       /** Unit price for the custom/off-catalog line (GST-inclusive). */
       price: number;
+      /** Optional 4–8 digit HSN for invoices; omit → invoice shows `-`. */
+      hsnCode?: string;
       image?: { url: string; storageKey: string } | null;
     }
 );
@@ -299,7 +302,6 @@ export type CreateOrderPayload = {
   billingSameAsShipping?: boolean;
   couponCode?: string;
   referralCode?: string;
-  walletAmount?: number;
   deliveryFloor: number;
   liftAccessAvailable: boolean;
 };

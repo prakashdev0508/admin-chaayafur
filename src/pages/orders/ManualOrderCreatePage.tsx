@@ -22,6 +22,7 @@ import { queryKeys } from "@/lib/query-keys";
 import { isValidGstin } from "@/lib/address-utils";
 import { usePincodeLookup } from "@/hooks/usePincodeLookup";
 import { buildOrderAddressSnapshot } from "@/lib/order-address-snapshot";
+import { isValidHsnCode } from "@/lib/product-utils";
 import { createAdminOrder } from "@/services/orders.service";
 import type { CreateAdminOrderPayload } from "@/types/order";
 import type { OrderLineInput } from "@/types/order";
@@ -149,6 +150,17 @@ export function ManualOrderCreatePage() {
       toast.error("Add at least one item");
       return;
     }
+    const invalidHsn = items.find(
+      (item) =>
+        (item.productId == null || item.productId === 0) &&
+        !isValidHsnCode(item.hsnCode ?? ""),
+    );
+    if (invalidHsn) {
+      toast.error(
+        `HSN for "${invalidHsn.productName}" must be 4–8 digits when provided`,
+      );
+      return;
+    }
     if (!isValidGstin(shippingGstin)) {
       toast.error("Shipping GSTIN must be 15 characters when provided");
       return;
@@ -206,11 +218,13 @@ export function ManualOrderCreatePage() {
           : null;
 
       if (item.productId == null || item.productId === 0) {
+        const hsn = item.hsnCode?.trim() ?? "";
         return {
           type: "CUSTOM",
           productName: item.productName.trim(),
           quantity: item.quantity,
           price: item.unitPrice,
+          ...(hsn ? { hsnCode: hsn } : {}),
           ...(image ? { image } : {}),
         };
       }

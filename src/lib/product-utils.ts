@@ -21,6 +21,13 @@ export function formatCurrency(amount: number | string) {
   }).format(value);
 }
 
+/** Optional GST HSN: empty is allowed; otherwise must be 4–8 digits. */
+export function isValidHsnCode(value: string) {
+  const hsn = value.trim();
+  if (!hsn) return true;
+  return /^\d{4,8}$/.test(hsn);
+}
+
 export function getStockStatus(product: Pick<ProductListItem, "isActive" | "stock">) {
   if (!product.isActive) return "inactive" as const;
   if (product.stock === 0) return "out_of_stock" as const;
