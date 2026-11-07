@@ -193,6 +193,8 @@ export type Order = {
   cancellationReason?: string | null;
   subtotalAmount: string;
   discountAmount: string;
+  /** Wallet redemption discount (`0.00` if none). */
+  walletDiscountAmount?: string;
   shippingAmount?: string;
   deliveryFloor?: number;
   liftAccessAvailable?: boolean;
