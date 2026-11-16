@@ -1,10 +1,11 @@
 import type { StatusVariant } from "@/lib/status-variants";
 
-/** Offline collection mode for MANUAL installments (mark-paid). */
+/** Collection mode for MANUAL installments (mark-paid). */
 export type ManualPaymentMode =
   | "CASH"
   | "UPI"
   | "BANK_TRANSFER"
+  | "RAZORPAY"
   | "CHEQUE"
   | "OTHER";
 
@@ -12,6 +13,7 @@ export const MANUAL_PAYMENT_MODES: ManualPaymentMode[] = [
   "CASH",
   "UPI",
   "BANK_TRANSFER",
+  "RAZORPAY",
   "CHEQUE",
   "OTHER",
 ];
@@ -20,6 +22,7 @@ export const manualPaymentModeLabels: Record<ManualPaymentMode, string> = {
   CASH: "Cash",
   UPI: "UPI",
   BANK_TRANSFER: "Bank transfer",
+  RAZORPAY: "Razorpay",
   CHEQUE: "Cheque",
   OTHER: "Other",
 };
@@ -48,6 +51,7 @@ export const manualPaymentModeVariants: Record<
   CASH: "success",
   UPI: "brand",
   BANK_TRANSFER: "neutral",
+  RAZORPAY: "brand",
   CHEQUE: "warning",
   OTHER: "default",
 };
