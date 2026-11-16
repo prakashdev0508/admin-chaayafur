@@ -12,7 +12,7 @@ Checkout from frontend cart, Razorpay payment links, order tracking, and staff o
 - **Checkout** — send `items` in the body (legacy) or `useCart: true` to charge the saved server cart
 - **Server-side pricing** — totals use `Product.price` plus **product-level** wood / polish / fabric `priceAdjustment` values and selected free-form `customization` prices; frontend prices are never trusted (see [products.md](./products.md#product-level-customization-pricing))
 - **Order types** — `CHECKOUT` (customer cart + Razorpay) or `MANUAL` (staff-created). Same `Order` table, tracking, and invoices. MANUAL orders get a **shareable Razorpay payment link** (6-month max expiry) and can also be completed with staff mark-paid.
-- **Order line snapshots** — checkout and admin create store `productName` (and optional image) plus unit price and wood/polish/fabric adjustments so historical totals and invoices stay fixed even if a catalog product is renamed or a custom line has no `productId`
+- **Order line snapshots** — checkout and admin create store `productName` (and optional image), optional `hsnCode`, plus unit price and wood/polish/fabric adjustments so historical totals and invoices stay fixed even if a catalog product is renamed or a custom line has no `productId`
 - **Stock is decremented** atomically when the order is created (catalog lines only; custom/off-catalog lines skip stock)
 - **Stock is restored** when a **CHECKOUT** payment fails/expires (webhook) or staff cancels an order (catalog lines only). MANUAL link expiry does **not** fail the order.
 - Each order gets a human-readable `orderNumber` (e.g. `ORD-20260710-0001`)
@@ -375,7 +375,7 @@ curl -X POST http://localhost:5000/api/v1/orders \
 
 Staff-created **MANUAL** order. Can mix catalog products and off-catalog custom lines. Creates a **shareable Razorpay payment link** with Razorpay’s maximum expiry (**6 months**) so it can be sent to anyone. Payment stays `MANUAL` / `PENDING` until the customer pays via the link (webhook) or staff record offline payment with mark-paid. Requires `create-orders`.
 
-Staff pass a **phone** (mandatory). If no customer exists for that number, one is created. Shipping and billing are **inline snapshots** on the order — they are **not** written to the customer address book (`addressId` / `billingAddressId` stay `null`). Invoices use those snapshots. The shipping pincode is still checked against the allowlist, but India Post city/state lookup is not applied.
+Staff pass a **phone** (mandatory). If no customer exists for that number, one is created. Shipping and billing are **inline snapshots** on the order — they are **not** written to the customer address book (`addressId` / `billingAddressId` stay `null`). Invoices use those snapshots. MANUAL shipping skips the pincode allowlist and India Post city/state lookup (create and `PATCH` address edits).
 
 | | |
 |---|---|
@@ -404,6 +404,7 @@ Staff pass a **phone** (mandatory). If no customer exists for that number, one i
       "productName": "Custom teak dining table",
       "quantity": 1,
       "price": 45999,
+      "hsnCode": "9403",
       "image": { "url": "https://cdn.example.com/orders/custom/line.webp", "storageKey": "orders/custom/2026/08/abc.webp" }
     }
   ]
@@ -415,6 +416,7 @@ Staff pass a **phone** (mandatory). If no customer exists for that number, one i
 | `phone` | Indian mobile. Existing customer is reused; otherwise created. Inactive customers are rejected |
 | `shipping` / `billing` | Snapshot only. `billing` required unless `billingSameAsShipping` is true. Same fields as an address (`name`, `line1`, `city`, `state`, `zipCode`; optional `email`, `phone`, `line2`, `country`, `gstin`) |
 | `items[].type` | `CATALOG` (live product, server-priced) or `CUSTOM` (admin name + unit price) |
+| `items[].hsnCode` | Optional 4–8 digit HSN. For `CUSTOM`, stored on the order line and used on invoices. For `CATALOG`, product HSN is snapshotted (body value ignored). Omit on CUSTOM → invoice shows `-` |
 | `shippingAmount` | Optional override; otherwise computed from site settings |
 | Catalog stock | Decremented for `CATALOG` lines only |
 
@@ -449,7 +451,7 @@ Record an offline payment for a **MANUAL** `PENDING` order. Supports **partial i
 | Body field | Required | Description |
 |------------|----------|-------------|
 | `amount` | No | Installment amount (INR). Omit to pay the **remaining balance** in full (same as legacy one-shot mark-paid). |
-| `paymentMode` | **Yes** | Offline collection mode: `CASH` \| `UPI` \| `BANK_TRANSFER` \| `CHEQUE` \| `OTHER` |
+| `paymentMode` | **Yes** | Offline collection mode: `CASH` \| `UPI` \| `BANK_TRANSFER` \| `RAZORPAY` \| `CHEQUE` \| `OTHER` |
 | `transactionId` | No | Offline reference (UPI / cheque / cash receipt) |
 | `notes` | No | Staff note |
 
@@ -762,7 +764,7 @@ All fields optional; at least one required.
 | `cancellationReason` | string | **Required** when `status` is `CANCELLED` (min 3 chars). Stored on the order and returned in detail/list responses |
 | `shippingAddressId` | integer | **CHECKOUT only** — must belong to order customer; refreshes address snapshot |
 | `billingAddressId` | integer | **CHECKOUT only** — must belong to order customer |
-| `shipping` / `billing` | object | **MANUAL only** — replaces the order snapshot; not saved to the address book |
+| `shipping` / `billing` | object | **MANUAL only** — replaces the order snapshot; not saved to the address book. No pincode allowlist or India Post city/state check (same as create) |
 | `items` | array | Min 1 item. Same `CATALOG` / `CUSTOM` shape as admin create. Catalog prices from DB; custom prices from body; stock adjusted by delta on catalog lines only |
 | `payment.notes` | string | Staff notes on payment record |
 | `deliveryFloor` | integer | Recalculates floor charge |
