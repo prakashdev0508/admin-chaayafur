@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { ChevronRight, Clapperboard, Film } from "lucide-react";
+import {
+  ChevronRight,
+  Clapperboard,
+  Film,
+  MessageSquareQuote,
+  Newspaper,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,12 +34,14 @@ export function ContentSidebarNav() {
   const isCollapsed = sidebarState === "collapsed";
 
   const canViewInstagram = hasPermission(PERMISSIONS.VIEW_INSTAGRAM);
+  const canViewMedia = hasPermission(PERMISSIONS.VIEW_MEDIA);
+  const canViewAdminReviews = hasPermission(PERMISSIONS.VIEW_ADMIN_REVIEWS);
 
   const subItems = useMemo(() => {
     const items: Array<{
       label: string;
       path: string;
-      icon: typeof Film;
+      icon: LucideIcon;
     }> = [];
     if (canViewInstagram) {
       items.push({
@@ -41,8 +50,22 @@ export function ContentSidebarNav() {
         icon: Film,
       });
     }
+    if (canViewMedia) {
+      items.push({
+        label: "Media",
+        path: "/content/media",
+        icon: Newspaper,
+      });
+    }
+    if (canViewAdminReviews) {
+      items.push({
+        label: "Admin reviews",
+        path: "/content/admin-reviews",
+        icon: MessageSquareQuote,
+      });
+    }
     return items;
-  }, [canViewInstagram]);
+  }, [canViewInstagram, canViewMedia, canViewAdminReviews]);
 
   const onContentRoute = location.pathname.startsWith("/content");
   const [subOpen, setSubOpen] = useState(onContentRoute);

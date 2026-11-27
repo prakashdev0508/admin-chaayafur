@@ -9,7 +9,7 @@ Public aggregated home payload (banners + CMS-tagged products) and admin APIs to
 ## Overview
 
 - **`GET /home`** — single cached storefront endpoint
-- Returns **main banners**, **sub-banners**, and up to **8 products** for each CMS tag (`featuredProducts`, `bestSellers`, `mostPopular`, `newArrivals`, `recommended`)
+- Returns **main banners**, **sub-banners**, **media coverage** (`showOnHome=true`), **featured reviews** (admin-managed with `showOnHome=true`), and up to **8 products** for each CMS tag (`featuredProducts`, `bestSellers`, `mostPopular`, `newArrivals`, `recommended`)
 - **Banners** — upload via [uploads.md](./uploads.md), then create/update with `imageUrl` + optional `imageStorageKey`, optional `mobileImageUrl` + `mobileImageStorageKey`, and a `redirectUrl`
 - **CMS tags** — assign on a product with `PATCH /admin/cms/products/:id/tags` (or full `PATCH /products/:id`)
 - Hide with `isActive: false`, or permanently remove with `DELETE /admin/home/banners/:id` (works for both `MAIN` and `SUB`)
@@ -63,6 +63,47 @@ Public aggregated home payload (banners + CMS-tagged products) and admin APIs to
         "sortOrder": 0
       }
     ],
+    "mediaCoverage": [
+      {
+        "id": 1,
+        "link": "https://example.com/articles/chaaya-feature",
+        "coverImageUrl": "https://cdn.example.com/media/items/cover.webp",
+        "description": "Chaaya featured in the summer living special",
+        "sortOrder": 0,
+        "vendor": {
+          "id": 1,
+          "name": "Architectural Digest",
+          "imageUrl": "https://cdn.example.com/media/vendors/logo.webp"
+        }
+      }
+    ],
+    "featuredReviews": [
+      {
+        "id": 1,
+        "source": "admin",
+        "productId": 3,
+        "displayName": "Anita Sharma",
+        "location": "Mumbai",
+        "rating": 5,
+        "comment": "Beautiful craftsmanship and finish.",
+        "sortOrder": 0,
+        "product": {
+          "id": 3,
+          "name": "Oak Dining Table",
+          "slug": "oak-dining-table"
+        },
+        "images": [
+          {
+            "id": 1,
+            "url": "https://cdn.example.com/admin-reviews/photo.webp",
+            "altText": "Living room setup",
+            "sortOrder": 0
+          }
+        ],
+        "createdAt": "2026-11-27T10:00:00.000Z",
+        "updatedAt": "2026-11-27T10:00:00.000Z"
+      }
+    ],
     "featuredProducts": [],
     "bestSellers": [],
     "mostPopular": [],
@@ -72,7 +113,11 @@ Public aggregated home payload (banners + CMS-tagged products) and admin APIs to
 }
 ```
 
-Product arrays use the same list-item shape as `GET /products` (`primaryImage`, `secondaryImage`, price string, CMS flags, subcategory summary). Each section returns at most **8** **active** products for that tag, newest first.
+`mediaCoverage` is active media items with `showOnHome: true` (vendor must also be active). Managed via [media.md](./media.md).
+
+`featuredReviews` is active admin-managed reviews with `showOnHome: true`. Managed via [admin-reviews.md](./admin-reviews.md).
+
+Product arrays use the same list-item shape as `GET /products` (`primaryImage`, `secondaryImage`, price string, CMS flags, subcategory summary, `ratingAverage`, `reviewCount`). Each section returns at most **8** **active** products for that tag, newest first.
 
 `mobileImageUrl` is optional on banners. When null, the storefront should fall back to `imageUrl`.
 

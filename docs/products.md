@@ -12,8 +12,8 @@ Create, update, and list furniture products.
 - **Product images** — upload via [uploads.md](./uploads.md) (Cloudflare R2), then attach URLs in product create/update (max **11** per product)
 - **`productFeatures`** — optional array of feature strings (e.g. `"Solid oak wood"`, `"1-year warranty"`) for product detail bullets; max **10** items, 200 chars each
 - **Bulk Excel upload** — stage images via ZIP (`{productSlug}__{sortOrder}.{ext}`), download a sample template with dropdowns, then enqueue an Excel job that matches staged images by slug (see [Bulk upload](#bulk-upload) and [upload-jobs.md](./upload-jobs.md))
-- **Catalog Excel export** — `GET /admin/products/export` downloads a products workbook (core fields, category/sub-category names & slugs, customization JSON). Requires `view-products` (see [Export products](#get-apiv1adminproductsexport))
-- **CMS tags** — optional booleans `isBestSeller`, `isFeaturedProduct`, `isMostPopular`, `isNewArrival`, `isRecommended` for storefront sections; filter with `GET /products?tag=isFeaturedProduct`, or assign via `PATCH /admin/cms/products/:id/tags` (see [home.md](./home.md)). Public `GET /products` lists **recommended** products first by default (`prioritizeRecommended=true`); pass `prioritizeRecommended=false` for admin-style ordering.
+- **Catalog Excel export** — `GET /admin/products/export` downloads a products workbook (core fields, category/sub-category names & slugs, website URL, customization JSON). Requires `view-products` (see [Export products](#get-apiv1adminproductsexport))
+- **CMS tags** — optional booleans `isBestSeller`, `isFeaturedProduct`, `isMostPopular`, `isNewArrival`, `isRecommended` for storefront sections; filter with `GET /products?tag=isFeaturedProduct`, or assign via `PATCH /admin/cms/products/:id/tags` (see [home.md](./home.md)). Public `GET /products` lists **recommended** products first only on the default newest browse sort (`prioritizeRecommended=true`); explicit sorts (price, name, oldest) use the selected order as-is. Pass `prioritizeRecommended=false` for admin-style ordering.
 - Aggregated home sections: [home.md](./home.md) (`GET /home`)
 - Default list shows only **active** products (`isActive=true`)
 - **`price`** is the selling price (after discount) — used for cart, checkout, and filters
@@ -335,7 +335,7 @@ Authorization: Bearer <accessToken>
 
 > `price` is returned as a **string** for decimal precision.
 > Always round-trip `storageKey` when updating images so kept files are not deleted from R2.
-> `ratingAverage` / `reviewCount` reflect visible product reviews only — see [reviews.md](./reviews.md).
+> `ratingAverage` / `reviewCount` combine visible customer product reviews + active admin-managed reviews — see [reviews.md](./reviews.md) and [admin-reviews.md](./admin-reviews.md).
 > When `images` is sent on update, only storage keys that are **no longer** in the new list are deleted from Cloudflare R2.
 
 ### Errors
@@ -642,6 +642,7 @@ Downloads `products-export.xlsx` with one row per product:
 
 - Core: id, name, slug, description, price, MRP, stock, active, CMS flags, HSN, warranty, features, timestamps
 - Taxonomy: category / sub-category names and slugs (pipe-separated)
+- Website URL: `{FRONTEND_URL}/{categorySlug}/{subCategorySlug}/{productSlug}` using the first category and that category’s sub-category
 - `customization` as JSON
 
 ### Query (all optional)
@@ -913,7 +914,7 @@ Paginated product catalogue for the storefront. Defaults to **active** products 
 When **both** a category and subcategory filter are sent (typical storefront tree URL), matching is done through the subcategory’s parent category — a separate `ProductCategory` row is not required. Category-only filters still use `ProductCategory`.
 | `isActive` | boolean | `true` | Use `false` for hidden products |
 | `tag` | string | — | CMS tag filter: `isBestSeller` \| `isFeaturedProduct` \| `isMostPopular` \| `isNewArrival` \| `isRecommended` |
-| `prioritizeRecommended` | boolean | `true` | When `true`, recommended products sort first, then `sortBy`/`sortOrder`. Pass `false` for admin lists. |
+| `prioritizeRecommended` | boolean | `true` | When `true`, recommended products sort first **only** for default newest (`createdAt` desc). Price / name / oldest sorts ignore this and use the selected order. Pass `false` for admin lists. |
 | `page` | number | `1` | Page number |
 | `limit` | number | `10` | Items per page (max 100) |
 | `sortBy` | string | `createdAt` | `name` \| `price` \| `createdAt` |
@@ -945,6 +946,8 @@ GET /api/v1/products?minPrice=1000&maxPrice=50000&sortBy=price&sortOrder=asc
 | `isBestSeller` / `isFeaturedProduct` / `isMostPopular` / `isNewArrival` / `isRecommended` | CMS merchandising flags |
 | `primaryImage` | Lowest `sortOrder` image, or `null` |
 | `secondaryImage` | Second-lowest `sortOrder` image, or `null` if fewer than 2 images |
+| `ratingAverage` | Combined average from visible customer + active admin reviews, or `null` |
+| `reviewCount` | Combined count of visible customer + active admin reviews |
 
 ### cURL
 

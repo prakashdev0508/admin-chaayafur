@@ -28,7 +28,7 @@ Admin UI  →  POST /uploads/sub-category-images  →  R2 bucket
 - Allowed input types: `image/jpeg`, `image/png`, `image/webp`
 - Images are auto-rotated, resized (max dimension 2000px by default), and converted to **WebP**
 - **Product images** (single, batch, and bulk ZIP staging): compressed to **≤ 1 MB**. If the optimized WebP is already under 1 MB, it is stored as-is (no extra compression)
-- **Other images** (category, sub-category, banner, logo, favicon): compressed to **≤ 200 KB**
+- **Other images** (category, sub-category, banner, media vendor/cover, logo, favicon): compressed to **≤ 200 KB**
 - **Support / customization / order-line images**: compressed to **≤ 500 KB** (order-line images use the product pipeline, ≤ 1 MB)
 - Default max upload size: **5 MB** per file (`R2_MAX_UPLOAD_BYTES`)
 
@@ -41,6 +41,9 @@ Admin UI  →  POST /uploads/sub-category-images  →  R2 bucket
 | `POST /uploads/category-images` | `create-categories` **or** `update-categories` | Yes | Yes | No |
 | `POST /uploads/sub-category-images` | `create-categories` **or** `update-categories` | Yes | Yes | No |
 | `POST /uploads/banner-images` | `create-banners` **or** `update-banners` | Yes | Yes | No |
+| `POST /uploads/media-vendor-images` | `create-media` **or** `update-media` | Yes | Yes | No |
+| `POST /uploads/media-images` | `create-media` **or** `update-media` | Yes | Yes | No |
+| `POST /uploads/admin-review-images` | `create-admin-reviews` **or** `update-admin-reviews` | Yes | Yes | No |
 | `POST /uploads/logo-images` | `update-settings` | Yes | Yes | No |
 | `POST /uploads/favicon-images` | `update-settings` | Yes | Yes | No |
 | `POST /uploads/support-images` | Customer JWT | Yes | No | No |
@@ -65,7 +68,7 @@ Set in `.env` (see `.env.example`):
 | `R2_ENDPOINT` | No | Defaults to `https://<R2_ACCOUNT_ID>.r2.cloudflarestorage.com` |
 | `R2_MAX_UPLOAD_BYTES` | No | Default `5242880` (5 MB) — max incoming file size |
 | `R2_MAX_PRODUCT_OUTPUT_BYTES` | No | Default `1048576` (1 MB) — max stored product WebP size |
-| `R2_MAX_OUTPUT_BYTES` | No | Default `204800` (200 KB) — max stored WebP for category/sub-category/banner/logo/favicon |
+| `R2_MAX_OUTPUT_BYTES` | No | Default `204800` (200 KB) — max stored WebP for category/sub-category/banner/media/logo/favicon |
 | `R2_MAX_IMAGE_DIMENSION` | No | Default `2000` |
 | `R2_WEBP_QUALITY` | No | Starting WebP quality before auto-compression (default `85`) |
 
@@ -82,6 +85,9 @@ Set in `.env` (see `.env.example`):
 | `POST` | `/api/v1/uploads/category-images` | `201` |
 | `POST` | `/api/v1/uploads/sub-category-images` | `201` |
 | `POST` | `/api/v1/uploads/banner-images` | `201` |
+| `POST` | `/api/v1/uploads/media-vendor-images` | `201` |
+| `POST` | `/api/v1/uploads/media-images` | `201` |
+| `POST` | `/api/v1/uploads/admin-review-images` | `201` |
 | `POST` | `/api/v1/uploads/logo-images` | `201` |
 | `POST` | `/api/v1/uploads/favicon-images` | `201` |
 | `POST` | `/api/v1/uploads/support-images` | `201` |
@@ -286,6 +292,78 @@ curl -X POST http://localhost:5000/api/v1/uploads/banner-images \
 ```
 
 Attach via [home.md](./home.md) (`POST` / `PATCH /admin/home/banners`) using `imageUrl` + `imageStorageKey`.
+
+---
+
+## POST /api/v1/uploads/media-vendor-images
+
+Upload a media vendor image (stored under `media/vendors/{year}/{month}/…`).
+
+| | |
+|---|---|
+| **Auth** | Bearer token required |
+| **Permission** | `create-media` or `update-media` |
+| **Content-Type** | `multipart/form-data` |
+| **Field** | `file` (binary) |
+| **Status** | `201` |
+
+### cURL
+
+```bash
+curl -X POST http://localhost:5000/api/v1/uploads/media-vendor-images \
+  -H "Authorization: Bearer $TOKEN" \
+  -F "file=@/path/to/vendor.jpg"
+```
+
+Attach via [media.md](./media.md) (`POST` / `PATCH /admin/media/vendors`) using `imageUrl` + `imageStorageKey`.
+
+---
+
+## POST /api/v1/uploads/media-images
+
+Upload a media item cover image (stored under `media/items/{year}/{month}/…`).
+
+| | |
+|---|---|
+| **Auth** | Bearer token required |
+| **Permission** | `create-media` or `update-media` |
+| **Content-Type** | `multipart/form-data` |
+| **Field** | `file` (binary) |
+| **Status** | `201` |
+
+### cURL
+
+```bash
+curl -X POST http://localhost:5000/api/v1/uploads/media-images \
+  -H "Authorization: Bearer $TOKEN" \
+  -F "file=@/path/to/cover.jpg"
+```
+
+Attach via [media.md](./media.md) (`POST` / `PATCH /admin/media`) using `coverImageUrl` + `coverImageStorageKey`.
+
+---
+
+## POST /api/v1/uploads/admin-review-images
+
+Upload an admin-managed review image (stored under `admin-reviews/{year}/{month}/…`).
+
+| | |
+|---|---|
+| **Auth** | Bearer token required |
+| **Permission** | `create-admin-reviews` or `update-admin-reviews` |
+| **Content-Type** | `multipart/form-data` |
+| **Field** | `file` (binary) |
+| **Status** | `201` |
+
+### cURL
+
+```bash
+curl -X POST http://localhost:5000/api/v1/uploads/admin-review-images \
+  -H "Authorization: Bearer $TOKEN" \
+  -F "file=@/path/to/review.jpg"
+```
+
+Attach via [admin-reviews.md](./admin-reviews.md) (`POST` / `PATCH /admin/reviews`) using `images[].url` + `images[].storageKey`.
 
 ---
 

@@ -125,6 +125,28 @@ export const queryKeys = {
         ["admin", "banners", "list", params] as const,
       detail: (id: number) => ["admin", "banners", "detail", id] as const,
     },
+    media: {
+      all: ["admin", "media"] as const,
+      vendors: {
+        all: ["admin", "media", "vendors"] as const,
+        list: (params: Record<string, unknown>) =>
+          ["admin", "media", "vendors", "list", params] as const,
+        detail: (id: number) =>
+          ["admin", "media", "vendors", "detail", id] as const,
+      },
+      items: {
+        all: ["admin", "media", "items"] as const,
+        list: (params: Record<string, unknown>) =>
+          ["admin", "media", "items", "list", params] as const,
+        detail: (id: number) => ["admin", "media", "items", "detail", id] as const,
+      },
+    },
+    reviews: {
+      all: ["admin", "reviews"] as const,
+      list: (params: Record<string, unknown>) =>
+        ["admin", "reviews", "list", params] as const,
+      detail: (id: number) => ["admin", "reviews", "detail", id] as const,
+    },
     instagram: {
       all: ["admin", "instagram"] as const,
       media: ["admin", "instagram", "media"] as const,

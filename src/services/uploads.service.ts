@@ -110,6 +110,26 @@ export function uploadSubCategoryImage(file: File) {
   ).then(normalizeUploadResponse);
 }
 
+export function uploadMediaVendorImage(file: File) {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  return apiFormRequest<UploadApiResult | UploadApiResult[]>(
+    "/uploads/media-vendor-images",
+    formData,
+  ).then(normalizeUploadResponse);
+}
+
+export function uploadMediaImage(file: File) {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  return apiFormRequest<UploadApiResult | UploadApiResult[]>(
+    "/uploads/media-images",
+    formData,
+  ).then(normalizeUploadResponse);
+}
+
 export function uploadBannerImage(file: File) {
   const formData = new FormData();
   formData.append("file", file);
@@ -179,6 +199,16 @@ export function uploadOrderLineImage(file: File) {
 
   return apiFormRequest<UploadApiResult | UploadApiResult[]>(
     "/uploads/order-line-images",
+    formData,
+  ).then(normalizeUploadResponse);
+}
+
+export function uploadAdminReviewImage(file: File) {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  return apiFormRequest<UploadApiResult | UploadApiResult[]>(
+    "/uploads/admin-review-images",
     formData,
   ).then(normalizeUploadResponse);
 }
