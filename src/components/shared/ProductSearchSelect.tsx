@@ -50,9 +50,11 @@ export function ProductSearchSelect({
   });
 
   if (value) {
+    const hasPricing =
+      value.price !== "0" || value.stock > 0 || Boolean(value.primaryImage);
     return (
       <div className="space-y-2">
-        <Label>{label}</Label>
+        {label ? <Label>{label}</Label> : null}
         <div className="flex items-center gap-3 rounded-lg border p-2.5">
           {value.primaryImage ? (
             <img
@@ -66,7 +68,9 @@ export function ProductSearchSelect({
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium">{value.name}</p>
             <p className="text-xs text-muted-foreground">
-              #{value.id} · {formatCurrency(value.price)} · Stock {value.stock}
+              {hasPricing
+                ? `#${value.id} · ${formatCurrency(value.price)} · Stock ${value.stock}`
+                : `#${value.id}`}
             </p>
           </div>
           <Button
@@ -91,7 +95,9 @@ export function ProductSearchSelect({
 
   return (
     <div className="space-y-2">
-      <Label htmlFor="product-search-select">{label}</Label>
+      {label ? (
+        <Label htmlFor="product-search-select">{label}</Label>
+      ) : null}
       <div className="relative">
         <Search className="pointer-events-none absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
         <Input
@@ -102,6 +108,7 @@ export function ProductSearchSelect({
           className="pl-8"
           disabled={disabled}
           autoComplete="off"
+          aria-label={label || "Product"}
         />
       </div>
       {debouncedSearch.length > 0 && debouncedSearch.length < 2 && (

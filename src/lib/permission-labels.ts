@@ -41,11 +41,21 @@ export const PERMISSION_LABELS: Record<string, string> = {
   [PERMISSIONS.UPDATE_BANNERS]: "Update banners",
   [PERMISSIONS.DELETE_BANNERS]: "Delete banners",
   [PERMISSIONS.VIEW_BANNERS]: "View banners",
+  [PERMISSIONS.VIEW_MEDIA]: "View media",
+  [PERMISSIONS.CREATE_MEDIA]: "Create media",
+  [PERMISSIONS.UPDATE_MEDIA]: "Update media",
+  [PERMISSIONS.DELETE_MEDIA]: "Delete media",
   [PERMISSIONS.VIEW_INSTAGRAM]: "View Instagram feed",
   [PERMISSIONS.UPDATE_INSTAGRAM]: "Update Instagram selections",
   [PERMISSIONS.VIEW_REVIEWS]: "View reviews",
   [PERMISSIONS.MODERATE_REVIEWS]: "Moderate reviews",
+  [PERMISSIONS.VIEW_ADMIN_REVIEWS]: "View admin reviews",
+  [PERMISSIONS.CREATE_ADMIN_REVIEWS]: "Create admin reviews",
+  [PERMISSIONS.UPDATE_ADMIN_REVIEWS]: "Update admin reviews",
+  [PERMISSIONS.DELETE_ADMIN_REVIEWS]: "Delete admin reviews",
   [PERMISSIONS.VIEW_DASHBOARD]: "View dashboard",
+  [PERMISSIONS.VIEW_CUSTOMIZATION_REQUESTS]: "View customization requests",
+  [PERMISSIONS.UPDATE_CUSTOMIZATION_REQUESTS]: "Update customization requests",
   [PERMISSIONS.VIEW_CAREERS]: "View careers",
   [PERMISSIONS.CREATE_CAREERS]: "Create careers",
   [PERMISSIONS.UPDATE_CAREERS]: "Update careers",
@@ -133,6 +143,13 @@ const GROUP_DEFS: { title: string; keys: Permission[] }[] = [
     keys: [PERMISSIONS.VIEW_ORDER_SUPPORT, PERMISSIONS.UPDATE_ORDER_SUPPORT],
   },
   {
+    title: "Customization",
+    keys: [
+      PERMISSIONS.VIEW_CUSTOMIZATION_REQUESTS,
+      PERMISSIONS.UPDATE_CUSTOMIZATION_REQUESTS,
+    ],
+  },
+  {
     title: "Website",
     keys: [
       PERMISSIONS.VIEW_BANNERS,
@@ -144,8 +161,26 @@ const GROUP_DEFS: { title: string; keys: Permission[] }[] = [
     ],
   },
   {
+    title: "Media",
+    keys: [
+      PERMISSIONS.VIEW_MEDIA,
+      PERMISSIONS.CREATE_MEDIA,
+      PERMISSIONS.UPDATE_MEDIA,
+      PERMISSIONS.DELETE_MEDIA,
+    ],
+  },
+  {
     title: "Reviews",
     keys: [PERMISSIONS.VIEW_REVIEWS, PERMISSIONS.MODERATE_REVIEWS],
+  },
+  {
+    title: "Admin reviews",
+    keys: [
+      PERMISSIONS.VIEW_ADMIN_REVIEWS,
+      PERMISSIONS.CREATE_ADMIN_REVIEWS,
+      PERMISSIONS.UPDATE_ADMIN_REVIEWS,
+      PERMISSIONS.DELETE_ADMIN_REVIEWS,
+    ],
   },
   {
     title: "Careers",

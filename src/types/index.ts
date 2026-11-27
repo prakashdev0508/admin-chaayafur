@@ -144,6 +144,27 @@ export type {
   ListReviewsParams,
 } from "@/types/review";
 
+export type {
+  MediaVendor,
+  MediaItem,
+  MediaItemVendor,
+  CreateMediaVendorPayload,
+  UpdateMediaVendorPayload,
+  CreateMediaItemPayload,
+  UpdateMediaItemPayload,
+  ListMediaVendorsParams,
+  ListMediaItemsParams,
+} from "@/types/media";
+
+export type {
+  AdminReview,
+  AdminReviewImage,
+  AdminReviewImageInput,
+  CreateAdminReviewPayload,
+  UpdateAdminReviewPayload,
+  ListAdminReviewsParams,
+} from "@/types/admin-review";
+
 export type RecentOrderRow = {
   id: string;
   orderNumber: string;

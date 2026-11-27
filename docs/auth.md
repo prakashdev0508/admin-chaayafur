@@ -400,7 +400,6 @@ Each item in `items`:
         "lastName": "Doe",
         "role": "ORDER_MANAGER",
         "isActive": true,
-        "lastLogin": "2026-09-22T11:40:00.000Z",
         "createdBy": 1,
         "creator": {
           "id": 1,
@@ -554,7 +553,7 @@ Current staff profile plus activity stats. Available to any staff role.
 | `refundsCompleted` | Refund rows this staff completed (clicked Complete) |
 | `refundsProcessedAmount` | Sum of amounts for `PROCESSED` refunds they completed |
 
-Also returns profile fields: `id`, `email`, `firstName`, `lastName`, `role`, `isActive`, `lastLogin`, `createdBy`, `creator`, timestamps.
+Also returns profile fields: `id`, `email`, `firstName`, `lastName`, `role`, `isActive`, `createdBy`, `creator`, timestamps.
 
 ```bash
 curl http://localhost:5000/api/v1/auth/staff/me \
@@ -702,6 +701,10 @@ Admin password reset (no current password). **SUPER_ADMIN only.** Cannot reset y
 | `create-banners` | Create home banners |
 | `update-banners` | Update home banners |
 | `view-banners` | View home banners (admin) |
+| `create-media` | Create media vendors and media items |
+| `update-media` | Update media vendors and media items |
+| `delete-media` | Delete media vendors and media items |
+| `view-media` | View media vendors and media items (admin) |
 | `view-reviews` | List product/order reviews (staff) |
 | `moderate-reviews` | Show/hide reviews |
 | `view-dashboard` | View admin dashboard |

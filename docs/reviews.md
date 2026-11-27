@@ -2,7 +2,7 @@
 
 Product ratings/reviews and overall order reviews for delivered purchases.
 
-[← Back to index](./README.md) · [Customers](./customers.md) · [Orders](./orders.md) · [Products](./products.md)
+[← Back to index](./README.md) · [Customers](./customers.md) · [Orders](./orders.md) · [Products](./products.md) · [Admin reviews](./admin-reviews.md)
 
 ---
 
@@ -11,8 +11,9 @@ Product ratings/reviews and overall order reviews for delivered purchases.
 - Customers may review **only after** an order is `DELIVERED`
 - **Product review:** product must appear on that delivered order; one review per customer + product (create upserts)
 - **Order review:** one review per order (create updates if already exists)
-- Public storefront shows only reviews with `isVisible: true`
+- Public storefront shows only customer reviews with `isVisible: true`
 - Staff can list and hide/show reviews (`view-reviews`, `moderate-reviews`)
+- **Admin-managed reviews** are a separate flow — see [admin-reviews.md](./admin-reviews.md). Product list/detail averages and `GET /products/:productId/reviews` **combine** visible customer product reviews + active admin reviews.
 
 ```mermaid
 sequenceDiagram
@@ -107,7 +108,9 @@ Create or update an overall order review.
 
 ## GET /api/v1/products/:productId/reviews
 
-Public visible reviews with average rating.
+Public merged feed: visible customer product reviews + active admin-managed reviews, newest first.
+
+Each item includes `source`: `"customer"` or `"admin"`. Meta `ratingAverage` / `reviewCount` use the **combined** pool.
 
 ### Success response
 
@@ -118,26 +121,45 @@ Public visible reviews with average rating.
     "items": [
       {
         "id": 1,
+        "source": "customer",
         "rating": 5,
         "comment": "Solid build and looks great.",
         "customer": { "id": 1, "phone": "******3210" },
         "createdAt": "2026-07-14T10:00:00.000Z",
         "updatedAt": "2026-07-14T10:00:00.000Z"
+      },
+      {
+        "id": 2,
+        "source": "admin",
+        "rating": 5,
+        "comment": "Beautiful craftsmanship and finish.",
+        "displayName": "Anita Sharma",
+        "location": "Mumbai",
+        "images": [
+          {
+            "id": 1,
+            "url": "https://cdn.example.com/admin-reviews/photo.webp",
+            "altText": null,
+            "sortOrder": 0
+          }
+        ],
+        "createdAt": "2026-11-27T10:00:00.000Z",
+        "updatedAt": "2026-11-27T10:00:00.000Z"
       }
     ],
     "meta": {
       "page": 1,
       "limit": 10,
-      "total": 1,
+      "total": 2,
       "totalPages": 1,
       "ratingAverage": 5,
-      "reviewCount": 1
+      "reviewCount": 2
     }
   }
 }
 ```
 
-Phone numbers are masked in public and customer-facing review payloads.
+Phone numbers are masked on customer items. Admin items use `displayName` / `location` and may include images.
 
 ---
 
@@ -155,17 +177,19 @@ Query params: `kind` (`product` \| `order`, default `product`), `productId`, `or
 }
 ```
 
-Hidden reviews are excluded from public product pages and `ratingAverage` / `reviewCount` on `GET /products/:id`.
+Hidden customer reviews are excluded from public product pages and combined `ratingAverage` / `reviewCount`. Inactive admin reviews are also excluded.
 
 ---
 
-## Product detail enrichment
+## Product list / detail enrichment
 
-`GET /api/v1/products/:id` includes:
+`GET /api/v1/products` (list items) and `GET /api/v1/products/:idOrSlug` include:
 
 | Field | Type |
 |-------|------|
 | `ratingAverage` | number \| null |
 | `reviewCount` | integer |
+
+Values combine **visible customer product reviews** + **active admin-managed reviews**. See [admin-reviews.md](./admin-reviews.md).
 
 Also see [customers.md](./customers.md) for `GET /users/me/reviews`.

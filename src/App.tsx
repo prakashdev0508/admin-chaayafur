@@ -55,8 +55,12 @@ import { RoleDetailPage } from "@/pages/roles/RoleDetailPage";
 import { SupportTicketListPage } from "@/pages/support-tickets/SupportTicketListPage";
 import { SupportTicketDetailPage } from "@/pages/support-tickets/SupportTicketDetailPage";
 import { WebsiteHomePage } from "@/pages/website/WebsiteHomePage";
+import { ContentIndexRedirect } from "@/pages/content/ContentIndexRedirect";
 import { InstagramMediaListPage } from "@/pages/content/InstagramMediaListPage";
 import { InstagramMediaReportPage } from "@/pages/content/InstagramMediaReportPage";
+import { MediaPage } from "@/pages/content/MediaPage";
+import { AdminReviewListPage } from "@/pages/content/AdminReviewListPage";
+import { AdminReviewDetailPage } from "@/pages/content/AdminReviewDetailPage";
 import { SettingsPage } from "@/pages/settings/SettingsPage";
 import { ReviewListPage } from "@/pages/reviews/ReviewListPage";
 import { ContactInquiryListPage } from "@/pages/contact/ContactInquiryListPage";
@@ -158,7 +162,7 @@ const App = () => {
           >
             <Route path="website/home" element={<WebsiteHomePage />} />
           </Route>
-          <Route path="content" element={<Navigate to="/content/instagram" replace />} />
+          <Route path="content" element={<ContentIndexRedirect />} />
           <Route
             element={
               <PermissionRoute permission={PERMISSIONS.VIEW_INSTAGRAM} />
@@ -168,6 +172,25 @@ const App = () => {
             <Route
               path="content/instagram/:mediaId"
               element={<InstagramMediaReportPage />}
+            />
+          </Route>
+          <Route
+            element={<PermissionRoute permission={PERMISSIONS.VIEW_MEDIA} />}
+          >
+            <Route path="content/media" element={<MediaPage />} />
+          </Route>
+          <Route
+            element={
+              <PermissionRoute permission={PERMISSIONS.VIEW_ADMIN_REVIEWS} />
+            }
+          >
+            <Route
+              path="content/admin-reviews"
+              element={<AdminReviewListPage />}
+            />
+            <Route
+              path="content/admin-reviews/:id"
+              element={<AdminReviewDetailPage />}
             />
           </Route>
           <Route
